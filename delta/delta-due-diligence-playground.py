@@ -251,57 +251,48 @@ def compute_token_diff_html(text1, text2):
 # BLOCK 5: TECHNICAL DESCRIPTION GEOMETRY ENGINE
 # ==========================================
 def parse_technical_description(text_content):
-    # Normalize typography anomalies and filter structural noise out
+    # Normalize typography mutations globally
     cleaned = text_content.upper()
     cleaned = cleaned.replace("@", "0").replace("SEC.", "SEC").replace("MIN.", "MIN")
     
-    # Use split strings to process raw lines sequentially across paragraph block wraps
-    segments = re.split(r'(;|\bPOINT\s+\d+\b|\bPT\s+\d+\b|\bPOINT\s+OF\s+BEGINNING\b)', cleaned)
-    
-    bearing_regex = r"(N|S)\s*(\d+)\s*(?:DEG|SEC|°)\s*(\d+)?\s*(?:\'|MIN|SEC)?\s*(E|W)"
-    distance_regex = r"(\d+(?:\.\d+)?)\s*(?:M\.|METERS|MTRS|M)"
+    # Target Regex Formula Architecture
+    master_regex = re.compile(
+        r"(N|S)\s*(\d+)\s*(?:DEG|SEC|MIN|°)\s*(\d+)?\s*(?:\'|MIN|SEC)?\s*(E|W)\s*.*?(\d+(?:\.\d+)?)\s*(?:M\.|METERS|MTRS|M)\b",
+        re.IGNORECASE
+    )
     
     dx_dy_elements = []
     total_perimeter = 0.0
     
-    # Step 1: Extract vectors and determine unadjusted coordinate deltas
-    for segment in segments:
-        if not segment.strip() or len(segment) < 8:
-            continue
-        bearing_match = re.search(bearing_regex, segment)
-        distance_match = re.search(distance_regex, segment)
+    # Scanning loop architecture resolves multi-line segment tracking drops
+    for match in master_regex.finditer(cleaned):
+        cardinal_from, degrees, minutes, cardinal_to, distance_str = match.groups()
+        distance = float(distance_str)
         
-        if bearing_match and distance_match:
-            cardinal_from, degrees, minutes, cardinal_to = bearing_match.groups()
-            distance = float(distance_match.group(1))
-            
-            deg_val = float(degrees)
-            min_val = float(minutes) if minutes else 0.0
-            
-            # Correct Azimuth bearing angle conversion mechanics
-            theta = math.radians(deg_val + (min_val / 60.0))
-            
-            ns_sign = 1.0 if cardinal_from == 'N' else -1.0
-            ew_sign = 1.0 if cardinal_to == 'E' else -1.0
-            
-            dx = distance * math.sin(theta) * ew_sign
-            dy = distance * math.cos(theta) * ns_sign
-            
-            total_perimeter += distance
-            dx_dy_elements.append((dx, dy, distance))
-            
-    # Step 2: Implement Compass Rule (Bowditch Adjustment) to eliminate closure errors
+        deg_val = float(degrees)
+        min_val = float(minutes) if minutes else 0.0
+        
+        theta = math.radians(deg_val + (min_val / 60.0))
+        
+        ns_sign = 1.0 if cardinal_from == 'N' else -1.0
+        ew_sign = 1.0 if cardinal_to == 'E' else -1.0
+        
+        dx = distance * math.sin(theta) * ew_sign
+        dy = distance * math.cos(theta) * ns_sign
+        
+        total_perimeter += distance
+        dx_dy_elements.append((dx, dy, distance))
+        
     current_x, current_y = 0.0, 0.0
     coordinates = [(current_x, current_y)]
     
     if not dx_dy_elements:
         return coordinates
 
-    # Determine total linear unadjusted spatial misclosure footprint
     unadj_x = sum(el[0] for el in dx_dy_elements)
     unadj_y = sum(el[1] for el in dx_dy_elements)
     
-    # Distribute tracking error across coordinates based on segment lengths
+    # Bowditch balancing loop eliminates plot distortion structural faults
     for dx, dy, distance in dx_dy_elements:
         if total_perimeter > 0:
             corr_x = dx - (unadj_x * (distance / total_perimeter))
@@ -314,7 +305,6 @@ def parse_technical_description(text_content):
         coordinates.append((current_x, current_y))
         
     if len(coordinates) > 1:
-        # Guarantee mathematical closure convergence at origin
         coordinates[-1] = (0.0, 0.0)
         
     return coordinates
@@ -606,7 +596,7 @@ def render_due_diligence_workspace():
                     
                     st.dataframe([{"Vertex": f"P{idx+1}", "X": f"{pt[0]:.2f}m", "Y": f"{pt[1]:.2f}m"} for idx, pt in enumerate(coords[:-1])], use_container_width=True)
             else:
-                st.error("Regex Parsing Timeout: Unable to isolate valid bearing tokens.")
+                st.error("Engine failed to parse any bounding lines from text inputs.")
 
     st.markdown("<br/><hr style='border-color:#E0E0E0;'/>", unsafe_allow_html=True)
     if st.button("Reset Session"):
