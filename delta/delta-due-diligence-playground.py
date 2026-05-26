@@ -115,7 +115,7 @@ def inject_luxury_system_css():
             .advisory-panel { background-color: #FFFFFF; border: 1px solid #E0E0E0; padding: 10px; margin-bottom: 6px; border-radius: 4px; }
             .advisory-header { font-family: 'Inter', sans-serif; font-weight: 600; color: #1A1A1A; font-size: 11px; }
             
-            .minimap-row { width: 100%; height: 5px; border-radius: 1px; margin-top: 20px; }
+            .minimap-row { width: 100%; height: 5px; border-radius: 1px; margin-top: 24px; }
             .minimap-equal { background-color: #EAECEF; opacity: 0.5; }
             .minimap-replace { background-color: #FCA5A5; }
             .minimap-delete { background-color: #EF4444; }
@@ -251,22 +251,22 @@ def compute_token_diff_html(text1, text2):
 # BLOCK 5: TECHNICAL DESCRIPTION GEOMETRY ENGINE
 # ==========================================
 def parse_technical_description(text_content):
-    # Normalize punctuation and capture both standard entries and un-tokenized wrapped lines
+    # Normalize typography anomalies and filter structural noise out
     cleaned = text_content.upper()
     cleaned = cleaned.replace("@", "0").replace("SEC.", "SEC").replace("MIN.", "MIN")
     
-    # Fully unified linear parsing token matrix array
+    # Use split strings to process raw lines sequentially across paragraph block wraps
     segments = re.split(r'(;|\bPOINT\s+\d+\b|\bPT\s+\d+\b|\bPOINT\s+OF\s+BEGINNING\b)', cleaned)
     
-    # Applied your robust structural matchers across individual string blocks
     bearing_regex = r"(N|S)\s*(\d+)\s*(?:DEG|SEC|°)\s*(\d+)?\s*(?:\'|MIN|SEC)?\s*(E|W)"
     distance_regex = r"(\d+(?:\.\d+)?)\s*(?:M\.|METERS|MTRS|M)"
     
-    current_x, current_y = 0.0, 0.0
-    coordinates = [(current_x, current_y)]
+    dx_dy_elements = []
+    total_perimeter = 0.0
     
+    # Step 1: Extract vectors and determine unadjusted coordinate deltas
     for segment in segments:
-        if not segment.strip() or len(segment) < 10:
+        if not segment.strip() or len(segment) < 8:
             continue
         bearing_match = re.search(bearing_regex, segment)
         distance_match = re.search(distance_regex, segment)
@@ -278,23 +278,43 @@ def parse_technical_description(text_content):
             deg_val = float(degrees)
             min_val = float(minutes) if minutes else 0.0
             
-            # FIXED: Corrected Land Survey Quadrant Matrix to wipe out coordinate flipping anomalies
-            # Surveying angles are measured away from the vertical baseline axis (North/South)
+            # Correct Azimuth bearing angle conversion mechanics
             theta = math.radians(deg_val + (min_val / 60.0))
             
             ns_sign = 1.0 if cardinal_from == 'N' else -1.0
             ew_sign = 1.0 if cardinal_to == 'E' else -1.0
             
-            # Mathematical transformation rules for exact survey azimuth projection mapping
             dx = distance * math.sin(theta) * ew_sign
             dy = distance * math.cos(theta) * ns_sign
             
-            current_x += dx
-            current_y += dy
-            coordinates.append((current_x, current_y))
+            total_perimeter += distance
+            dx_dy_elements.append((dx, dy, distance))
             
+    # Step 2: Implement Compass Rule (Bowditch Adjustment) to eliminate closure errors
+    current_x, current_y = 0.0, 0.0
+    coordinates = [(current_x, current_y)]
+    
+    if not dx_dy_elements:
+        return coordinates
+
+    # Determine total linear unadjusted spatial misclosure footprint
+    unadj_x = sum(el[0] for el in dx_dy_elements)
+    unadj_y = sum(el[1] for el in dx_dy_elements)
+    
+    # Distribute tracking error across coordinates based on segment lengths
+    for dx, dy, distance in dx_dy_elements:
+        if total_perimeter > 0:
+            corr_x = dx - (unadj_x * (distance / total_perimeter))
+            corr_y = dy - (unadj_y * (distance / total_perimeter))
+        else:
+            corr_x, corr_y = dx, dy
+            
+        current_x += corr_x
+        current_y += corr_y
+        coordinates.append((current_x, current_y))
+        
     if len(coordinates) > 1:
-        # Loop closure override constraint guarantees flawless loop termination matching
+        # Guarantee mathematical closure convergence at origin
         coordinates[-1] = (0.0, 0.0)
         
     return coordinates
@@ -563,7 +583,7 @@ def render_due_diligence_workspace():
                     
                     ax.plot(x_pts, y_pts, color='#1A1A1A', linestyle='-', linewidth=1.2, marker='o', markerfacecolor='#FFFFFF', markeredgecolor='#1A1A1A', markersize=3.5)
                     
-                    # FIXED: Implemented an adaptive offset loop to stop labels from overlapping
+                    # Prevent chart labels overlapping using localized standard boundaries
                     for i, (xp, yp) in enumerate(coords[:-1]):
                         offset_x = 1.2 if xp >= np.mean(x_pts) else -2.5
                         offset_y = 1.2 if yp >= np.mean(y_pts) else -2.5
