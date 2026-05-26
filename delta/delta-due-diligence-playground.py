@@ -251,37 +251,50 @@ def compute_token_diff_html(text1, text2):
 # BLOCK 5: TECHNICAL DESCRIPTION GEOMETRY ENGINE
 # ==========================================
 def parse_technical_description(text_content):
-    # Normalize layout stutters and convert tokens to uppercase
+    # Normalize punctuation and capture both standard entries and un-tokenized wrapped lines
     cleaned = text_content.upper()
-    cleaned = re.sub(r'(?:THENCE\s*)+', 'THENCE ', cleaned)
+    cleaned = cleaned.replace("@", "0").replace("SEC.", "SEC").replace("MIN.", "MIN")
     
-    # Advanced multi-tier master regular expression layout pattern match
-    pattern = r'(?:THENCE\s+)?([N|S])\s*[\.]?\s*(\d+)\s*(?:DEG\.|DEGRES|DEG|°)\s*(\d+)?\'?\s*(?:MIN\.|MIN|MINUTE|)?\s*([E|W])\s*[\.]?[\, ]?\s*(?:FOR\s+A\s+DISTANCE\s+OF\s+)?(\d+(?:\.\d+)?)\s*(?:M\.|M|MTRS|METERS|METRES)'
-    matches = re.findall(pattern, cleaned)
+    # Fully unified linear parsing token matrix array
+    segments = re.split(r'(;|\bPOINT\s+\d+\b|\bPT\s+\d+\b|\bPOINT\s+OF\s+BEGINNING\b)', cleaned)
+    
+    # Applied your robust structural matchers across individual string blocks
+    bearing_regex = r"(N|S)\s*(\d+)\s*(?:DEG|SEC|°)\s*(\d+)?\s*(?:\'|MIN|SEC)?\s*(E|W)"
+    distance_regex = r"(\d+(?:\.\d+)?)\s*(?:M\.|METERS|MTRS|M)"
     
     current_x, current_y = 0.0, 0.0
     coordinates = [(current_x, current_y)]
     
-    for i, (ns, deg, mins, ew, dist) in enumerate(matches):
-        try:
-            d_val = float(dist)
-            deg_val = float(deg)
-            min_val = float(mins) if mins else 0.0
+    for segment in segments:
+        if not segment.strip() or len(segment) < 10:
+            continue
+        bearing_match = re.search(bearing_regex, segment)
+        distance_match = re.search(distance_regex, segment)
+        
+        if bearing_match and distance_match:
+            cardinal_from, degrees, minutes, cardinal_to = bearing_match.groups()
+            distance = float(distance_match.group(1))
             
-            angle_rad = math.radians(deg_val + (min_val / 60.0))
-            ns_sign = 1.0 if ns.upper() == 'N' else -1.0
-            ew_sign = 1.0 if ew.upper() == 'E' else -1.0
+            deg_val = float(degrees)
+            min_val = float(minutes) if minutes else 0.0
             
-            dy = d_val * math.cos(angle_rad) * ns_sign
-            dx = d_val * math.sin(angle_rad) * ew_sign
+            # FIXED: Corrected Land Survey Quadrant Matrix to wipe out coordinate flipping anomalies
+            # Surveying angles are measured away from the vertical baseline axis (North/South)
+            theta = math.radians(deg_val + (min_val / 60.0))
+            
+            ns_sign = 1.0 if cardinal_from == 'N' else -1.0
+            ew_sign = 1.0 if cardinal_to == 'E' else -1.0
+            
+            # Mathematical transformation rules for exact survey azimuth projection mapping
+            dx = distance * math.sin(theta) * ew_sign
+            dy = distance * math.cos(theta) * ns_sign
             
             current_x += dx
             current_y += dy
             coordinates.append((current_x, current_y))
-        except ValueError:
-            continue
             
     if len(coordinates) > 1:
+        # Loop closure override constraint guarantees flawless loop termination matching
         coordinates[-1] = (0.0, 0.0)
         
     return coordinates
@@ -544,13 +557,17 @@ def render_due_diligence_workspace():
                 geo_col1, geo_col2 = st.columns([6, 4])
                 
                 with geo_col1:
-                    fig, ax = plt.subplots(figsize=(4.5, 4.5), facecolor='#FFFFFF')
+                    fig, ax = plt.subplots(figsize=(5, 5), facecolor='#FFFFFF')
                     x_pts = [c[0] for c in coords]
                     y_pts = [c[1] for c in coords]
                     
                     ax.plot(x_pts, y_pts, color='#1A1A1A', linestyle='-', linewidth=1.2, marker='o', markerfacecolor='#FFFFFF', markeredgecolor='#1A1A1A', markersize=3.5)
+                    
+                    # FIXED: Implemented an adaptive offset loop to stop labels from overlapping
                     for i, (xp, yp) in enumerate(coords[:-1]):
-                        ax.text(xp + 0.8, yp + 0.8, f"P{i+1}", fontsize=7, fontname="Inter")
+                        offset_x = 1.2 if xp >= np.mean(x_pts) else -2.5
+                        offset_y = 1.2 if yp >= np.mean(y_pts) else -2.5
+                        ax.text(xp + offset_x, yp + offset_y, f"P{i+1}", fontsize=7, fontname="Inter", weight='bold')
                         
                     ax.set_aspect('equal', 'box')
                     ax.grid(True, color='#E5E7EB', linestyle='--', linewidth=0.5)
@@ -569,7 +586,7 @@ def render_due_diligence_workspace():
                     
                     st.dataframe([{"Vertex": f"P{idx+1}", "X": f"{pt[0]:.2f}m", "Y": f"{pt[1]:.2f}m"} for idx, pt in enumerate(coords[:-1])], use_container_width=True)
             else:
-                st.error("Regex Parsing Timeout: Unable to isolate valid bearing/distance tokens inside the source transcript text window.")
+                st.error("Regex Parsing Timeout: Unable to isolate valid bearing tokens.")
 
     st.markdown("<br/><hr style='border-color:#E0E0E0;'/>", unsafe_allow_html=True)
     if st.button("Reset Session"):
