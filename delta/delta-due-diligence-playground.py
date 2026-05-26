@@ -25,7 +25,11 @@ import os
 
 # Explicit dynamic resolution of Linux system path bindings for Tesseract
 if not shutil.which("tesseract"):
-    fallback_paths = ["/usr/bin/tesseract", "/usr/local/bin/tesseract"]
+    fallback_paths = [
+        "/usr/bin/tesseract", 
+        "/usr/local/bin/tesseract",
+        "/usr/bin/tesseract-ocr"
+    ]
     for path in fallback_paths:
         if os.path.exists(path):
             pytesseract.pytesseract.tesseract_cmd = path
@@ -53,63 +57,76 @@ if 'initialized' not in st.session_state:
 def inject_luxury_system_css():
     st.markdown("""
         <style>
-            @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500&family=Inter:wght@300;400;500;600&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600&family=Inter:wght@300;400;500;600&display=swap');
             
             .stApp {
-                background-color: #F8F9FA !important;
-                color: #202124 !important;
+                background-color: #F4F5F7 !important;
+                color: #1A1A1A !important;
                 font-family: 'Inter', sans-serif !important;
             }
             
             [data-testid="stHeader"] { background-color: rgba(0,0,0,0) !important; border-bottom: none !important; }
             footer {visibility: hidden !important;}
-            .block-container { padding-top: 1.5rem !important; padding-bottom: 2rem !important; max-width: 95% !important; }
+            .block-container { padding-top: 2rem !important; padding-bottom: 3rem !important; max-width: 95% !important; }
             
             .brand-title {
-                font-family: 'Inter', sans-serif !important;
+                font-family: 'Cinzel', serif !important;
                 color: #1A1A1A !important;
-                font-weight: 600;
-                font-size: 22px;
-                letter-spacing: -0.5px;
+                letter-spacing: 3px;
+                font-weight: 500;
+                font-size: 26px;
                 margin-bottom: 0.2rem;
             }
-            .brand-subtitle { font-family: 'Inter', sans-serif; color: #5F6368; font-size: 11px; letter-spacing: 0.5px; margin-bottom: 1.5rem; }
+            .brand-subtitle { 
+                font-family: 'Inter', sans-serif; 
+                color: #737373; 
+                font-size: 10px; 
+                letter-spacing: 2px; 
+                text-transform: uppercase; 
+                margin-bottom: 2rem; 
+            }
             
             .doc-cell {
                 background-color: #FFFFFF;
-                padding: 16px 20px;
-                border: 1px solid #DADCE0;
-                border-radius: 6px;
+                padding: 18px 24px;
+                border: 1px solid #E0E0E0;
+                box-shadow: 0 4px 8px rgba(0,0,0,0.01);
+                border-radius: 4px;
                 height: 100%;
                 margin-bottom: 12px;
             }
-            .empty-cell { background-color: transparent !important; border: none !important; }
+            .empty-cell { background-color: transparent !important; border: none !important; box-shadow: none !important; }
             
-            .stFileUploader { border: 1px dashed #DACCE0 !important; background-color: #FFFFFF !important; padding: 1rem !important; border-radius: 6px; }
+            .stFileUploader { border: 1px dashed #1A1A1A !important; background-color: #FFFFFF !important; padding: 1.5rem !important; border-radius: 0px; }
+            
             .stButton > button {
-                background-color: #1A73E8 !important; color: #FFFFFF !important; border: none !important;
-                border-radius: 4px !important; font-family: 'Inter', sans-serif; font-size: 12px !important; font-weight: 500;
-                padding: 0.5rem 1.5rem !important; transition: all 0.2s ease; width: auto;
+                background-color: transparent !important; color: #1A1A1A !important; border: 1px solid #1A1A1A !important;
+                border-radius: 0px !important; font-family: 'Inter', sans-serif; font-size: 11px !important; letter-spacing: 1.5px;
+                text-transform: uppercase; padding: 0.6rem 2rem !important; transition: all 0.3s ease; width: auto;
             }
-            .stButton > button:hover { background-color: #1557B0 !important; }
+            .stButton > button:hover { background-color: #1A1A1A !important; color: #FFFFFF !important; }
             
-            .stream-paragraph { color: #3C4043; font-size: 13px; line-height: 1.6; word-wrap: break-word; margin-bottom: 0px; }
-            .add-token { background-color: #E6F4EA !important; color: #137333 !important; padding: 2px 4px; border-radius: 2px; }
-            .del-token { background-color: #FCE8E6 !important; color: #C5221F !important; text-decoration: line-through; padding: 2px 4px; border-radius: 2px; }
-            .trace-flag { font-family: 'Inter', sans-serif; color: #5F6368; font-size: 11px; font-weight: 600; text-transform: uppercase; margin-bottom: 0.5rem; display: block; padding-bottom: 4px; }
+            .stream-paragraph { color: #1A1A1A; font-size: 13px; line-height: 1.7; word-wrap: break-word; margin-bottom: 0px; }
+            .add-token { background-color: #D1FAE5 !important; color: #065F46 !important; padding: 2px 4px; border-radius: 2px; }
+            .del-token { background-color: #FEE2E2 !important; color: #991B1B !important; text-decoration: line-through; padding: 2px 4px; border-radius: 2px; }
+            .trace-flag { font-family: 'Cinzel', serif; color: #737373; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 0.5rem; display: block; border-bottom: 1px solid #F4F5F7; padding-bottom: 4px; }
             
-            .advisory-panel { background-color: #FFFFFF; border: 1px solid #DADCE0; padding: 12px; margin-bottom: 8px; border-radius: 6px; }
-            .advisory-header { font-family: 'Inter', sans-serif; font-weight: 600; color: #202124; font-size: 12px; margin-bottom: 0.25rem; }
+            .advisory-panel { background-color: #FFFFFF; border: 1px solid #E0E0E0; padding: 12px; margin-bottom: 8px; border-radius: 4px; }
+            .advisory-header { font-family: 'Inter', sans-serif; font-weight: 600; color: #1A1A1A; font-size: 12px; }
             
             .minimap-row { width: 100%; height: 6px; border-radius: 1px; margin-top: 24px; }
-            .minimap-equal { background-color: #E8EAED; }
-            .minimap-replace { background-color: #FCE8E6; }
-            .minimap-delete { background-color: #D93025; }
-            .minimap-insert { background-color: #1E8E3E; }
+            .minimap-equal { background-color: #EAECEF; opacity: 0.5; }
+            .minimap-replace { background-color: #FCA5A5; }
+            .minimap-delete { background-color: #EF4444; }
+            .minimap-insert { background-color: #10B981; }
             
-            div[data-baseweb="select"] { background-color: #FFFFFF !important; }
-            input { border-radius: 4px !important; background-color: #FFFFFF !important; color: #202124 !important; border: 1px solid #DADCE0 !important; font-size: 12px !important; }
-            textarea { border-radius: 4px !important; background-color: #FFFFFF !important; color: #202124 !important; border: 1px solid #DADCE0 !important; font-size: 12px !important; }
+            .crypto-banner { font-family: monospace; font-size: 10px; background-color: #FFFFFF; border: 1px solid #E0E0E0; padding: 8px 12px; color: #737373; margin-bottom: 1.5rem; border-radius: 4px; }
+            div[data-baseweb="tab-list"] { gap: 24px; }
+            div[data-baseweb="tab"] { font-family: 'Cinzel', serif !important; font-size: 12px !important; letter-spacing: 1px; color: #737373 !important; }
+            div[data-baseweb="tab"][aria-selected="true"] { color: #1A1A1A !important; font-weight: 600; }
+            div[data-baseweb="select"] { background-color: #FFFFFF !important; border-radius: 0px !important; }
+            input { border-radius: 0px !important; background-color: #FFFFFF !important; color: #1A1A1A !important; border: 1px solid #E0E0E0 !important; font-size: 12px !important; }
+            textarea { border-radius: 0px !important; background-color: #FFFFFF !important; color: #1A1A1A !important; border: 1px solid #E0E0E0 !important; font-size: 12px !important; }
         </style>
     """, unsafe_allow_html=True)
 
@@ -124,13 +141,15 @@ def preprocess_image_for_ocr(image_bytes):
     return image
 
 def extract_text_via_ocr(file_bytes):
+    if not shutil.which("tesseract") and not os.path.exists(pytesseract.pytesseract.tesseract_cmd):
+        return [" [Deployment Error: Native system binary packages 'tesseract-ocr' is missing. Please add 'packages.txt' containing 'tesseract-ocr' to repository root to automatically resolve this host environment issue.]"]
     try:
         img = preprocess_image_for_ocr(file_bytes)
         text = pytesseract.image_to_string(img)
         lines = [line.strip() for line in text.split('\n') if line.strip()]
-        return lines
+        return lines if lines else ["[Vision Engine failed to detect clear character strings. Check resolution raw scan content.]"]
     except Exception as e:
-        return [f"[OCR Error: {str(e)}]"]
+        return [f"[OCR Engine Native Exception: {str(e)}]"]
 
 def parse_pdf(file_bytes):
     doc = fitz.open(stream=file_bytes, filetype="pdf")
@@ -173,7 +192,7 @@ def load_due_diligence_matrices(uploaded_files):
             st.session_state.uploaded_titles[file.name] = parsed_text
             if file.name not in st.session_state.title_order:
                 st.session_state.title_order.append(file.name)
-                st.session_state.title_roles[file.name] = "Baseline Core"
+                st.session_state.title_roles[file.name] = "Certified True Copy (Base)"
 
 # ==========================================
 # BLOCK 4: FUZZY ALIGNMENT ENGINE
@@ -271,7 +290,7 @@ def generate_white_blueprint_pdf(coordinates):
     page = doc.new_page(width=page_w, height=page_h)
     
     page.draw_rect(fitz.Rect(0, 0, page_w, page_h), color=None, fill=(1, 1, 1))
-    page.insert_text(fitz.Point(54, 54), "AUTOMATED LOT SURVEY PLAN", fontsize=12, fontname="Helvetica-Bold", color=(0.1, 0.1, 0.1))
+    page.insert_text(fitz.Point(54, 54), "DELTA AUTOMATED LOT SURVEY PLAN", fontsize=12, fontname="Helvetica-Bold", color=(0.1, 0.1, 0.1))
     
     if len(coordinates) > 1:
         x_vals = [c[0] for c in coordinates]
@@ -310,92 +329,116 @@ def generate_white_blueprint_pdf(coordinates):
     
     return doc.write()
 
+def generate_kml_payload(coordinates):
+    base_lat, base_lng = 14.6541, 120.9791 
+    kml_str = """<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>DELTA Due Diligence Boundary Plan</name>
+    <Style id="lotLineStyle">
+      <LineStyle><color>ff0000ff</color><width>3</width></LineStyle>
+      <PolyStyle><color>40ffffff</color></PolyStyle>
+    </Style>
+    <Placemark>
+      <name>Extracted Boundary Poly</name>
+      <styleUrl>#lotLineStyle</styleUrl>
+      <Polygon>
+        <outerBoundaryIs>
+          <LinearRing>
+            <coordinates>\n"""
+    for x, y in coordinates:
+        lng_offset = x / 111320.0
+        lat_offset = y / 111054.0
+        kml_str += f"              {base_lng + lng_offset},{base_lat + lat_offset},0\n"
+        
+    kml_str += """            </coordinates>
+          </LinearRing>
+        </outerBoundaryIs>
+      </Polygon>
+    </Placemark>
+  </Document>
+</kml>"""
+    return kml_str.encode('utf-8')
+
 # ==========================================
 # BLOCK 6: HIGH-FIDELITY EXPORTERS
 # ==========================================
 def export_due_diligence_docx(left_paras, right_paras, title_left, title_right, alignment_opcodes):
     doc = Document()
-    
-    # Target Section Setup
     section = doc.sections[-1]
     
-    # Enforce Landscape Orientation
     section.orientation = WD_ORIENT.LANDSCAPE
-    section.page_width, section.page_height = Inches(11.69), Inches(8.27) # Exact A4 Dimensions
+    section.page_width, section.page_height = Inches(11.69), Inches(8.27)
     
-    # Inject Narrow Margins via Low-Level OpenXML Section Elements (0.5 Inches / 36pt Margin)
     sectPr = section._sectPr
     pgMar = OxmlElement('w:pgMar')
-    pgMar.set(qn('w:top'), '720')    # 0.5 inch
-    pgMar.set(qn('w:bottom'), '720') # 0.5 inch
-    pgMar.set(qn('w:left'), '720')   # 0.5 inch
-    pgMar.set(qn('w:right'), '720')  # 0.5 inch
-    pgMar.set(qn('w:header'), '360')
-    pgMar.set(qn('w:footer'), '360')
+    pgMar.set(qn('w:top'), '720')    
+    pgMar.set(qn('w:bottom'), '720') 
+    pgMar.set(qn('w:left'), '720')   
+    pgMar.set(qn('w:right'), '720')  
     sectPr.append(pgMar)
     
-    # Heading Layout Elements
     title_p = doc.add_paragraph()
-    title_run = title_p.add_run("DUE DILIGENCE DISCREPANCY REPORT")
+    title_run = title_p.add_run("DELTA DUE DILIGENCE PIPELINE DISCREPANCY MATRIX")
     title_run.bold = True
-    title_run.font.size = Pt(14)
     title_run.font.name = 'Arial'
+    title_run.font.size = Pt(13)
     
     table = doc.add_table(rows=1, cols=3)
     table.style = 'Table Grid'
     hdr_cells = table.rows[0].cells
-    hdr_cells[0].text = f"Baseline Source ({title_left})"
-    hdr_cells[1].text = f"Target Comparison ({title_right})"
-    hdr_cells[2].text = "Variance Summary"
+    hdr_cells[0].text = f"Baseline Framework Core ({title_left})"
+    hdr_cells[1].text = f"Evaluation Target ({title_right})"
+    hdr_cells[2].text = "Variance Analysis Matrix Summary"
     
     for tag, i1, _, j1, _ in alignment_opcodes:
         row = table.add_row()
         if tag == 'equal':
             row.cells[0].text = left_paras[i1] if i1 is not None else ""
             row.cells[1].text = right_paras[j1] if j1 is not None else ""
-            row.cells[2].text = "No variance found."
+            row.cells[2].text = "Verified Match. Zero variance found."
         elif tag == 'replace':
             row.cells[0].text = left_paras[i1] if i1 is not None else ""
             row.cells[1].text = right_paras[j1] if j1 is not None else ""
-            row.cells[2].text = "Mismatched Parameter Text. Modification identified."
+            row.cells[2].text = "Mismatched Core Parameter Text block. Variance identified."
         elif tag == 'delete':
             row.cells[0].text = left_paras[i1] if i1 is not None else ""
-            row.cells[1].text = "[Omitted Field]"
-            row.cells[2].text = "Baseline data point absent from target evaluation document."
+            row.cells[1].text = "[Omitted Field Frame]"
+            row.cells[2].text = "Structural Data point absent from target evaluation document."
         elif tag == 'insert':
             row.cells[0].text = "[Absent Frame]"
             row.cells[1].text = right_paras[j1] if j1 is not None else ""
-            row.cells[2].text = "Injected target clause verified."
+            row.cells[2].text = "Injected external entry clause block verified."
             
     bio = io.BytesIO()
     doc.save(bio)
     return bio.getvalue()
 
 # ==========================================
-# BLOCK 8: UI PHASE 2 - SYSTEM DASHBOARD REVIEW
+# BLOCK 8: WORKSPACE EXECUTIVE REVIEW DASHBOARD
 # ==========================================
 def render_due_diligence_workspace():
     st.markdown('<div class="brand-title">DELTA DUE DILIGENCE WORKSPACE</div>', unsafe_allow_html=True)
-    st.markdown('<div class="brand-subtitle">Automated Land Title Ingestion & Boundary Analysis Matrix</div>', unsafe_allow_html=True)
+    st.markdown('<div class="brand-subtitle">Automated Real Estate Land Title Analysis & Geomatics Engine</div>', unsafe_allow_html=True)
     
     tab_review, tab_geospatial = st.tabs(["❖ Core Title Discrepancy Matrix", "⚡ Boundary Technical Description Plotter"])
     
     with tab_review:
-        st.markdown("### Document Ingestion")
-        uploaded_files = st.file_uploader("Upload titles / files", 
+        st.markdown("<p style='font-size:12px; font-weight:600; color:#1A1A1A; margin-bottom:10px;'>DOCUMENT INGESTION ARCHIVE</p>", unsafe_allow_html=True)
+        uploaded_files = st.file_uploader("Ingest Real Estate Assays, Title Documents or Title Photos", 
                                           type=['pdf', 'docx', 'png', 'jpg', 'jpeg', 'tiff'], 
                                           accept_multiple_files=True, label_visibility="collapsed")
         
         if uploaded_files:
             load_due_diligence_matrices(uploaded_files)
             
-            st.markdown("<div style='margin: 1rem 0;'>", unsafe_allow_html=True)
+            st.markdown("<div style='margin-top: 1rem; margin-bottom: 1.5rem;'>", unsafe_allow_html=True)
             for filename in st.session_state.title_order:
                 col1, col2 = st.columns([7, 3])
                 with col1: 
-                    st.markdown(f'<p style="font-size:13px; color:#1A1A1A; padding-top:4px;">📁 {filename}</p>', unsafe_allow_html=True)
+                    st.markdown(f'<p style="font-size:13px; color:#1A1A1A; padding-top:6px;">📁 {filename}</p>', unsafe_allow_html=True)
                 with col2:
-                    roles = ["Baseline Core", "Target Comparison", "Secondary Copy", "Tax Declaration Reference"]
+                    roles = ["Certified True Copy (Base)", "Owner Duplicate (Counter)", "Registry Secondary Copy", "Assessed Tax Declaration Template"]
                     st.session_state.title_roles[filename] = st.selectbox(f"Type_{filename}", roles, index=0, label_visibility="collapsed", key=f"dd_role_{filename}")
             st.markdown("</div>", unsafe_allow_html=True)
 
@@ -406,9 +449,9 @@ def render_due_diligence_workspace():
             st.markdown("---")
             t_col1, t_col2 = st.columns(2)
             with t_col1: 
-                st.session_state.base_title_idx = st.selectbox("Baseline Core", range(len(ordered_files)), format_func=lambda x: f"BASE // {ordered_files[x]} ({roles[x]})")
+                st.session_state.base_title_idx = st.selectbox("Baseline Framework Core Asset", range(len(ordered_files)), format_func=lambda x: f"BASE // {ordered_files[x]} ({roles[x]})")
             with t_col2: 
-                st.session_state.counter_title_idx = st.selectbox("Target Frame", range(len(ordered_files)), format_func=lambda x: f"EVAL // {ordered_files[x]} ({roles[x]})", index=min(1, len(ordered_files)-1))
+                st.session_state.counter_title_idx = st.selectbox("Target Comparison Framework Evaluation", range(len(ordered_files)), format_func=lambda x: f"EVAL // {ordered_files[x]} ({roles[x]})", index=min(1, len(ordered_files)-1))
                 
             base_file = ordered_files[st.session_state.base_title_idx]
             counter_file = ordered_files[st.session_state.counter_title_idx]
@@ -420,14 +463,15 @@ def render_due_diligence_workspace():
             
             st.markdown(f"""
                 <div class="crypto-banner">
+                    INTEGRITY REGISTRY CRYPTO STAMP IDENTITY VALIDATION LOG<br/>
                     [BASE_SHA256]: {st.session_state.title_hashes.get(base_file, "N/A")}<br/>
                     [EVAL_SHA256]: {st.session_state.title_hashes.get(counter_file, "N/A")}
                 </div>
             """, unsafe_allow_html=True)
             
             h_col1, _, h_col2, _ = st.columns([5, 0.2, 5, 4.5])
-            with h_col1: st.markdown("<p style='font-size:11px; font-weight:600; color:#5F6368;'>BASELINE SOURCE</p>", unsafe_allow_html=True)
-            with h_col2: st.markdown("<p style='font-size:11px; font-weight:600; color:#5F6368;'>COMPARISON TARGET</p>", unsafe_allow_html=True)
+            with h_col1: st.markdown("<p style='font-size:11px; text-transform:uppercase; color:#737373; font-weight:600; margin-bottom:10px;'>BASELINE CORE SOURCE TEXT</p>", unsafe_allow_html=True)
+            with h_col2: st.markdown("<p style='font-size:11px; text-transform:uppercase; color:#737373; font-weight:600; margin-bottom:10px;'>EVALUATION COMPARISON FIELD TARGET</p>", unsafe_allow_html=True)
             
             change_index = 1
             for idx, (tag, i1, _, j1, _) in enumerate(alignment_opcodes):
@@ -438,9 +482,9 @@ def render_due_diligence_workspace():
                         st.markdown(f'<div class="doc-cell"><p class="stream-paragraph">{left_paras[i1]}</p></div>', unsafe_allow_html=True)
                     elif tag == 'replace':
                         h1, _ = compute_token_diff_html(left_paras[i1], right_paras[j1])
-                        st.markdown(f'<div class="doc-cell"><span class="trace-flag">▲ Variance</span><p class="stream-paragraph">{h1}</p></div>', unsafe_allow_html=True)
+                        st.markdown(f'<div class="doc-cell"><span class="trace-flag">▲ Variance Identified</span><p class="stream-paragraph">{h1}</p></div>', unsafe_allow_html=True)
                     elif tag == 'delete':
-                        st.markdown(f'<div class="doc-cell"><span class="trace-flag" style="color:#C5221F;">◼ Missing Item</span><p class="stream-paragraph"><span class="del-token">{left_paras[i1]}</span></p></div>', unsafe_allow_html=True)
+                        st.markdown(f'<div class="doc-cell"><span class="trace-flag" style="color:#991B1B; border-bottom-color:#FEE2E2;">◼ Missing Element</span><p class="stream-paragraph"><span class="del-token">{left_paras[i1]}</span></p></div>', unsafe_allow_html=True)
                     elif tag == 'insert':
                         st.markdown('<div class="doc-cell empty-cell"></div>', unsafe_allow_html=True)
                         
@@ -455,54 +499,58 @@ def render_due_diligence_workspace():
                         st.markdown(f'<div class="doc-cell"><p class="stream-paragraph">{right_paras[j1]}</p></div>', unsafe_allow_html=True)
                     elif tag == 'replace':
                         _, h2 = compute_token_diff_html(left_paras[i1], right_paras[j1])
-                        st.markdown(f'<div class="doc-cell"><span class="trace-flag">▲ Variance</span><p class="stream-paragraph">{h2}</p></div>', unsafe_allow_html=True)
+                        st.markdown(f'<div class="doc-cell"><span class="trace-flag">▲ Variance Identified</span><p class="stream-paragraph">{h2}</p></div>', unsafe_allow_html=True)
                     elif tag == 'delete':
                         st.markdown('<div class="doc-cell empty-cell"></div>', unsafe_allow_html=True)
                     elif tag == 'insert':
-                        st.markdown(f'<div class="doc-cell"><span class="trace-flag" style="color:#137333;">◆ External Injection</span><p class="stream-paragraph"><span class="add-token">{right_paras[j1]}</span></p></div>', unsafe_allow_html=True)
+                        st.markdown(f'<div class="doc-cell"><span class="trace-flag" style="color:#065F46; border-bottom-color:#D1FAE5;">◆ External Injection</span><p class="stream-paragraph"><span class="add-token">{right_paras[j1]}</span></p></div>', unsafe_allow_html=True)
                         
                 with r_col4:
                     if tag != 'equal':
                         unique_id = f"dd_row_{i1}_{j1}_{idx}"
-                        st.markdown(f'<div class="advisory-panel"><div class="advisory-header"><span style="color:#D93025;">Alert #{change_index}</span></div></div>', unsafe_allow_html=True)
-                        st.radio("Status", ["Clear", "Variance", "Risk", "Hold"], key=f"risk_{unique_id}", horizontal=True, label_visibility="collapsed")
-                        st.text_input("Findings", key=f"note_dd_{unique_id}", placeholder="Notes...", label_visibility="collapsed")
+                        st.markdown(f'<div class="advisory-panel" style="margin-bottom:0px; padding-bottom:8px;"><div class="advisory-header"><span style="color:#1A1A1A;">🚨 Operational Alert #{change_index}</span></div></div>', unsafe_allow_html=True)
+                        st.radio("Risk Disposition Matrix", ["Clear", "Minor Variance", "Fraud Risk", "Hold Asset"], key=f"risk_{unique_id}", horizontal=True, label_visibility="collapsed")
+                        st.text_input("Discrepancy Note Ledger Tracker", key=f"note_dd_{unique_id}", placeholder="Add due diligence findings...", label_visibility="collapsed")
                         change_index += 1
                     else:
                         st.write("")
                         
             st.markdown("<br/>", unsafe_allow_html=True)
             export_bytes = export_due_diligence_docx(left_paras, right_paras, base_file, counter_file, alignment_opcodes)
-            st.download_button("📥 Export Matrix (.docx)", data=export_bytes, file_name=f"DD_Matrix_{datetime.now().strftime('%Y%m%d')}.docx")
+            st.download_button("📥 Export Comprehensive Land Title Audit Matrix (.docx)", data=export_bytes, file_name=f"DELTA_DD_Matrix_{datetime.now().strftime('%Y%m%d')}.docx")
         elif len(ordered_files) == 1:
-            st.info("Upload at least two records to run comparison analysis structures.")
+            st.info("Ingest an analytical comparison framework core document execution layout to trigger difference analysis trees.")
 
     with tab_geospatial:
-        st.markdown("### Technical Description Plotter")
+        st.markdown("<p style='font-size:12px; font-weight:600; color:#1A1A1A; margin-bottom:10px;'>BOUNDARY SURVEY LINE GEOMETRY PLOTTER FRAME</p>", unsafe_allow_html=True)
         
-        # Dual Ingestion Architecture: Manual Text String Entry Block vs Photo/OCR Extraction Frame
-        input_mode = st.radio("Select Input Mode", ["Manual Text Entry", "Photo / Scan Document Upload"], horizontal=True)
-        
+        input_mode = st.radio("Select Ingestion Mode Portfolio", ["Manual Transcript Input Block", "Vision Engine Scan Frame Ingestion"], horizontal=True, label_visibility="collapsed")
         extracted_text_target = ""
         
-        if input_mode == "Manual Text Entry":
+        if input_mode == "Manual Transcript Input Block":
             default_tech_desc = """THENCE S. 32 DEG. 00'E., 18.58 M. TO POINT 2; THENCE S. 69 DEG. 49'W., 50.64 M. TO POINT 3; THENCE N. 5 DEG. 19'W., 10.19 M. TO POINT 4; THENCE N. 35 DEG. 56'W., 7.77 M. TO POINT 5; THENCE N. 35 DEG. 56'W., 1.96 M. TO POINT 6; THENCE N. 28 DEG. 59'W., 9.72 M. TO POINT 7; THENCE N. 82 DEG. 12'E., 49.55 M. TO THE POINT OF BEGINNING;"""
-            extracted_text_target = st.text_area("Paste Technical Text Block", value=default_tech_desc, height=150)
+            extracted_text_target = st.text_area("Technical Description Transcript Segment", value=default_tech_desc, height=150, label_visibility="collapsed")
         else:
-            uploaded_scan = st.file_uploader("Upload boundary image / photo scan", type=['png', 'jpg', 'jpeg', 'tiff', 'bmp'])
+            uploaded_scan = st.file_uploader("Upload boundary engineering graphics blueprints or photo scan segments", type=['png', 'jpg', 'jpeg', 'tiff', 'bmp'], label_visibility="collapsed")
             if uploaded_scan:
                 scan_bytes = uploaded_scan.read()
-                with st.spinner("Processing OCR Extract..."):
+                with st.spinner("Executing Binary Vision Engine Parsing Routine..."):
                     ocr_lines = extract_text_via_ocr(scan_bytes)
                     extracted_text_target = " ".join(ocr_lines)
-                st.success("Text extracted completely.")
-                with st.expander("View Extracted OCR Transcript"):
-                    extracted_text_target = st.text_area("Adjust Transcribed Text Pattern", value=extracted_text_target, height=150)
+                
+                # Check if an engine level error was captured in string array
+                if "[OCR Error" in extracted_text_target or "[Deployment Error" in extracted_text_target:
+                    st.error(ocr_lines[0])
+                    extracted_text_target = ""
+                else:
+                    st.success("Successfully processed unstructured visual asset data context arrays frames.")
+                    with st.expander("View Isolated Boundary Vision Text Transcript"):
+                        extracted_text_target = st.text_area("Adjust Technical Matrix Text Array Frame Input Window", value=extracted_text_target, height=150)
         
         if extracted_text_target:
             coords = parse_technical_description(extracted_text_target)
             if len(coords) > 1:
-                st.success(f"Tracked [{len(coords)-1}] vertex coordinates.")
+                st.success(f"Tracked and mapped [{len(coords)-1}] distinct vertex vectors boundaries nodes coordinates points.")
                 
                 geo_col1, geo_col2 = st.columns([6, 4])
                 
@@ -511,12 +559,12 @@ def render_due_diligence_workspace():
                     x_pts = [c[0] for c in coords]
                     y_pts = [c[1] for c in coords]
                     
-                    ax.plot(x_pts, y_pts, color='#1A73E8', linestyle='-', linewidth=1.5, marker='o', markerfacecolor='#FFFFFF', markeredgecolor='#1A73E8', markersize=4)
+                    ax.plot(x_pts, y_pts, color='#1A1A1A', linestyle='-', linewidth=1.5, marker='o', markerfacecolor='#FFFFFF', markeredgecolor='#1A1A1A', markersize=4)
                     for i, (xp, yp) in enumerate(coords[:-1]):
-                        ax.text(xp + 1, yp + 1, f"P{i+1}", fontsize=8)
+                        ax.text(xp + 1, yp + 1, f"P{i+1}", fontsize=8, fontname="Inter", fontweight="bold")
                         
                     ax.set_aspect('equal', 'box')
-                    ax.grid(True, color='#E8EAED', linestyle='--', linewidth=0.5)
+                    ax.grid(True, color='#E5E7EB', linestyle='--', linewidth=0.5)
                     ax.set_facecolor('#FFFFFF')
                     ax.spines['top'].set_visible(False)
                     ax.spines['right'].set_visible(False)
@@ -526,41 +574,42 @@ def render_due_diligence_workspace():
                     plt.close(fig)
                     
                 with geo_col2:
-                    st.markdown("#### Export Asset Formats Matrix")
+                    st.markdown("<p style='font-size:12px; font-weight:600; color:#1A1A1A; margin-bottom:10px;'>EXPORT PIPELINE ASSET FORMATS MATRIX</p>", unsafe_allow_html=True)
                     
                     pdf_bytes = generate_white_blueprint_pdf(coords)
                     st.download_button(label="📥 Export Lot Plan PDF",
                                        data=pdf_bytes,
-                                       file_name=f"LOT_PLAN_{datetime.now().strftime('%Y%m%d')}.pdf",
+                                       file_name=f"DELTA_LOT_PLAN_{datetime.now().strftime('%Y%m%d')}.pdf",
                                        mime="application/pdf")
                     
                     st.markdown("---")
                     
+                    # FIXED: Scoped variable dependency logic encapsulated inside valid boundary parameters
                     kml_bytes = generate_kml_payload(coords)
                     st.download_button(label="📥 Export Vector KML",
                                        data=kml_bytes,
-                                       file_name=f"LOT_GEOSPATIAL_{datetime.now().strftime('%Y%m%d')}.kml",
+                                       file_name=f"DELTA_LOT_GEOSPATIAL_{datetime.now().strftime('%Y%m%d')}.kml",
                                        mime="application/vnd.google-earth.kml+xml")
                     
                     st.markdown("---")
                     
-                    st.dataframe([{"Point": f"Point {idx+1}", "X (Eastings)": f"{pt[0]:.2f} m", "Y (Northings)": f"{pt[1]:.2f} m"} for idx, pt in enumerate(coords[:-1])], use_container_width=True)
+                    st.dataframe([{"Vertex Sequence": f"Point {idx+1}", "Delta X (Eastings)": f"{pt[0]:.2f} m", "Delta Y (Northings)": f"{pt[1]:.2f} m"} for idx, pt in enumerate(coords[:-1])], use_container_width=True)
             else:
-                st.error("Failed to parse bearing patterns from text inputs.")
+                st.error("Engine failed to resolve bearing metrics tokens inside input text description script arrays.")
 
-    st.markdown("<br/><br/><hr style='border-color:#DADCE0;'/>", unsafe_allow_html=True)
-    if st.button("Reset Session"):
+    st.markdown("<br/><br/><hr style='border-color:#E0E0E0;'/>", unsafe_allow_html=True)
+    if st.button("Reset Operational Pipeline Workspace Session Frame Context"):
         st.session_state.uploaded_titles = {}
         st.session_state.title_hashes = {}
         st.session_state.title_order = []
         st.session_state.title_roles = {}
         st.rerun()
-        
+
 # ==========================================
 # BLOCK 9: ENTRYPOINT ORCHESTRATION
 # ==========================================
 def main():
-    st.set_page_config(page_title="DELTA DUE DILIGENCE", layout="wide", initial_sidebar_state="collapsed")
+    st.set_page_config(page_title="DELTA DUE DILIGENCE PIPELINE", layout="wide", initial_sidebar_state="collapsed")
     inject_luxury_system_css()
     render_due_diligence_workspace()
 
