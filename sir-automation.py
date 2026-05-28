@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import openpyxl
+from openpyxl.styles import Alignment
 import re
 import io
 import zipfile
@@ -21,20 +22,14 @@ def get_placeholders(sheet):
 
 def sanitize_tab_name(name, existing_names):
     """Strip illegal Excel characters, slice to 31 chars, and handle duplicates."""
-    # Define illegal Excel characters
     illegal_chars = r'[\\/*?\[\]:]'
-    
-    # Remove illegal characters
     clean_name = re.sub(illegal_chars, '', str(name))
-    
-    # Base name trimmed to 31
     base_name = clean_name[:31]
     
     if base_name not in existing_names:
         existing_names.add(base_name)
         return base_name
     
-    # Handle duplicates by shortening base to accommodate " (N)"
     counter = 1
     while True:
         suffix = f" ({counter})"
@@ -56,8 +51,10 @@ raw_file = st.file_uploader("Upload Raw Data (Excel)", type=["xlsx", "xls"])
 template_file = st.file_uploader("Upload Excel Template", type=["xlsx"])
 
 if raw_file and template_file:
-    # Read headers from Raw Data
+    # Read headers from Raw Data & Auto-clean 'Unnamed' blank columns
     df = pd.read_excel(raw_file)
+    df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
+    df.columns = df.columns.str.strip().str.upper()
     headers = list(df.columns)
     
     # Read placeholders from Template
@@ -74,7 +71,6 @@ if raw_file and template_file:
         
         mapping = {}
         for ph in placeholders:
-            # Fuzzy match to guess the closest header
             match = difflib.get_close_matches(ph, headers, n=1, cutoff=0.3)
             default_index = headers.index(match[0]) if match else 0
             
@@ -82,20 +78,21 @@ if raw_file and template_file:
             with col1:
                 st.markdown(f"**{{{{{ph}}}}}**")
             with col2:
+                # If mapping a specific address part, map it to the main LOCATION column if available
+                if ph in ["STREET", "BARANGAY", "CITY", "REGION", "POSTAL"] and "LOCATION/ADDRESS" in headers:
+                    default_index = headers.index("LOCATION/ADDRESS")
+                
                 mapping[ph] = st.selectbox("Map to column:", headers, index=default_index, key=f"map_{ph}", label_visibility="collapsed")
         
         st.divider()
 
-        # Action Area Placeholder
         action_placeholder = st.empty()
         
-        # Determine what to show in the action area based on state
         if st.session_state.zip_data is None:
             if action_placeholder.button("Generate Reports", use_container_width=True):
                 # STEP 3: The Engine
-                action_placeholder.empty() # Hide the button
+                action_placeholder.empty() 
                 
-                # Check for mandatory columns
                 if "TRADE AREA" not in df.columns or "SITE NAME" not in df.columns:
                     st.error("ERROR: Raw data must contain exactly 'TRADE AREA' and 'SITE NAME' columns.")
                     st.stop()
@@ -108,12 +105,10 @@ if raw_file and template_file:
                 
                 zip_buffer = io.BytesIO()
                 
-                # Start generating zip in memory
                 with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
                     for i, (trade_area, group) in enumerate(groups):
                         status_text.text(f"Processing Trade Area: {trade_area}...")
                         
-                        # Load a fresh copy of the template workbook for this Trade Area
                         template_file.seek(0)
                         wb = openpyxl.load_workbook(template_file)
                         base_sheet = wb.active
@@ -121,7 +116,6 @@ if raw_file and template_file:
                         existing_tabs = set()
                         
                         for _, row in group.iterrows():
-                            # The Anchor (Tracking) & Tab Naming
                             site_id = row.get("SITE ID", "NO-ID")
                             site_name = row.get("SITE NAME", site_id)
                             safe_tab_name = sanitize_tab_name(site_name, existing_tabs)
@@ -129,36 +123,59 @@ if raw_file and template_file:
                             new_sheet = wb.copy_worksheet(base_sheet)
                             new_sheet.title = safe_tab_name
                             
-                            # Inject Mapped Data
+                            # Inject Mapped Data & Format
                             for row_cells in new_sheet.iter_rows():
                                 for cell in row_cells:
+                                    # Force Word Wrap
+                                    cell.alignment = Alignment(wrapText=True)
+                                    
                                     if isinstance(cell.value, str) and "{{" in cell.value:
                                         new_val = cell.value
                                         for ph, header in mapping.items():
                                             target = f"{{{{{ph}}}}}"
                                             if target in new_val:
-                                                # Replace with mapped value, handling NaNs
                                                 val = row.get(header)
-                                                val_str = "" if pd.isna(val) else str(val)
+                                                
+                                                # 1. Date Formatting Rule
+                                                if ("DATE" in str(header).upper() or isinstance(val, pd.Timestamp)) and not pd.isna(val):
+                                                    try:
+                                                        val_str = pd.to_datetime(val).strftime("%B %d, %Y")
+                                                    except:
+                                                        val_str = str(val)
+                                                        
+                                                # 2. Address Slicing Rule
+                                                elif ph in ["STREET", "BARANGAY", "CITY", "REGION", "POSTAL"] and isinstance(val, str):
+                                                    p = [part.strip() for part in val.split(",")]
+                                                    length = len(p)
+                                                    if ph == "STREET":
+                                                        val_str = ", ".join(p[:max(0, length - 6)]) if length >= 6 else val
+                                                    elif ph == "BARANGAY":
+                                                        val_str = p[length - 6] if length >= 6 else ""
+                                                    elif ph == "CITY":
+                                                        val_str = p[length - 5] if length >= 5 else ""
+                                                    elif ph == "REGION":
+                                                        val_str = p[length - 3] if length >= 3 else ""
+                                                    elif ph == "POSTAL":
+                                                        val_str = p[length - 2] if length >= 2 else ""
+                                                
+                                                # 3. Standard Text Rule
+                                                else:
+                                                    val_str = "" if pd.isna(val) else str(val)
+                                                
                                                 new_val = new_val.replace(target, val_str)
                                         cell.value = new_val
                                         
-                        # Clean up the original template tab and save workbook to bytes
                         wb.remove(base_sheet)
                         wb_buffer = io.BytesIO()
                         wb.save(wb_buffer)
                         
-                        # Write the workbook into the zip file
                         safe_filename = str(trade_area).replace("/", "-").replace("\\", "-")
                         zip_file.writestr(f"{safe_filename}.xlsx", wb_buffer.getvalue())
-                        
-                        # Update Progress
                         progress_bar.progress((i + 1) / total_groups)
                 
                 status_text.empty()
                 progress_bar.empty()
                 
-                # Save to session state and trigger a UI refresh to show download button
                 st.session_state.zip_data = zip_buffer.getvalue()
                 st.rerun()
 
@@ -173,7 +190,6 @@ if raw_file and template_file:
                 use_container_width=True
             )
             
-            # Optional: Allow user to reset and generate a new batch
             if st.button("Start Over"):
                 st.session_state.zip_data = None
                 st.rerun()
