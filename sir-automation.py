@@ -45,7 +45,7 @@ def sanitize_tab_name(name, existing_names):
 if "zip_data" not in st.session_state:
     st.session_state.zip_data = None
 
-st.title("Site Information Report Automation")
+st.title("Site Information Report")
 
 # STEP 1: The Upload Section
 raw_file = st.file_uploader("Upload Raw Data (Excel)", type=["xlsx", "xls"])
