@@ -20,17 +20,26 @@ def get_placeholders(sheet):
     return sorted(list(placeholders))
 
 def sanitize_tab_name(name, existing_names):
-    """Slice to 31 chars and prevent duplicate tab names within the same workbook."""
-    base_name = str(name)[:31]
+    """Strip illegal Excel characters, slice to 31 chars, and handle duplicates."""
+    # Define illegal Excel characters
+    illegal_chars = r'[\\/*?\[\]:]'
+    
+    # Remove illegal characters
+    clean_name = re.sub(illegal_chars, '', str(name))
+    
+    # Base name trimmed to 31
+    base_name = clean_name[:31]
+    
     if base_name not in existing_names:
         existing_names.add(base_name)
         return base_name
     
+    # Handle duplicates by shortening base to accommodate " (N)"
     counter = 1
     while True:
         suffix = f" ({counter})"
         max_len = 31 - len(suffix)
-        new_name = f"{str(name)[:max_len]}{suffix}"
+        new_name = f"{clean_name[:max_len]}{suffix}"
         if new_name not in existing_names:
             existing_names.add(new_name)
             return new_name
