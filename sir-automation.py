@@ -72,7 +72,7 @@ if raw_file and template_file:
         st.warning("No {{Placeholders}} found in the uploaded template.")
     else:
         # STEP 2: The Smart Mapping Section
-        st.markdown("### Smart Mapping")
+        st.markdown("### Data Mapping")
         st.markdown("Verify the auto-matched data columns for your template placeholders.")
         
         mapping = {}
