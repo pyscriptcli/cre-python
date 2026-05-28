@@ -6,6 +6,7 @@ import re
 import io
 import zipfile
 import difflib
+import math
 
 # Must be the first Streamlit command
 st.set_page_config(page_title="Report Generator", layout="centered")
@@ -128,6 +129,8 @@ if raw_file and template_file:
                                     if isinstance(cell.value, str) and "{{" in cell.value:
                                         original_val = cell.value
                                         new_val = cell.value
+                                        injected_length = 0
+                                        
                                         for ph, header in mapping.items():
                                             target = f"{{{{{ph}}}}}"
                                             if target in new_val:
@@ -160,12 +163,12 @@ if raw_file and template_file:
                                                     val_str = "" if pd.isna(val) else str(val)
                                                 
                                                 new_val = new_val.replace(target, val_str)
+                                                injected_length = len(val_str)
                                         
                                         cell.value = new_val
                                         
-                                        # --- THE FORMATTING FIX ---
+                                        # --- THE FORMATTING ALIGNMENT FIX ---
                                         al = cell.alignment
-                                        # Force left alignment if it's a date placeholder, otherwise inherit the template's alignment
                                         force_left = "DATE" in original_val.upper()
                                         
                                         if al:
@@ -180,8 +183,25 @@ if raw_file and template_file:
                                         else:
                                             cell.alignment = Alignment(horizontal='left' if force_left else 'general', wrap_text=True)
                                             
-                                        # Un-lock the row height so Excel is forced to auto-fit the wrapped text
-                                        new_sheet.row_dimensions[cell.row].height = None
+                                        # --- MERGED CELL HEIGHT OVERRIDE ---
+                                        # If text is long (e.g., Remarks), calculate required height manually
+                                        if injected_length > 60:
+                                            # Assume ~85 characters fit on one line in your merged B-I block (adjust if needed)
+                                            chars_per_line = 85
+                                            estimated_lines = math.ceil(injected_length / chars_per_line)
+                                            
+                                            # Standard Excel row height is 15 points per line
+                                            calculated_height = estimated_lines * 15 
+                                            
+                                            current_height = new_sheet.row_dimensions[cell.row].height
+                                            
+                                            # Apply new height only if it's larger than the current template height
+                                            if current_height is None or calculated_height > current_height:
+                                                new_sheet.row_dimensions[cell.row].height = calculated_height
+                                        else:
+                                            # Standard un-lock for non-merged or short text cells
+                                            if new_sheet.row_dimensions[cell.row].height is None:
+                                                 new_sheet.row_dimensions[cell.row].height = None
                                         
                         wb.remove(base_sheet)
                         wb_buffer = io.BytesIO()
