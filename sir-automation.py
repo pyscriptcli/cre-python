@@ -78,7 +78,6 @@ if raw_file and template_file:
             with col1:
                 st.markdown(f"**{{{{{ph}}}}}**")
             with col2:
-                # If mapping a specific address part, map it to the main LOCATION column if available
                 if ph in ["STREET", "BARANGAY", "CITY", "REGION", "POSTAL"] and "LOCATION/ADDRESS" in headers:
                     default_index = headers.index("LOCATION/ADDRESS")
                 
@@ -126,10 +125,8 @@ if raw_file and template_file:
                             # Inject Mapped Data & Format
                             for row_cells in new_sheet.iter_rows():
                                 for cell in row_cells:
-                                    # Force Word Wrap
-                                    cell.alignment = Alignment(wrapText=True)
-                                    
                                     if isinstance(cell.value, str) and "{{" in cell.value:
+                                        original_val = cell.value
                                         new_val = cell.value
                                         for ph, header in mapping.items():
                                             target = f"{{{{{ph}}}}}"
@@ -163,7 +160,28 @@ if raw_file and template_file:
                                                     val_str = "" if pd.isna(val) else str(val)
                                                 
                                                 new_val = new_val.replace(target, val_str)
+                                        
                                         cell.value = new_val
+                                        
+                                        # --- THE FORMATTING FIX ---
+                                        al = cell.alignment
+                                        # Force left alignment if it's a date placeholder, otherwise inherit the template's alignment
+                                        force_left = "DATE" in original_val.upper()
+                                        
+                                        if al:
+                                            cell.alignment = Alignment(
+                                                horizontal='left' if force_left else al.horizontal,
+                                                vertical=al.vertical,
+                                                text_rotation=al.text_rotation,
+                                                wrap_text=True,
+                                                shrink_to_fit=al.shrink_to_fit,
+                                                indent=al.indent
+                                            )
+                                        else:
+                                            cell.alignment = Alignment(horizontal='left' if force_left else 'general', wrap_text=True)
+                                            
+                                        # Un-lock the row height so Excel is forced to auto-fit the wrapped text
+                                        new_sheet.row_dimensions[cell.row].height = None
                                         
                         wb.remove(base_sheet)
                         wb_buffer = io.BytesIO()
