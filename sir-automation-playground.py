@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import openpyxl
 from openpyxl.styles import Alignment, PatternFill
+from openpyxl.drawing.image import Image as OpenpyxlImage # Added for Image Injection
 import re
 import io
 import zipfile
@@ -24,7 +25,7 @@ def get_placeholders(sheet):
     return sorted(list(placeholders))
 
 def get_placeholder_coords(sheet):
-    """Map placeholders to their exact cell coordinates (e.g., {'SITE_NAME': ['L5', 'C6']})"""
+    """Map placeholders to their exact cell coordinates"""
     mapping = {}
     for row in sheet.iter_rows():
         for cell in row:
@@ -61,14 +62,12 @@ def format_injected_value(ph, header, val):
     if pd.isna(val) or str(val).strip() == "":
         return ""
     
-    # Date Formatting Rule
     if "DATE" in str(header).upper() or isinstance(val, pd.Timestamp):
         try:
             return pd.to_datetime(val).strftime("%B %d, %Y")
         except:
             return str(val)
             
-    # Address Slicing Rule
     if ph in ["STREET", "BARANGAY", "CITY", "REGION", "POSTAL"] and isinstance(val, str):
         p = [part.strip() for part in val.split(",")]
         length = len(p)
@@ -80,17 +79,40 @@ def format_injected_value(ph, header, val):
         
     return str(val)
 
+def inject_image_if_matched(target_sheet, cell_coord, file_path_str, media_dict):
+    """Checks if a string is an image path, matches it, and injects the image."""
+    # Check if it looks like an image file path
+    if isinstance(file_path_str, str) and any(ext in file_path_str.lower() for ext in ['.jpg', '.jpeg', '.png']):
+        # Extract just the filename from the path (e.g., "photo1.jpg" from "FOLDER/photo1.jpg")
+        filename = file_path_str.replace('\\', '/').split('/')[-1]
+        
+        if filename in media_dict:
+            try:
+                # Convert uploaded Streamlit file into Excel Image
+                img_stream = io.BytesIO(media_dict[filename].getvalue())
+                img = OpenpyxlImage(img_stream)
+                
+                # Resize the image so it doesn't take over the whole screen (Adjust these numbers if needed)
+                max_size = 180 
+                if img.width > max_size or img.height > max_size:
+                    ratio = min(max_size / img.width, max_size / img.height)
+                    img.width = int(img.width * ratio)
+                    img.height = int(img.height * ratio)
+                
+                # Anchor and add to sheet
+                target_sheet.add_image(img, cell_coord)
+                return True # Image successfully injected
+            except Exception as e:
+                pass # If image fails to load, just return false and it will paste text
+    return False
+
 # --- SESSION STATE INITIALIZATION ---
 if "zip_data" not in st.session_state: st.session_state.zip_data = None
 
 # --- UI: THE LANDING PAGE ---
 st.title("Site Information Report")
 
-mode = st.radio(
-    "Select Workflow Mode:", 
-    ["Create New Reports", "Edit / Update Existing Reports"], 
-    horizontal=True
-)
+mode = st.radio("Select Workflow Mode:", ["Create New Reports", "Edit / Update Existing Reports"], horizontal=True)
 st.divider()
 
 # ==========================================
@@ -100,12 +122,15 @@ if mode == "Create New Reports":
     st.markdown("### Upload Files")
     raw_file = st.file_uploader("Upload Raw Data (Excel)", type=["xlsx", "xls"], key="new_raw")
     template_file = st.file_uploader("Upload Excel Template", type=["xlsx"], key="new_temp")
+    media_files = st.file_uploader("Upload Photos/Docs (Optional)", accept_multiple_files=True, key="new_media", type=['png', 'jpg', 'jpeg'])
 
     if raw_file and template_file:
         df = pd.read_excel(raw_file)
         df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
         df.columns = df.columns.str.strip().str.upper()
         headers = list(df.columns)
+        
+        media_dict = {f.name: f for f in media_files} if media_files else {}
         
         if "TRADE AREA" not in df.columns or "SITE NAME" not in df.columns:
             st.error("ERROR: Raw data must contain exactly 'TRADE AREA' and 'SITE NAME' columns.")
@@ -188,11 +213,22 @@ if mode == "Create New Reports":
                                                 for ph, header in mapping.items():
                                                     target = f"{{{{{ph}}}}}"
                                                     if target in new_val:
-                                                        val_str = format_injected_value(ph, header, row.get(header))
+                                                        raw_data_val = row.get(header)
+                                                        
+                                                        # Check if this is an image file path
+                                                        is_image = inject_image_if_matched(new_sheet, cell.coordinate, raw_data_val, media_dict)
+                                                        
+                                                        if is_image:
+                                                            # If it was an image, we clear the text
+                                                            val_str = ""
+                                                        else:
+                                                            # Otherwise format as normal text
+                                                            val_str = format_injected_value(ph, header, raw_data_val)
+                                                        
                                                         new_val = new_val.replace(target, val_str)
                                                         if val_str.strip() != "": has_injected = True
                                                 
-                                                cell.value = new_val
+                                                cell.value = new_val.strip() if new_val else ""
                                                 if has_injected:
                                                     cell.fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
                                                     
@@ -221,14 +257,15 @@ elif mode == "Edit / Update Existing Reports":
     raw_file = st.file_uploader("1. Upload New Raw Data (Excel)", type=["xlsx", "xls"], key="edit_raw")
     existing_wbs = st.file_uploader("2. Upload Existing Trade Area Workbooks", type=["xlsx"], accept_multiple_files=True, key="edit_wbs")
     template_file = st.file_uploader("3. Upload Excel Template (For Coordinates)", type=["xlsx"], key="edit_temp")
-    # Optional image uploader just to satisfy the discovery pass gatekeeper for future expansion
-    photos = st.file_uploader("4. Upload Photos/Docs (Optional)", accept_multiple_files=True, key="edit_photos")
+    media_files = st.file_uploader("4. Upload Photos/Docs (Optional)", accept_multiple_files=True, key="edit_media", type=['png', 'jpg', 'jpeg'])
 
     if raw_file and template_file and existing_wbs:
         df = pd.read_excel(raw_file)
         df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
         df.columns = df.columns.str.strip().str.upper()
         headers = list(df.columns)
+        
+        media_dict = {f.name: f for f in media_files} if media_files else {}
         
         if "TRADE AREA" not in df.columns or "SITE NAME" not in df.columns or "SITE ID" not in df.columns:
             st.error("ERROR: Raw data must contain 'TRADE AREA', 'SITE NAME', and 'SITE ID' columns.")
@@ -239,7 +276,7 @@ elif mode == "Edit / Update Existing Reports":
         🔍 **DISCOVERY PASSED:**
         ✅ Detected {len(existing_wbs)} Trade Area Workbooks
         ✅ Detected {len(df)} New Site Rows in Data Sheet
-        📸 Detected {len(photos) if photos else 0} Media Files matching SITE IDs
+        📸 Detected {len(media_dict)} Media Files
         
         *Proceed to configure injection below.*
         """)
@@ -248,17 +285,14 @@ elif mode == "Edit / Update Existing Reports":
         template_wb = openpyxl.load_workbook(template_file)
         template_sheet = template_wb.active
         placeholders = get_placeholders(template_sheet)
-        ph_coords = get_placeholder_coords(template_sheet) # The secret weapon for existing files
+        ph_coords = get_placeholder_coords(template_sheet) 
 
         st.markdown("### Selective Injection Mapping")
-        st.markdown("Check the box next to the fields you want to overwrite. Unchecked fields will preserve existing data.")
         
         active_mapping = {}
         for ph in placeholders:
             match = difflib.get_close_matches(ph, headers, n=1, cutoff=0.3)
             default_index = headers.index(match[0]) if match else 0
-            if ph in ["STREET", "BARANGAY", "CITY", "REGION", "POSTAL"] and "LOCATION/ADDRESS" in headers:
-                default_index = headers.index("LOCATION/ADDRESS")
             
             col1, col2, col3 = st.columns([0.5, 1, 2])
             with col1: update_check = st.checkbox(f"Update", key=f"chk_{ph}", value=False)
@@ -286,16 +320,10 @@ elif mode == "Edit / Update Existing Reports":
                     
                     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
                         processed_count = 0
-                        
-                        # Loop through the uploaded existing workbooks
                         for wb_name, file_obj in existing_files_dict.items():
                             status_text.text(f"Injecting into: {wb_name}...")
-                            
-                            # Reconstruct the Trade Area name from the filename to filter rows
                             ta_from_filename = wb_name.replace(".xlsx", "")
                             
-                            # Try to find matching rows in data (handling the replace logic we did earlier)
-                            # A simple way is to iterate over grouped df
                             matched_group = None
                             for ta, group in df.groupby("TRADE AREA"):
                                 safe_ta = str(ta).replace("/", "-").replace("\\", "-")
@@ -307,10 +335,7 @@ elif mode == "Edit / Update Existing Reports":
                                 wb = openpyxl.load_workbook(file_obj)
                                 
                                 for _, row in matched_group.iterrows():
-                                    # Use the sanitize logic to predict what the tab name would be
-                                    # Since we don't know duplicate state easily, we check if base name exists
                                     clean_name = re.sub(r'[\\/*?\[\]:]', '', str(row["SITE NAME"]))[:31]
-                                    
                                     target_sheet = None
                                     for sheet_name in wb.sheetnames:
                                         if sheet_name.startswith(clean_name):
@@ -318,14 +343,21 @@ elif mode == "Edit / Update Existing Reports":
                                             break
                                             
                                     if target_sheet:
-                                        # Inject ONLY mapped and checked coordinates
                                         for ph, header in active_mapping.items():
-                                            val_str = format_injected_value(ph, header, row.get(header))
+                                            raw_data_val = row.get(header)
                                             coords = ph_coords.get(ph, [])
+                                            
                                             for coord in coords:
-                                                target_sheet[coord].value = val_str
-                                                if val_str.strip() != "":
-                                                    target_sheet[coord].fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
+                                                # Check if Image
+                                                is_image = inject_image_if_matched(target_sheet, coord, raw_data_val, media_dict)
+                                                
+                                                if is_image:
+                                                    target_sheet[coord].value = "" # Clear text if image placed
+                                                else:
+                                                    val_str = format_injected_value(ph, header, raw_data_val)
+                                                    target_sheet[coord].value = val_str
+                                                    if val_str.strip() != "":
+                                                        target_sheet[coord].fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
 
                                 wb_buffer = io.BytesIO()
                                 wb.save(wb_buffer)
