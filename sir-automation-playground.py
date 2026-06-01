@@ -294,14 +294,22 @@ elif mode == "Edit / Update Existing Reports":
             match = difflib.get_close_matches(ph, headers, n=1, cutoff=0.3)
             default_index = headers.index(match[0]) if match else 0
             
-            col1, col2, col3 = st.columns([0.5, 1, 2])
+            # UPGRADE: Added an extra column for the Source toggle (From Column vs Custom Value)
+            col1, col2, col3, col4 = st.columns([0.5, 1, 1, 1.5])
             with col1: update_check = st.checkbox(f"Update", key=f"chk_{ph}", value=False)
             with col2: st.markdown(f"**{{{{{ph}}}}}**")
             with col3: 
-                mapped_header = st.selectbox("Map to column:", headers, index=default_index, key=f"map_edit_{ph}", label_visibility="collapsed", disabled=not update_check)
+                input_type = st.selectbox("Source", ["From Column", "Custom Value"], key=f"type_{ph}", label_visibility="collapsed", disabled=not update_check)
+            with col4: 
+                if input_type == "From Column":
+                    mapped_val = st.selectbox("Map to column:", headers, index=default_index, key=f"map_edit_{ph}", label_visibility="collapsed", disabled=not update_check)
+                else:
+                    # If "Custom Value" is selected, show a text input box instead!
+                    mapped_val = st.text_input("Enter global value:", placeholder="e.g., June 1, 2026", key=f"custom_edit_{ph}", label_visibility="collapsed", disabled=not update_check)
             
             if update_check:
-                active_mapping[ph] = mapped_header
+                # Store both the type (Column vs Custom) and the actual value/header
+                active_mapping[ph] = {"type": input_type, "value": mapped_val}
 
         st.divider()
         action_placeholder = st.empty()
@@ -343,8 +351,16 @@ elif mode == "Edit / Update Existing Reports":
                                             break
                                             
                                     if target_sheet:
-                                        for ph, header in active_mapping.items():
-                                            raw_data_val = row.get(header)
+                                        for ph, mapping_data in active_mapping.items():
+                                            input_type = mapping_data["type"]
+                                            mapped_val = mapping_data["value"]
+                                            
+                                            # UPGRADE: Decide where the data comes from based on the dropdown
+                                            if input_type == "From Column":
+                                                raw_data_val = row.get(mapped_val)
+                                            else:
+                                                raw_data_val = mapped_val # The global manual text input!
+
                                             coords = ph_coords.get(ph, [])
                                             
                                             for coord in coords:
@@ -354,7 +370,10 @@ elif mode == "Edit / Update Existing Reports":
                                                 if is_image:
                                                     target_sheet[coord].value = "" # Clear text if image placed
                                                 else:
-                                                    val_str = format_injected_value(ph, header, raw_data_val)
+                                                    # Use 'ph' string as header check for date formatting fallback
+                                                    header_name = mapped_val if input_type == "From Column" else ph
+                                                    val_str = format_injected_value(ph, header_name, raw_data_val)
+                                                    
                                                     target_sheet[coord].value = val_str
                                                     if val_str.strip() != "":
                                                         target_sheet[coord].fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
