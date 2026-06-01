@@ -63,10 +63,9 @@ def format_with_mask(val, mask_pattern, placeholder_name):
         return ""
     
     try:
-        # Check if incoming value can be treated as a pure float calculation target
         num_val = float(val) if isinstance(val, (int, float, str)) and re.match(r'^-?\d+(\.\d+)?$', str(val).strip()) else None
         
-        # --- NUMERIC & SPREADSHEET MASK SUITES ---
+        # --- EXCEL COMPATIBLE CORE MASKS ---
         if mask_pattern == "NUMBER" and num_val is not None:
             return f"{num_val:,.2f}"
         elif mask_pattern == "SCIENTIFIC" and num_val is not None:
@@ -87,7 +86,7 @@ def format_with_mask(val, mask_pattern, placeholder_name):
             factor = 1 if num_val > 1 or "%" in str(val) else 100
             return f"{num_val * factor:.2f}%"
             
-        # --- TIME & DATE SPECS ---
+        # --- TIMELINE TRANSFORMS ---
         elif mask_pattern == "DATE_SHORT":
             return pd.to_datetime(val).strftime("%m/%d/%Y")
         elif mask_pattern == "TIME_STANDARD":
@@ -103,7 +102,7 @@ def format_with_mask(val, mask_pattern, placeholder_name):
     except Exception:
         pass
         
-    # --- STRING GEOLOCATION TOKEN SEGMENTATION ---
+    # --- GEOLOCATION DECONSTRUCTION RUNTIMES ---
     if isinstance(val, str):
         if mask_pattern == "STREET_SEGMENT":
             p = [part.strip() for part in val.split(",")]
@@ -122,6 +121,31 @@ def format_with_mask(val, mask_pattern, placeholder_name):
             return p[len(p) - 2] if len(p) >= 2 else ""
             
     return str(val)
+
+def generate_mock_value(mask_key):
+    """Generates a dynamic baseline sample string to drive the real-time UI preview engine."""
+    mock_registry = {
+        "TEXT": "PRIME Philippines Core Workspace",
+        "NUMBER": "1250.75",
+        "PERCENT": "0.885",
+        "SCIENTIFIC": "4520000",
+        "ACCOUNTING": "7500.50",
+        "FINANCIAL": "-1500.25",
+        "CURRENCY_USD": "5200.50",
+        "CURRENCY_USD_ROUND": "5200.50",
+        "CURRENCY_PHP": "85400.65",
+        "CURRENCY_PHP_ROUND": "85400.65",
+        "DATE_SHORT": "2026-06-01 17:00:00",
+        "TIME_STANDARD": "2026-06-01 17:00:00",
+        "DATE_TIME_FULL": "2026-06-01 17:00:00",
+        "%B %d, %Y": "2026-06-01 17:00:00",
+        "%d %b %Y": "2026-06-01 17:00:00",
+        "%Y-%m-%d": "2026-06-01 17:00:00",
+        "STREET_SEGMENT": "Suite 401, Fortune Building, Pasig, Metro Manila, 1600, Philippines",
+        "BARANGAY_SEGMENT": "Suite 401, Fortune Building, Pasig, Metro Manila, 1600, Philippines",
+        "CITY_SEGMENT": "Suite 401, Fortune Building, Pasig, Metro Manila, 1600, Philippines"
+    }
+    return mock_registry.get(mask_key, "Sample String Value")
 
 def inject_image_calibrated(target_sheet, cell_coord, file_path_str, media_dict, max_size, col_offset, row_offset):
     """Injects an image applying explicit width constraints and positional cell anchors."""
@@ -155,10 +179,8 @@ def validate_public_url(url_string):
     """Executes a network validation pass to guarantee remote assets are accessible."""
     if not url_string or not isinstance(url_string, str):
         return False, "Invalid URL input parameters."
-    
     if "drive.google.com" in url_string or "onedrive.live.com" in url_string or "sharepoint.com" in url_string:
-        return True, "Cloud Target Directory endpoint mapped successfully."
-        
+        return True, "Cloud Storage directory endpoint detected."
     if not (url_string.startswith("http://") or url_string.startswith("https://")):
         return False, "Missing target protocol header (http/https)."
     try:
@@ -171,22 +193,20 @@ def validate_public_url(url_string):
         return False, f"Network Handshake Failure: {str(e)}"
 
 def resolve_file_source(uploader_obj, link_str):
-    """Unified engine routing data from local storage blocks or remote cloud URL folder api endpoints."""
+    """Unified engine routing data from local storage blocks or remote URL streams."""
     if uploader_obj is not None:
         return uploader_obj
         
     if link_str and link_str.strip():
         url = link_str.strip()
         
-        # --- NATIVE CLOUD SCANNER TRANSLATION INTERCEPTS ---
         if "drive.google.com" in url:
             file_match = re.search(r'/d/([a-zA-Z0-9-_]+)', url)
             if file_match:
                 file_id = file_match.group(1)
                 url = f"https://docs.google.com/uc?export=download&id={file_id}"
             else:
-                st.info("📂 Mapping live Google Drive directory file tracking indexes...")
-
+                st.info("📂 Mapping live cloud folder indexing vectors...")
         elif "onedrive.live.com" in url:
             url = url.replace("redir?", "download?").replace("1drv.ms", "1drv.ms/u")
 
@@ -217,27 +237,27 @@ st.title("Site Information Report")
 mode = st.radio("Select Workflow Mode:", ["Create New Reports", "Edit / Update Existing Reports"], horizontal=True)
 st.divider()
 
-# --- DISCOVER GLOBAL MASK TOOLSET DICTIONARY ---
-GLOBAL_SPREADSHEET_MASKS = {
+# --- HUMAN READABLE SHEET MASK LOOKUPS ---
+HUMAN_SPREADSHEET_MASKS = {
     "Plain text": "TEXT",
-    "Number: 1,000.12": "NUMBER",
-    "Percent: 10.12%": "PERCENT",
-    "Scientific: 1.01E+03": "SCIENTIFIC",
-    "Accounting: $ (1,000.12)": "ACCOUNTING",
-    "Financial: (1,000.12)": "FINANCIAL",
-    "Currency: $1,000.12": "CURRENCY_USD",
-    "Currency rounded: $1,000": "CURRENCY_USD_ROUND",
-    "Date: 9/26/2008": "DATE_SHORT",
-    "Time: 3:59:00 PM": "TIME_STANDARD",
-    "Date time: 9/26/2008 15:59:00": "DATE_TIME_FULL",
-    "Philippine Peso: ₱1,000.12": "CURRENCY_PHP",
-    "Philippine Peso Rounded: ₱1,000": "CURRENCY_PHP_ROUND",
-    "September 26, 2008": "%B %d, %Y",
-    "Sep 26, 2008": "%d %b %Y",
-    "YYYY-MM-DD": "%Y-%m-%d",
-    "Address: Street Segment": "STREET_SEGMENT",
-    "Address: Barangay Segment": "BARANGAY_SEGMENT",
-    "Address: City Segment": "CITY_SEGMENT"
+    "Number (1,000.12)": "NUMBER",
+    "Percentage (10.12%)": "PERCENT",
+    "Scientific (1.01E+03)": "SCIENTIFIC",
+    "Accounting ($ 1,000.12)": "ACCOUNTING",
+    "Financial (1,000.12)": "FINANCIAL",
+    "Currency ($1,000.12)": "CURRENCY_USD",
+    "Currency Rounded ($1,000)": "CURRENCY_USD_ROUND",
+    "Philippine Peso (₱1,000.12)": "CURRENCY_PHP",
+    "Philippine Peso Rounded (₱1,000)": "CURRENCY_PHP_ROUND",
+    "Date (06/01/2026)": "DATE_SHORT",
+    "Time (05:00:00 PM)": "TIME_STANDARD",
+    "Date & Time Full": "DATE_TIME_FULL",
+    "Date: June 01, 2026": "%B %d, %Y",
+    "Date: 01 Jun 26": "%d %b %Y",
+    "Date: YYYY-MM-DD": "%Y-%m-%d",
+    "Address: Extract Street": "STREET_SEGMENT",
+    "Address: Extract Barangay": "BARANGAY_SEGMENT",
+    "Address: Extract City": "CITY_SEGMENT"
 }
 
 # ==========================================
@@ -279,7 +299,7 @@ if mode == "Create New Reports":
                 media_files = st.file_uploader("Upload Images A", accept_multiple_files=True, key="new_media", type=['png', 'jpg', 'jpeg'], label_visibility="collapsed")
                 media_url = None
             else:
-                media_url = st.text_input("Cloud Folder/Link Target URL A", placeholder="Paste Google Drive or OneDrive Shared Folder Link", key="new_media_url", label_visibility="collapsed")
+                media_url = st.text_input("Cloud Drive Directory Link URL A", placeholder="Paste Google Drive or OneDrive Shared Folder Link", key="new_media_url", label_visibility="collapsed")
                 media_files = None
 
     with m_row2_col2:
@@ -334,9 +354,24 @@ if mode == "Create New Reports":
                     with col2: 
                         sel_col = st.selectbox("Map to column:", headers, index=default_index, key=f"map_{ph}", label_visibility="collapsed")
                     with col3:
-                        sel_mask = st.selectbox("Format Mask Layout", list(GLOBAL_SPREADSHEET_MASKS.keys()), index=0, key=f"mask_{ph}", label_visibility="collapsed")
+                        sel_mask = st.selectbox("Format Mask Layout", list(HUMAN_SPREADSHEET_MASKS.keys()), index=0, key=f"mask_{ph}", label_visibility="collapsed")
                     
-                    mapping[ph] = {"column": sel_col, "mask": GLOBAL_SPREADSHEET_MASKS[sel_mask]}
+                    # --- NATIVE MODE A INTERACTIVE REAL-TIME LIVE PREVIEW RENDER ---
+                    mask_id = HUMAN_SPREADSHEET_MASKS[sel_mask]
+                    mock_seed = generate_mock_value(mask_id)
+                    evaluated_preview = format_with_mask(mock_seed, mask_id, ph)
+                    
+                    # Double Column Split Layer for clean alignment spacing
+                    pv_1, pv_2 = st.columns([1, 2])
+                    with pv_1:
+                        st.markdown(f"    ↳ `<small>Live Output Visual:</small>`", unsafe_allow_html=True)
+                    with pv_2:
+                        st.markdown(f"`{evaluated_preview}`")
+                    
+                    # Tiny Opacity Source Trace Footprint Tags
+                    st.markdown(f"<div style='text-align: right; opacity: 0.35; font-size: 10px; font-weight: bold;'>[Source Column: {sel_col}] ──► [Injected Token Var: {{{{ {ph} }}}}]</div>", unsafe_allow_html=True)
+                    
+                    mapping[ph] = {"column": sel_col, "mask": mask_id}
             
             st.divider()
             st.markdown("### Select Trade Areas")
@@ -564,7 +599,7 @@ elif mode == "Edit / Update Existing Reports":
 
                 m1, m2 = st.columns([1, 2])
                 with m1:
-                    sel_mask = st.selectbox("Data Formatting Mask Style", list(GLOBAL_SPREADSHEET_MASKS.keys()), index=0, key=f"mask_edit_ui_{ph}", disabled=(not update_check or input_type=="Image/Media Asset"))
+                    sel_mask = st.selectbox("Data Formatting Mask Style", list(HUMAN_SPREADSHEET_MASKS.keys()), index=0, key=f"mask_edit_ui_{ph}", disabled=(not update_check or input_type=="Image/Media Asset"))
                 
                 with m2:
                     if input_type == "Image/Media Asset" and update_check:
@@ -586,11 +621,31 @@ elif mode == "Edit / Update Existing Reports":
                     else:
                         img_size, col_off, row_off = 180, 0, 0
 
+                # --- NATIVE MODE B INTERACTIVE REAL-TIME LIVE PREVIEW RENDER ---
+                if update_check:
+                    mask_id = HUMAN_SPREADSHEET_MASKS[sel_mask]
+                    if input_type == "Image/Media Asset":
+                        evaluated_preview = f"[Image Asset File Stream Loaded ──► Envelope Scale Bound to: {img_size}px]"
+                    else:
+                        mock_seed = generate_mock_value(mask_id) if input_type == "From Column" else mapped_val
+                        evaluated_preview = format_with_mask(mock_seed, mask_id, ph)
+                    
+                    # Split alignment container layout row block
+                    p_col1, p_col2 = st.columns([1, 2])
+                    with p_col1:
+                        st.markdown(f"    ↳ `<small>Live Output Visual:</small>`", unsafe_allow_html=True)
+                    with p_col2:
+                        st.markdown(f"`{evaluated_preview}`")
+
+                # Tiny Opacity Source Trace Footprint Tags
+                data_origin_label = mapped_val if update_check else "None Assigned"
+                st.markdown(f"<div style='text-align: right; opacity: 0.35; font-size: 10px; font-weight: bold;'>[Source: {data_origin_label}] ──► [Injected Token Var: {{{{ {ph} }}}}]</div>", unsafe_allow_html=True)
+
             if update_check:
                 active_mapping[ph] = {
                     "type": input_type, 
                     "value": mapped_val, 
-                    "mask": GLOBAL_SPREADSHEET_MASKS[sel_mask],
+                    "mask": HUMAN_SPREADSHEET_MASKS[sel_mask],
                     "img_size": img_size,
                     "col_offset": col_off,
                     "row_offset": row_off
