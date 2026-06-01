@@ -125,7 +125,6 @@ def validate_public_url(url_string):
     if not (url_string.startswith("http://") or url_string.startswith("https://")):
         return False, "Missing target protocol header (http/https)."
     try:
-        # Avoid downloading giant binary payloads during evaluation passes
         response = requests.head(url_string, allow_redirects=True, timeout=5)
         if response.status_code == 200:
             return True, "URL confirmed public and responding cleanly (Status 200)."
@@ -144,7 +143,7 @@ def resolve_file_source(uploader_obj, link_str, expected_ext=None):
     """Unified engine routing data from local storage blocks or remote URL streams."""
     if uploader_obj is not None:
         return uploader_obj
-    if link_str.strip():
+    if link_str and link_str.strip():
         is_valid, msg = validate_public_url(link_str.strip())
         if is_valid:
             try:
@@ -155,6 +154,14 @@ def resolve_file_source(uploader_obj, link_str, expected_ext=None):
         else:
             st.error(f"Asset access validation rejected: {msg}")
     return None
+
+class StreamWrapper:
+    """Wraps memory blocks into an object mimicking Streamlit file uploader properties."""
+    def __init__(self, data, filename):
+        self.data = data
+        self.name = filename
+    def getvalue(self): 
+        return self.data
 
 # --- SESSION STATE INITIALIZATION ---
 if "zip_data" not in st.session_state: st.session_state.zip_data = None
@@ -170,30 +177,74 @@ st.divider()
 # MODE A: CREATE NEW REPORTS
 # ==========================================
 if mode == "Create New Reports":
-    st.markdown("### Upload Files or Provide Remote URLs")
+    st.markdown("### Upload Files & Data Targets")
     
-    # Unified Ingestion Blocks (Upload vs URL Options)
-    rc1, rc2 = st.columns([1.5, 2])
-    with rc1: raw_file = st.file_uploader("Upload Raw Data (Excel)", type=["xlsx", "xls"], key="new_raw")
-    with rc2: raw_url = st.text_input("Or input Raw Data HTTPS Link:", placeholder="https://example.com/data.xlsx", key="new_raw_url")
+    # Grid initialization for Mode A
+    m_row1_col1, m_row1_col2 = st.columns(2)
+    m_row2_col1, m_row2_col2 = st.columns(2)
     
-    tc1, tc2 = st.columns([1.5, 2])
-    with tc1: template_file = st.file_uploader("Upload Excel Template", type=["xlsx"], key="new_temp")
-    with tc2: template_url = st.text_input("Or input Template HTTPS Link:", placeholder="https://example.com/template.xlsx", key="new_temp_url")
-    
-    media_files = st.file_uploader("Upload Photos/Docs (Optional)", accept_multiple_files=True, key="new_media", type=['png', 'jpg', 'jpeg'])
+    with m_row1_col1:
+        with st.container(border=True):
+            st.markdown("📊 **1. New Raw Data**")
+            mode_a_type_1 = st.segmented_control("Source Type A1", ["File Upload", "Remote Link"], default="File Upload", key="mode_a_type_1", label_visibility="collapsed")
+            if mode_a_type_1 == "File Upload":
+                raw_file = st.file_uploader("Upload Data Sheet A", type=["xlsx", "xls"], key="new_raw", label_visibility="collapsed")
+                raw_url = None
+            else:
+                raw_url = st.text_input("Data Link URL A", placeholder="https://example.com/data.xlsx", key="new_raw_url", label_visibility="collapsed")
+                raw_file = None
 
-    # File Stream Resolution Layer
+    with m_row1_col2:
+        with st.container(border=True):
+            st.markdown("📐 **2. Excel Template**")
+            mode_a_type_2 = st.segmented_control("Source Type A2", ["File Upload", "Remote Link"], default="File Upload", key="mode_a_type_2", label_visibility="collapsed")
+            if mode_a_type_2 == "File Upload":
+                template_file = st.file_uploader("Upload Template File A", type=["xlsx"], key="new_temp", label_visibility="collapsed")
+                template_url = None
+            else:
+                template_url = st.text_input("Template URL A", placeholder="https://example.com/template.xlsx", key="new_temp_url", label_visibility="collapsed")
+                template_file = None
+
+    with m_row2_col1:
+        with st.container(border=True):
+            st.markdown("📸 **3. Photos / Docs (Optional)**")
+            mode_a_type_3 = st.segmented_control("Source Type A3", ["File Upload", "Remote Link"], default="File Upload", key="mode_a_type_3", label_visibility="collapsed")
+            if mode_a_type_3 == "File Upload":
+                media_files = st.file_uploader("Upload Images A", accept_multiple_files=True, key="new_media", type=['png', 'jpg', 'jpeg'], label_visibility="collapsed")
+                media_url = None
+            else:
+                media_url = st.text_input("Media Archive URL A", placeholder="https://example.com/photos.zip", key="new_media_url", label_visibility="collapsed")
+                media_files = None
+
+    # Keep layout symmetrical with empty space filler block
+    with m_row2_col2:
+        st.empty()
+
+    # File Stream Resolution Layer Mode A
     resolved_raw = resolve_file_source(raw_file, raw_url)
     resolved_template = resolve_file_source(template_file, template_url)
+
+    # Process media folder references from URLs or local listings
+    media_dict = {}
+    if media_files:
+        media_dict = {f.name: f for f in media_files}
+    elif media_url and media_url.strip():
+        resolved_media_zip = resolve_file_source(None, media_url)
+        if resolved_media_zip:
+            try:
+                with zipfile.ZipFile(resolved_media_zip) as z:
+                    for name in z.namelist():
+                        if any(ext in name.lower() for ext in ['.png', '.jpg', '.jpeg']) and not name.split('/')[-1].startswith('.'):
+                            clean_name = name.split('/')[-1]
+                            media_dict[clean_name] = StreamWrapper(z.read(name), clean_name)
+            except Exception as e:
+                st.error(f"Failed to unpack remote media assets: {str(e)}")
 
     if resolved_raw and resolved_template:
         df = pd.read_excel(resolved_raw)
         df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
         df.columns = df.columns.str.strip().str.upper()
         headers = list(df.columns)
-        
-        media_dict = {f.name: f for f in media_files} if media_files else {}
         
         if "TRADE AREA" not in df.columns or "SITE NAME" not in df.columns:
             st.error("ERROR: Raw data must contain exactly 'TRADE AREA' and 'SITE NAME' columns.")
@@ -214,14 +265,12 @@ if mode == "Create New Reports":
                 if ph in ["STREET", "BARANGAY", "CITY", "REGION", "POSTAL"] and "LOCATION/ADDRESS" in headers:
                     default_index = headers.index("LOCATION/ADDRESS")
                 
-                # Expose specific mask controls to override internal guesswork
                 with st.container(border=True):
                     col1, col2, col3 = st.columns([1, 1.2, 1.2])
                     with col1: st.markdown(f"**{{{{{ph}}}}}**")
                     with col2: 
                         sel_col = st.selectbox("Map to column:", headers, index=default_index, key=f"map_{ph}", label_visibility="collapsed")
                     with col3:
-                        # Mask Selector Tooling
                         mask_opts = {
                             "Standard / Plain Text": "TEXT",
                             "Date: Month DD, YYYY": "%B %d, %Y",
@@ -277,8 +326,6 @@ if mode == "Create New Reports":
                                 status_text.text(f"Processing: {trade_area}...")
                                 if isinstance(resolved_template, io.BytesIO):
                                     resolved_template.seek(0)
-                                else:
-                                    template_file.seek(0)
                                 wb = openpyxl.load_workbook(resolved_template if isinstance(resolved_template, io.BytesIO) else template_file)
                                 base_sheet = wb.active
                                 base_sheet.title = "TEMPLATE_TO_DELETE"
@@ -302,7 +349,6 @@ if mode == "Create New Reports":
                                                         mask_patt = map_conf["mask"]
                                                         raw_data_val = row.get(header)
                                                         
-                                                        # Image handler checks
                                                         is_image = inject_image_calibrated(new_sheet, cell.coordinate, raw_data_val, media_dict, max_size=180, col_offset=0, row_offset=0)
                                                         
                                                         if is_image:
@@ -340,28 +386,93 @@ if mode == "Create New Reports":
 elif mode == "Edit / Update Existing Reports":
     st.markdown("### Upload Workbooks & Data Targets")
     
-    # Multi-path Link and Input Pipeline Array
-    eb1, eb2 = st.columns([1.5, 2])
-    with eb1: edit_raw_file = st.file_uploader("1. Upload New Raw Data (Excel)", type=["xlsx", "xls"], key="edit_raw")
-    with eb2: edit_raw_url = st.text_input("Or raw data remote link URL:", placeholder="https://example.com/new_data.xlsx", key="edit_raw_url")
+    # 2x2 grid structure initialization for Mode B
+    row1_col1, row1_col2 = st.columns(2)
+    row2_col1, row2_col2 = st.columns(2)
     
-    tb1, tb2 = st.columns([1.5, 2])
-    with tb1: edit_temp_file = st.file_uploader("3. Upload Excel Template (For Coordinates)", type=["xlsx"], key="edit_temp")
-    with tb2: edit_temp_url = st.text_input("Or template remote link URL:", placeholder="https://example.com/coords_template.xlsx", key="edit_temp_url")
-    
-    existing_wbs = st.file_uploader("2. Upload Existing Trade Area Workbooks", type=["xlsx"], accept_multiple_files=True, key="edit_wbs")
-    media_files = st.file_uploader("4. Upload Photos/Docs (Optional)", accept_multiple_files=True, key="edit_media", type=['png', 'jpg', 'jpeg'])
+    with row1_col1:
+        with st.container(border=True):
+            st.markdown("📊 **1. New Raw Data**")
+            src_type_1 = st.segmented_control("Source Type 1", ["File Upload", "Remote Link"], default="File Upload", key="src_type_1", label_visibility="collapsed")
+            if src_type_1 == "File Upload":
+                edit_raw_file = st.file_uploader("Upload Data Sheet", type=["xlsx", "xls"], key="edit_raw", label_visibility="collapsed")
+                edit_raw_url = None
+            else:
+                edit_raw_url = st.text_input("Data Link URL", placeholder="https://example.com/new_data.xlsx", key="edit_raw_url", label_visibility="collapsed")
+                edit_raw_file = None
 
+    with row1_col2:
+        with st.container(border=True):
+            st.markdown("🗂️ **2. Existing Trade Area Workbooks**")
+            src_type_2 = st.segmented_control("Source Type 2", ["File Upload", "Remote Link"], default="File Upload", key="src_type_2", label_visibility="collapsed")
+            if src_type_2 == "File Upload":
+                existing_wbs_raw = st.file_uploader("Upload Existing Sheets", type=["xlsx"], accept_multiple_files=True, key="edit_wbs", label_visibility="collapsed")
+                existing_wbs_url = None
+            else:
+                existing_wbs_url = st.text_input("Workbook Zip/File URL", placeholder="https://example.com/workbooks.zip", key="edit_wbs_url", label_visibility="collapsed")
+                existing_wbs_raw = None
+
+    with row2_col1:
+        with st.container(border=True):
+            st.markdown("📐 **3. Excel Template (For Coordinates)**")
+            src_type_3 = st.segmented_control("Source Type 3", ["File Upload", "Remote Link"], default="File Upload", key="src_type_3", label_visibility="collapsed")
+            if src_type_3 == "File Upload":
+                edit_temp_file = st.file_uploader("Upload Coordinate Template", type=["xlsx"], key="edit_temp", label_visibility="collapsed")
+                edit_temp_url = None
+            else:
+                edit_temp_url = st.text_input("Template URL", placeholder="https://example.com/template.xlsx", key="edit_temp_url", label_visibility="collapsed")
+                edit_temp_file = None
+
+    with row2_col2:
+        with st.container(border=True):
+            st.markdown("📸 **4. Photos / Docs (Optional)**")
+            src_type_4 = st.segmented_control("Source Type 4", ["File Upload", "Remote Link"], default="File Upload", key="src_type_4", label_visibility="collapsed")
+            if src_type_4 == "File Upload":
+                media_files = st.file_uploader("Upload Images", accept_multiple_files=True, key="edit_media", type=['png', 'jpg', 'jpeg'], label_visibility="collapsed")
+                media_url = None
+            else:
+                media_url = st.text_input("Media Archive URL", placeholder="https://example.com/photos.zip", key="edit_media_url", label_visibility="collapsed")
+                media_files = None
+
+    # Pipeline Routing Engine
     resolved_edit_raw = resolve_file_source(edit_raw_file, edit_raw_url)
     resolved_edit_temp = resolve_file_source(edit_temp_file, edit_temp_url)
+    
+    existing_wbs = []
+    if existing_wbs_raw:
+        existing_wbs = existing_wbs_raw
+    elif existing_wbs_url and existing_wbs_url.strip():
+        resolved_wbs_zip = resolve_file_source(None, existing_wbs_url)
+        if resolved_wbs_zip:
+            try:
+                with zipfile.ZipFile(resolved_wbs_zip) as z:
+                    for name in z.namelist():
+                        if name.endswith('.xlsx') and not name.split('/')[-1].startswith('.'):
+                            existing_wbs.append(io.BytesIO(z.read(name)))
+                            existing_wbs[-1].name = name.split('/')[-1]
+            except Exception as e:
+                st.error(f"Failed to unpack remote workbook package: {str(e)}")
+
+    media_dict = {}
+    if media_files:
+        media_dict = {f.name: f for f in media_files}
+    elif media_url and media_url.strip():
+        resolved_media_zip = resolve_file_source(None, media_url)
+        if resolved_media_zip:
+            try:
+                with zipfile.ZipFile(resolved_media_zip) as z:
+                    for name in z.namelist():
+                        if any(ext in name.lower() for ext in ['.png', '.jpg', '.jpeg']) and not name.split('/')[-1].startswith('.'):
+                            clean_name = name.split('/')[-1]
+                            media_dict[clean_name] = StreamWrapper(z.read(name), clean_name)
+            except Exception as e:
+                st.error(f"Failed to unpack remote zip media: {str(e)}")
 
     if resolved_edit_raw and resolved_edit_temp and existing_wbs:
         df = pd.read_excel(resolved_edit_raw)
         df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
         df.columns = df.columns.str.strip().str.upper()
         headers = list(df.columns)
-        
-        media_dict = {f.name: f for f in media_files} if media_files else {}
         
         if "TRADE AREA" not in df.columns or "SITE NAME" not in df.columns or "SITE ID" not in df.columns:
             st.error("ERROR: Raw data must contain 'TRADE AREA', 'SITE NAME', and 'SITE ID' columns.")
@@ -401,7 +512,6 @@ elif mode == "Edit / Update Existing Reports":
                     else:
                         mapped_val = st.selectbox("Image reference column:", headers, index=default_index, key=f"image_edit_{ph}", label_visibility="collapsed", disabled=not update_check)
 
-                # Format Mask Integration Inside Mode B Panel
                 m1, m2 = st.columns([1, 2])
                 with m1:
                     mask_opts = {
@@ -415,7 +525,6 @@ elif mode == "Edit / Update Existing Reports":
                     }
                     sel_mask = st.selectbox("Data Formatting Mask Style", list(mask_opts.keys()), index=0, key=f"mask_edit_ui_{ph}", disabled=(not update_check or input_type=="Image/Media Asset"))
                 
-                # Inline Image Layout & Geometry Calibration Subpanel
                 with m2:
                     if input_type == "Image/Media Asset" and update_check:
                         with st.expander("🖼️ Media Layout & Geometry Calibration", expanded=False):
