@@ -294,7 +294,6 @@ elif mode == "Edit / Update Existing Reports":
             match = difflib.get_close_matches(ph, headers, n=1, cutoff=0.3)
             default_index = headers.index(match[0]) if match else 0
             
-            # UPGRADE: Added an extra column for the Source toggle (From Column vs Custom Value)
             col1, col2, col3, col4 = st.columns([0.5, 1, 1, 1.5])
             with col1: update_check = st.checkbox(f"Update", key=f"chk_{ph}", value=False)
             with col2: st.markdown(f"**{{{{{ph}}}}}**")
@@ -304,11 +303,9 @@ elif mode == "Edit / Update Existing Reports":
                 if input_type == "From Column":
                     mapped_val = st.selectbox("Map to column:", headers, index=default_index, key=f"map_edit_{ph}", label_visibility="collapsed", disabled=not update_check)
                 else:
-                    # If "Custom Value" is selected, show a text input box instead!
                     mapped_val = st.text_input("Enter global value:", placeholder="e.g., June 1, 2026", key=f"custom_edit_{ph}", label_visibility="collapsed", disabled=not update_check)
             
             if update_check:
-                # Store both the type (Column vs Custom) and the actual value/header
                 active_mapping[ph] = {"type": input_type, "value": mapped_val}
 
         st.divider()
@@ -326,51 +323,59 @@ elif mode == "Edit / Update Existing Reports":
                     zip_buffer = io.BytesIO()
                     existing_files_dict = {f.name: f for f in existing_wbs}
                     
+                    # --- ABSOLUTE FIX: SMART MATCHING ZIP FILE GENERATION ENGINE ---
                     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
                         processed_count = 0
+                        files_written = 0 # Track if we actually wrote anything
+                        
                         for wb_name, file_obj in existing_files_dict.items():
                             status_text.text(f"Injecting into: {wb_name}...")
-                            ta_from_filename = wb_name.replace(".xlsx", "")
+                            
+                            # Clean up filename for loose matching
+                            clean_filename = wb_name.replace(".xlsx", "").strip().upper()
                             
                             matched_group = None
                             for ta, group in df.groupby("TRADE AREA"):
-                                safe_ta = str(ta).replace("/", "-").replace("\\", "-")
-                                if safe_ta == ta_from_filename:
+                                safe_ta = str(ta).replace("/", "-").replace("\\", "-").strip().upper()
+                                
+                                # SMART MATCHING: Check if the Trade Area is a subset of the filename or vice versa
+                                if safe_ta in clean_filename or clean_filename in safe_ta:
                                     matched_group = group
                                     break
                                     
                             if matched_group is not None:
                                 wb = openpyxl.load_workbook(file_obj)
+                                sheet_updated = False
                                 
                                 for _, row in matched_group.iterrows():
-                                    clean_name = re.sub(r'[\\/*?\[\]:]', '', str(row["SITE NAME"]))[:31]
+                                    clean_name = re.sub(r'[\\/*?\[\]:]', '', str(row["SITE NAME"]))[:31].strip().upper()
                                     target_sheet = None
+                                    
+                                    # Loose tab name matching
                                     for sheet_name in wb.sheetnames:
-                                        if sheet_name.startswith(clean_name):
+                                        if sheet_name.strip().upper().startswith(clean_name):
                                             target_sheet = wb[sheet_name]
                                             break
                                             
                                     if target_sheet:
+                                        sheet_updated = True
                                         for ph, mapping_data in active_mapping.items():
                                             input_type = mapping_data["type"]
                                             mapped_val = mapping_data["value"]
                                             
-                                            # UPGRADE: Decide where the data comes from based on the dropdown
                                             if input_type == "From Column":
                                                 raw_data_val = row.get(mapped_val)
                                             else:
-                                                raw_data_val = mapped_val # The global manual text input!
+                                                raw_data_val = mapped_val
 
                                             coords = ph_coords.get(ph, [])
                                             
                                             for coord in coords:
-                                                # Check if Image
                                                 is_image = inject_image_if_matched(target_sheet, coord, raw_data_val, media_dict)
                                                 
                                                 if is_image:
-                                                    target_sheet[coord].value = "" # Clear text if image placed
+                                                    target_sheet[coord].value = "" 
                                                 else:
-                                                    # Use 'ph' string as header check for date formatting fallback
                                                     header_name = mapped_val if input_type == "From Column" else ph
                                                     val_str = format_injected_value(ph, header_name, raw_data_val)
                                                     
@@ -378,15 +383,23 @@ elif mode == "Edit / Update Existing Reports":
                                                     if val_str.strip() != "":
                                                         target_sheet[coord].fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
 
+                                # Save and append modified file to zip buffer
                                 wb_buffer = io.BytesIO()
                                 wb.save(wb_buffer)
                                 zip_file.writestr(wb_name, wb_buffer.getvalue())
+                                files_written += 1
                                 
                             processed_count += 1
                             progress_bar.progress(processed_count / len(existing_files_dict))
 
-                    st.session_state.zip_data = zip_buffer.getvalue()
-                    st.rerun()
+                    # Safety Check: If string matching failed completely, warn the user
+                    if files_written == 0:
+                        st.error("🚨 ERROR: No files were updated! Please verify that your 'TRADE AREA' data column text matches or is part of your uploaded workbook filenames.")
+                        st.session_state.zip_data = None
+                        st.stop()
+                    else:
+                        st.session_state.zip_data = zip_buffer.getvalue()
+                        st.rerun()
                     
         if st.session_state.zip_data is not None:
             st.success("Existing reports updated successfully!")
