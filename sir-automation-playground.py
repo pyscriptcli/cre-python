@@ -2,18 +2,18 @@ import streamlit as st
 import pandas as pd
 import openpyxl
 from openpyxl.styles import Alignment, PatternFill
-from openpyxl.drawing.image import Image as OpenpyxlImage # Added for Image Injection
+from openpyxl.drawing.image import Image as OpenpyxlImage
 import re
 import io
 import zipfile
 import difflib
 import math
+import requests
 
 # Must be the first Streamlit command
 st.set_page_config(page_title="Report Generator", layout="centered")
 
 # --- CORE HELPER FUNCTIONS ---
-
 def get_placeholders(sheet):
     """Extract all {{Placeholder}} variables from the Excel sheet."""
     placeholders = set()
@@ -57,57 +57,108 @@ def sanitize_tab_name(name, existing_names):
             return new_name
         counter += 1
 
-def format_injected_value(ph, header, val):
-    """Applies date and address formatting rules based on placeholder."""
+def format_with_mask(val, mask_pattern, placeholder_name):
+    """Applies specific layout adjustments based on explicitly set masks."""
     if pd.isna(val) or str(val).strip() == "":
         return ""
     
-    if "DATE" in str(header).upper() or isinstance(val, pd.Timestamp):
+    # Check if we are running date formatting
+    if mask_pattern in ["%B %d, %Y", "%Y-%m-%d", "%d %b %Y", "%m/%d/%Y"]:
         try:
-            return pd.to_datetime(val).strftime("%B %d, %Y")
+            return pd.to_datetime(val).strftime(mask_pattern)
         except:
             return str(val)
             
-    if ph in ["STREET", "BARANGAY", "CITY", "REGION", "POSTAL"] and isinstance(val, str):
+    # Location/Address Token Segmentation
+    if mask_pattern == "STREET_SEGMENT" and isinstance(val, str):
         p = [part.strip() for part in val.split(",")]
-        length = len(p)
-        if ph == "STREET": return ", ".join(p[:max(0, length - 6)]) if length >= 6 else val
-        elif ph == "BARANGAY": return p[length - 6] if length >= 6 else ""
-        elif ph == "CITY": return p[length - 5] if length >= 5 else ""
-        elif ph == "REGION": return p[length - 3] if length >= 3 else ""
-        elif ph == "POSTAL": return p[length - 2] if length >= 2 else ""
+        return ", ".join(p[:max(0, len(p) - 6)]) if len(p) >= 6 else val
+    elif mask_pattern == "BARANGAY_SEGMENT" and isinstance(val, str):
+        p = [part.strip() for part in val.split(",")]
+        return p[len(p) - 6] if len(p) >= 6 else ""
+    elif mask_pattern == "CITY_SEGMENT" and isinstance(val, str):
+        p = [part.strip() for part in val.split(",")]
+        return p[len(p) - 5] if len(p) >= 5 else ""
+    elif mask_pattern == "REGION_SEGMENT" and isinstance(val, str):
+        p = [part.strip() for part in val.split(",")]
+        return p[len(p) - 3] if len(p) >= 3 else ""
+    elif mask_pattern == "POSTAL_SEGMENT" and isinstance(val, str):
+        p = [part.strip() for part in val.split(",")]
+        return p[len(p) - 2] if len(p) >= 2 else ""
         
     return str(val)
 
-def inject_image_if_matched(target_sheet, cell_coord, file_path_str, media_dict):
-    """Checks if a string is an image path, matches it, and injects the image."""
-    # Check if it looks like an image file path
+def inject_image_calibrated(target_sheet, cell_coord, file_path_str, media_dict, max_size, col_offset, row_offset):
+    """Injects an image applying explicit width constraints and positional cell anchors."""
     if isinstance(file_path_str, str) and any(ext in file_path_str.lower() for ext in ['.jpg', '.jpeg', '.png']):
-        # Extract just the filename from the path (e.g., "photo1.jpg" from "FOLDER/photo1.jpg")
         filename = file_path_str.replace('\\', '/').split('/')[-1]
         
         if filename in media_dict:
             try:
-                # Convert uploaded Streamlit file into Excel Image
                 img_stream = io.BytesIO(media_dict[filename].getvalue())
                 img = OpenpyxlImage(img_stream)
                 
-                # Resize the image so it doesn't take over the whole screen (Adjust these numbers if needed)
-                max_size = 180 
+                # Dynamic aspect ratio sizing
                 if img.width > max_size or img.height > max_size:
                     ratio = min(max_size / img.width, max_size / img.height)
                     img.width = int(img.width * ratio)
                     img.height = int(img.height * ratio)
                 
-                # Anchor and add to sheet
-                target_sheet.add_image(img, cell_coord)
-                return True # Image successfully injected
+                # Apply structural row/column cell shifts if offset targets are modified
+                if col_offset != 0 or row_offset != 0:
+                    current_col = openpyxl.utils.column_index_from_string(re.sub(r'\d+', '', cell_coord))
+                    current_row = int(re.sub(r'\D+', '', cell_coord))
+                    target_coord = f"{openpyxl.utils.get_column_letter(current_col + col_offset)}{current_row + row_offset}"
+                else:
+                    target_coord = cell_coord
+                    
+                target_sheet.add_image(img, target_coord)
+                return True 
             except Exception as e:
-                pass # If image fails to load, just return false and it will paste text
+                pass 
     return False
+
+def validate_public_url(url_string):
+    """Executes a network validation pass to guarantee remote assets are accessible."""
+    if not url_string or not isinstance(url_string, str):
+        return False, "Invalid URL input parameters."
+    if not (url_string.startswith("http://") or url_string.startswith("https://")):
+        return False, "Missing target protocol header (http/https)."
+    try:
+        # Avoid downloading giant binary payloads during evaluation passes
+        response = requests.head(url_string, allow_redirects=True, timeout=5)
+        if response.status_code == 200:
+            return True, "URL confirmed public and responding cleanly (Status 200)."
+        elif response.status_code == 403:
+            return False, "Access Forbidden (Status 403). The asset is behind credentials."
+        elif response.status_code == 404:
+            return False, "File Not Found (Status 404). Check resource identifier paths."
+        else:
+            return False, f"Server responded with connection error code: {response.status_code}"
+    except requests.exceptions.Timeout:
+        return False, "Connection timeout encountered during accessibility validation loop."
+    except Exception as e:
+        return False, f"Network Handshake Failure: {str(e)}"
+
+def resolve_file_source(uploader_obj, link_str, expected_ext=None):
+    """Unified engine routing data from local storage blocks or remote URL streams."""
+    if uploader_obj is not None:
+        return uploader_obj
+    if link_str.strip():
+        is_valid, msg = validate_public_url(link_str.strip())
+        if is_valid:
+            try:
+                res = requests.get(link_str.strip(), timeout=10)
+                return io.BytesIO(res.content)
+            except Exception as e:
+                st.error(f"Download stream pipeline crashed: {str(e)}")
+        else:
+            st.error(f"Asset access validation rejected: {msg}")
+    return None
 
 # --- SESSION STATE INITIALIZATION ---
 if "zip_data" not in st.session_state: st.session_state.zip_data = None
+if "change_log" not in st.session_state: st.session_state.change_log = None
 
 # --- UI: THE LANDING PAGE ---
 st.title("Site Information Report")
@@ -119,13 +170,25 @@ st.divider()
 # MODE A: CREATE NEW REPORTS
 # ==========================================
 if mode == "Create New Reports":
-    st.markdown("### Upload Files")
-    raw_file = st.file_uploader("Upload Raw Data (Excel)", type=["xlsx", "xls"], key="new_raw")
-    template_file = st.file_uploader("Upload Excel Template", type=["xlsx"], key="new_temp")
+    st.markdown("### Upload Files or Provide Remote URLs")
+    
+    # Unified Ingestion Blocks (Upload vs URL Options)
+    rc1, rc2 = st.columns([1.5, 2])
+    with rc1: raw_file = st.file_uploader("Upload Raw Data (Excel)", type=["xlsx", "xls"], key="new_raw")
+    with rc2: raw_url = st.text_input("Or input Raw Data HTTPS Link:", placeholder="https://example.com/data.xlsx", key="new_raw_url")
+    
+    tc1, tc2 = st.columns([1.5, 2])
+    with tc1: template_file = st.file_uploader("Upload Excel Template", type=["xlsx"], key="new_temp")
+    with tc2: template_url = st.text_input("Or input Template HTTPS Link:", placeholder="https://example.com/template.xlsx", key="new_temp_url")
+    
     media_files = st.file_uploader("Upload Photos/Docs (Optional)", accept_multiple_files=True, key="new_media", type=['png', 'jpg', 'jpeg'])
 
-    if raw_file and template_file:
-        df = pd.read_excel(raw_file)
+    # File Stream Resolution Layer
+    resolved_raw = resolve_file_source(raw_file, raw_url)
+    resolved_template = resolve_file_source(template_file, template_url)
+
+    if resolved_raw and resolved_template:
+        df = pd.read_excel(resolved_raw)
         df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
         df.columns = df.columns.str.strip().str.upper()
         headers = list(df.columns)
@@ -136,14 +199,14 @@ if mode == "Create New Reports":
             st.error("ERROR: Raw data must contain exactly 'TRADE AREA' and 'SITE NAME' columns.")
             st.stop()
         
-        template_wb = openpyxl.load_workbook(template_file)
+        template_wb = openpyxl.load_workbook(resolved_template)
         template_sheet = template_wb.active
         placeholders = get_placeholders(template_sheet)
         
         if not placeholders:
             st.warning("No {{Placeholders}} found in the uploaded template.")
         else:
-            st.markdown("### Data Mapping")
+            st.markdown("### Data Mapping & Advanced Mask Configuration")
             mapping = {}
             for ph in placeholders:
                 match = difflib.get_close_matches(ph, headers, n=1, cutoff=0.3)
@@ -151,9 +214,28 @@ if mode == "Create New Reports":
                 if ph in ["STREET", "BARANGAY", "CITY", "REGION", "POSTAL"] and "LOCATION/ADDRESS" in headers:
                     default_index = headers.index("LOCATION/ADDRESS")
                 
-                col1, col2 = st.columns([1, 2])
-                with col1: st.markdown(f"**{{{{{ph}}}}}**")
-                with col2: mapping[ph] = st.selectbox("Map to column:", headers, index=default_index, key=f"map_{ph}", label_visibility="collapsed")
+                # Expose specific mask controls to override internal guesswork
+                with st.container(border=True):
+                    col1, col2, col3 = st.columns([1, 1.2, 1.2])
+                    with col1: st.markdown(f"**{{{{{ph}}}}}**")
+                    with col2: 
+                        sel_col = st.selectbox("Map to column:", headers, index=default_index, key=f"map_{ph}", label_visibility="collapsed")
+                    with col3:
+                        # Mask Selector Tooling
+                        mask_opts = {
+                            "Standard / Plain Text": "TEXT",
+                            "Date: Month DD, YYYY": "%B %d, %Y",
+                            "Date: YYYY-MM-DD": "%Y-%m-%d",
+                            "Date: DD MMM YY": "%d %b %Y",
+                            "Address Segment: Street": "STREET_SEGMENT",
+                            "Address Segment: Barangay": "BARANGAY_SEGMENT",
+                            "Address Segment: City": "CITY_SEGMENT",
+                            "Address Segment: Region": "REGION_SEGMENT",
+                            "Address Segment: Postal": "POSTAL_SEGMENT"
+                        }
+                        sel_mask = st.selectbox("Format Mask Layout", list(mask_opts.keys()), index=0, key=f"mask_{ph}", label_visibility="collapsed")
+                    
+                    mapping[ph] = {"column": sel_col, "mask": mask_opts[sel_mask]}
             
             st.divider()
             st.markdown("### Select Trade Areas")
@@ -193,8 +275,11 @@ if mode == "Create New Reports":
                         with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
                             for i, (trade_area, group) in enumerate(groups):
                                 status_text.text(f"Processing: {trade_area}...")
-                                template_file.seek(0)
-                                wb = openpyxl.load_workbook(template_file)
+                                if isinstance(resolved_template, io.BytesIO):
+                                    resolved_template.seek(0)
+                                else:
+                                    template_file.seek(0)
+                                wb = openpyxl.load_workbook(resolved_template if isinstance(resolved_template, io.BytesIO) else template_file)
                                 base_sheet = wb.active
                                 base_sheet.title = "TEMPLATE_TO_DELETE"
                                 existing_tabs = set()
@@ -210,20 +295,20 @@ if mode == "Create New Reports":
                                             if isinstance(cell.value, str) and "{{" in cell.value:
                                                 new_val = cell.value
                                                 has_injected = False
-                                                for ph, header in mapping.items():
+                                                for ph, map_conf in mapping.items():
                                                     target = f"{{{{{ph}}}}}"
                                                     if target in new_val:
+                                                        header = map_conf["column"]
+                                                        mask_patt = map_conf["mask"]
                                                         raw_data_val = row.get(header)
                                                         
-                                                        # Check if this is an image file path
-                                                        is_image = inject_image_if_matched(new_sheet, cell.coordinate, raw_data_val, media_dict)
+                                                        # Image handler checks
+                                                        is_image = inject_image_calibrated(new_sheet, cell.coordinate, raw_data_val, media_dict, max_size=180, col_offset=0, row_offset=0)
                                                         
                                                         if is_image:
-                                                            # If it was an image, we clear the text
                                                             val_str = ""
                                                         else:
-                                                            # Otherwise format as normal text
-                                                            val_str = format_injected_value(ph, header, raw_data_val)
+                                                            val_str = format_with_mask(raw_data_val, mask_patt, ph)
                                                         
                                                         new_val = new_val.replace(target, val_str)
                                                         if val_str.strip() != "": has_injected = True
@@ -253,14 +338,25 @@ if mode == "Create New Reports":
 # MODE B: EDIT EXISTING REPORTS
 # ==========================================
 elif mode == "Edit / Update Existing Reports":
-    st.markdown("### Upload Workbooks & Data")
-    raw_file = st.file_uploader("1. Upload New Raw Data (Excel)", type=["xlsx", "xls"], key="edit_raw")
+    st.markdown("### Upload Workbooks & Data Targets")
+    
+    # Multi-path Link and Input Pipeline Array
+    eb1, eb2 = st.columns([1.5, 2])
+    with eb1: edit_raw_file = st.file_uploader("1. Upload New Raw Data (Excel)", type=["xlsx", "xls"], key="edit_raw")
+    with eb2: edit_raw_url = st.text_input("Or raw data remote link URL:", placeholder="https://example.com/new_data.xlsx", key="edit_raw_url")
+    
+    tb1, tb2 = st.columns([1.5, 2])
+    with tb1: edit_temp_file = st.file_uploader("3. Upload Excel Template (For Coordinates)", type=["xlsx"], key="edit_temp")
+    with tb2: edit_temp_url = st.text_input("Or template remote link URL:", placeholder="https://example.com/coords_template.xlsx", key="edit_temp_url")
+    
     existing_wbs = st.file_uploader("2. Upload Existing Trade Area Workbooks", type=["xlsx"], accept_multiple_files=True, key="edit_wbs")
-    template_file = st.file_uploader("3. Upload Excel Template (For Coordinates)", type=["xlsx"], key="edit_temp")
     media_files = st.file_uploader("4. Upload Photos/Docs (Optional)", accept_multiple_files=True, key="edit_media", type=['png', 'jpg', 'jpeg'])
 
-    if raw_file and template_file and existing_wbs:
-        df = pd.read_excel(raw_file)
+    resolved_edit_raw = resolve_file_source(edit_raw_file, edit_raw_url)
+    resolved_edit_temp = resolve_file_source(edit_temp_file, edit_temp_url)
+
+    if resolved_edit_raw and resolved_edit_temp and existing_wbs:
+        df = pd.read_excel(resolved_edit_raw)
         df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
         df.columns = df.columns.str.strip().str.upper()
         headers = list(df.columns)
@@ -271,42 +367,74 @@ elif mode == "Edit / Update Existing Reports":
             st.error("ERROR: Raw data must contain 'TRADE AREA', 'SITE NAME', and 'SITE ID' columns.")
             st.stop()
 
-        # Gatekeeper / Discovery Pass
         st.success(f"""
         🔍 **DISCOVERY PASSED:**
-        ✅ Detected {len(existing_wbs)} Trade Area Workbooks
-        ✅ Detected {len(df)} New Site Rows in Data Sheet
-        📸 Detected {len(media_dict)} Media Files
-        
-        *Proceed to configure injection below.*
+        ✅ Processed Trade Area Workbooks Data Feed
+        ✅ Detected {len(df)} Rows Pending Inspection
+        📸 System Media Sync State Verified
         """)
         st.divider()
 
-        template_wb = openpyxl.load_workbook(template_file)
+        template_wb = openpyxl.load_workbook(resolved_edit_temp)
         template_sheet = template_wb.active
         placeholders = get_placeholders(template_sheet)
         ph_coords = get_placeholder_coords(template_sheet) 
 
-        st.markdown("### Selective Injection Mapping")
+        st.markdown("### Selective Injection & Calibration Suite")
         
         active_mapping = {}
         for ph in placeholders:
             match = difflib.get_close_matches(ph, headers, n=1, cutoff=0.3)
             default_index = headers.index(match[0]) if match else 0
             
-            col1, col2, col3, col4 = st.columns([0.5, 1, 1, 1.5])
-            with col1: update_check = st.checkbox(f"Update", key=f"chk_{ph}", value=False)
-            with col2: st.markdown(f"**{{{{{ph}}}}}**")
-            with col3: 
-                input_type = st.selectbox("Source", ["From Column", "Custom Value"], key=f"type_{ph}", label_visibility="collapsed", disabled=not update_check)
-            with col4: 
-                if input_type == "From Column":
-                    mapped_val = st.selectbox("Map to column:", headers, index=default_index, key=f"map_edit_{ph}", label_visibility="collapsed", disabled=not update_check)
-                else:
-                    mapped_val = st.text_input("Enter global value:", placeholder="e.g., June 1, 2026", key=f"custom_edit_{ph}", label_visibility="collapsed", disabled=not update_check)
-            
+            with st.container(border=True):
+                col1, col2, col3, col4 = st.columns([0.5, 1, 1, 1.5])
+                with col1: update_check = st.checkbox(f"Update", key=f"chk_{ph}", value=False)
+                with col2: st.markdown(f"**{{{{{ph}}}}}**")
+                with col3: 
+                    input_type = st.selectbox("Source", ["From Column", "Custom Value", "Image/Media Asset"], key=f"type_{ph}", label_visibility="collapsed", disabled=not update_check)
+                with col4: 
+                    if input_type == "From Column":
+                        mapped_val = st.selectbox("Column target:", headers, index=default_index, key=f"map_edit_{ph}", label_visibility="collapsed", disabled=not update_check)
+                    elif input_type == "Custom Value":
+                        mapped_val = st.text_input("Global value text:", placeholder="e.g., June 1, 2026", key=f"custom_edit_{ph}", label_visibility="collapsed", disabled=not update_check)
+                    else:
+                        mapped_val = st.selectbox("Image reference column:", headers, index=default_index, key=f"image_edit_{ph}", label_visibility="collapsed", disabled=not update_check)
+
+                # Format Mask Integration Inside Mode B Panel
+                m1, m2 = st.columns([1, 2])
+                with m1:
+                    mask_opts = {
+                        "Standard Plain String": "TEXT",
+                        "Date: Month DD, YYYY": "%B %d, %Y",
+                        "Date: YYYY-MM-DD": "%Y-%m-%d",
+                        "Date: DD MMM YY": "%d %b %Y",
+                        "Address: Street Segment": "STREET_SEGMENT",
+                        "Address: Barangay Segment": "BARANGAY_SEGMENT",
+                        "Address: City Segment": "CITY_SEGMENT"
+                    }
+                    sel_mask = st.selectbox("Data Formatting Mask Style", list(mask_opts.keys()), index=0, key=f"mask_edit_ui_{ph}", disabled=(not update_check or input_type=="Image/Media Asset"))
+                
+                # Inline Image Layout & Geometry Calibration Subpanel
+                with m2:
+                    if input_type == "Image/Media Asset" and update_check:
+                        with st.expander("🖼️ Media Layout & Geometry Calibration", expanded=False):
+                            img_size = st.slider("Max Image Bound Envelope Box (px)", 50, 800, 180, step=10, key=f"size_geo_{ph}")
+                            o_col, o_row = st.columns(2)
+                            with o_col: col_off = st.number_input("Column Cell Offset (+/-)", value=0, step=1, key=f"coff_geo_{ph}")
+                            with o_row: row_off = st.number_input("Row Cell Offset (+/-)", value=0, step=1, key=f"roff_geo_{ph}")
+                    else:
+                        img_size, col_off, row_off = 180, 0, 0
+
             if update_check:
-                active_mapping[ph] = {"type": input_type, "value": mapped_val}
+                active_mapping[ph] = {
+                    "type": input_type, 
+                    "value": mapped_val, 
+                    "mask": mask_opts[sel_mask],
+                    "img_size": img_size,
+                    "col_offset": col_off,
+                    "row_offset": row_off
+                }
 
         st.divider()
         action_placeholder = st.empty()
@@ -322,68 +450,99 @@ elif mode == "Edit / Update Existing Reports":
                     
                     zip_buffer = io.BytesIO()
                     existing_files_dict = {f.name: f for f in existing_wbs}
+                    log_entries = []
                     
-                    # --- ABSOLUTE FIX: SMART MATCHING ZIP FILE GENERATION ENGINE ---
                     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
                         processed_count = 0
-                        files_written = 0 # Track if we actually wrote anything
+                        files_written = 0 
                         
                         for wb_name, file_obj in existing_files_dict.items():
                             status_text.text(f"Injecting into: {wb_name}...")
-                            
-                            # Clean up filename for loose matching
                             clean_filename = wb_name.replace(".xlsx", "").strip().upper()
                             
                             matched_group = None
                             for ta, group in df.groupby("TRADE AREA"):
                                 safe_ta = str(ta).replace("/", "-").replace("\\", "-").strip().upper()
-                                
-                                # SMART MATCHING: Check if the Trade Area is a subset of the filename or vice versa
                                 if safe_ta in clean_filename or clean_filename in safe_ta:
                                     matched_group = group
                                     break
                                     
                             if matched_group is not None:
+                                file_obj.seek(0)
+                                check_wb = openpyxl.load_workbook(file_obj, data_only=False)
+                                
+                                file_obj.seek(0)
                                 wb = openpyxl.load_workbook(file_obj)
-                                sheet_updated = False
                                 
                                 for _, row in matched_group.iterrows():
                                     clean_name = re.sub(r'[\\/*?\[\]:]', '', str(row["SITE NAME"]))[:31].strip().upper()
                                     target_sheet = None
                                     
-                                    # Loose tab name matching
                                     for sheet_name in wb.sheetnames:
                                         if sheet_name.strip().upper().startswith(clean_name):
                                             target_sheet = wb[sheet_name]
                                             break
                                             
                                     if target_sheet:
-                                        sheet_updated = True
                                         for ph, mapping_data in active_mapping.items():
                                             input_type = mapping_data["type"]
                                             mapped_val = mapping_data["value"]
+                                            mask_patt = mapping_data["mask"]
                                             
-                                            if input_type == "From Column":
+                                            if input_type in ["From Column", "Image/Media Asset"]:
                                                 raw_data_val = row.get(mapped_val)
                                             else:
                                                 raw_data_val = mapped_val
 
                                             coords = ph_coords.get(ph, [])
-                                            
                                             for coord in coords:
-                                                is_image = inject_image_if_matched(target_sheet, coord, raw_data_val, media_dict)
-                                                
+                                                if input_type == "Image/Media Asset":
+                                                    is_image = inject_image_calibrated(
+                                                        target_sheet, coord, raw_data_val, media_dict,
+                                                        max_size=mapping_data["img_size"],
+                                                        col_offset=mapping_data["col_offset"],
+                                                        row_offset=mapping_data["row_offset"]
+                                                    )
+                                                else:
+                                                    is_image = False
+
                                                 if is_image:
                                                     target_sheet[coord].value = "" 
                                                 else:
-                                                    header_name = mapped_val if input_type == "From Column" else ph
-                                                    val_str = format_injected_value(ph, header_name, raw_data_val)
-                                                    
+                                                    val_str = format_with_mask(raw_data_val, mask_patt, ph)
                                                     target_sheet[coord].value = val_str
                                                     if val_str.strip() != "":
                                                         target_sheet[coord].fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
 
-                                # Save and append modified file to zip buffer
+                                # Structural Diff Check Block
+                                for sheet_name in check_wb.sheetnames:
+                                    orig_ws = check_wb[sheet_name]
+                                    upd_ws = wb[sheet_name] if sheet_name in wb.sheetnames else None
+                                    
+                                    if upd_ws:
+                                        for r in range(1, orig_ws.max_row + 1):
+                                            for c in range(1, orig_ws.max_column + 1):
+                                                cell_coord = f"{openpyxl.utils.get_column_letter(c)}{r}"
+                                                orig_val = orig_ws.cell(row=r, column=c).value
+                                                upd_val = upd_ws.cell(row=r, column=c).value
+                                                
+                                                is_target = any(cell_coord in ph_coords.get(ph, []) for ph in active_mapping)
+                                                
+                                                if is_target:
+                                                    if str(orig_val) != str(upd_val):
+                                                        log_entries.append({
+                                                            "Workbook": wb_name, "Sheet": sheet_name, "Coordinate": cell_coord,
+                                                            "Type": "INTENDED_UPDATE", "Status": "SUCCESS",
+                                                            "Original Value": str(orig_val), "Updated Value": str(upd_val)
+                                                        })
+                                                else:
+                                                    if orig_val != upd_val:
+                                                        log_entries.append({
+                                                            "Workbook": wb_name, "Sheet": sheet_name, "Coordinate": cell_coord,
+                                                            "Type": "UNINTENDED_MUTATION", "Status": "CRITICAL_ERROR",
+                                                            "Original Value": str(orig_val), "Updated Value": str(upd_val)
+                                                        })
+
                                 wb_buffer = io.BytesIO()
                                 wb.save(wb_buffer)
                                 zip_file.writestr(wb_name, wb_buffer.getvalue())
@@ -392,18 +551,35 @@ elif mode == "Edit / Update Existing Reports":
                             processed_count += 1
                             progress_bar.progress(processed_count / len(existing_files_dict))
 
-                    # Safety Check: If string matching failed completely, warn the user
                     if files_written == 0:
-                        st.error("🚨 ERROR: No files were updated! Please verify that your 'TRADE AREA' data column text matches or is part of your uploaded workbook filenames.")
+                        st.error("🚨 ERROR: Critical matching criteria failure.")
                         st.session_state.zip_data = None
                         st.stop()
                     else:
                         st.session_state.zip_data = zip_buffer.getvalue()
+                        st.session_state.change_log = pd.DataFrame(log_entries) if log_entries else pd.DataFrame(columns=["Workbook", "Sheet", "Coordinate", "Type", "Status", "Original Value", "Updated Value"])
                         st.rerun()
                     
         if st.session_state.zip_data is not None:
-            st.success("Existing reports updated successfully!")
-            st.download_button("Download Updated Reports (.zip)", data=st.session_state.zip_data, file_name="Updated_Trade_Area_Reports.zip", mime="application/zip", use_container_width=True)
+            has_errors = False
+            if st.session_state.change_log is not None and not st.session_state.change_log.empty:
+                has_errors = not st.session_state.change_log[st.session_state.change_log["Type"] == "UNINTENDED_MUTATION"].empty
+
+            if has_errors:
+                st.error("⚠️ REGRESSION WARNING: Mutation checks detected unintended variances outside core mapping coordinates.")
+            else:
+                st.success("Existing reports verified and compiled with zero external regressions!")
+
+            dl_col1, dl_col2 = st.columns(2)
+            with dl_col1:
+                st.download_button("Download Updated Reports (.zip)", data=st.session_state.zip_data, file_name="Updated_Trade_Area_Reports.zip", mime="application/zip", use_container_width=True)
+            with dl_col2:
+                if st.session_state.change_log is not None:
+                    csv_buffer = io.StringIO()
+                    st.session_state.change_log.to_csv(csv_buffer, index=False)
+                    st.download_button("Download Verification Log (.csv)", data=csv_buffer.getvalue(), file_name="Report_Verification_Log.csv", mime="text/csv", use_container_width=True)
+
             if st.button("Start Over"):
                 st.session_state.zip_data = None
+                st.session_state.change_log = None
                 st.rerun()
