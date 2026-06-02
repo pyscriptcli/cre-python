@@ -750,4 +750,146 @@ elif mode == "Edit / Update Existing Reports":
                     existing_files_dict = {f.name: f for f in existing_wbs}
                     log_entries = []
                     
-                    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED)
+                    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                        processed_count = 0
+                        files_written = 0 
+                        
+                        for wb_name, file_obj in existing_files_dict.items():
+                            status_text.text(f"Injecting into: {wb_name}...")
+                            clean_filename = wb_name.replace(".xlsx", "").strip().upper()
+                            
+                            matched_group = None
+                            for ta, group in df.groupby("TRADE AREA"):
+                                safe_ta = str(ta).replace("/", "-").replace("\\", "-").strip().upper()
+                                if safe_ta in clean_filename or clean_filename in safe_ta:
+                                    matched_group = group
+                                    break
+                                    
+                            if matched_group is not None:
+                                file_obj.seek(0)
+                                check_wb = openpyxl.load_workbook(file_obj, data_only=False)
+                                
+                                file_obj.seek(0)
+                                wb = openpyxl.load_workbook(file_obj)
+                                
+                                for _, row in matched_group.iterrows():
+                                    clean_name = re.sub(r'[\\/*?\[\]:]', '', str(row["SITE NAME"]))[:31].strip().upper()
+                                    target_sheet = None
+                                    
+                                    for sheet_name in wb.sheetnames:
+                                        if sheet_name.strip().upper().startswith(clean_name):
+                                            target_sheet = wb[sheet_name]
+                                            break
+                                            
+                                    if target_sheet:
+                                        for ph, mapping_data in active_mapping.items():
+                                            input_type = mapping_data["type"]
+                                            mapped_val = mapping_data["value"]
+                                            mask_patt = mapping_data["mask"]
+                                            
+                                            if input_type in ["From Column", "Image/Media Asset"]:
+                                                raw_data_val = row.get(mapped_val)
+                                            else:
+                                                raw_data_val = mapping_data["value"]
+
+                                            coords = ph_coords.get(ph, [])
+                                            for coord in coords:
+                                                if input_type == "Image/Media Asset":
+                                                    is_image = inject_image_calibrated(
+                                                        target_sheet, coord, raw_data_val, media_dict,
+                                                        max_size=mapping_data["img_size"],
+                                                        col_offset=mapping_data["col_offset"],
+                                                        row_offset=mapping_data["row_offset"]
+                                                    )
+                                                else:
+                                                    is_image = False
+
+                                                if is_image:
+                                                    target_sheet[coord].value = "" 
+                                                else:
+                                                    val_str = format_with_mask(raw_data_val, mask_patt, ph)
+                                                    copy_and_merge_aware_injection(template_sheet, target_sheet, coord, val_str)
+                                                    if val_str.strip() != "":
+                                                        target_sheet[coord].fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
+
+                                # Structural Diff Check Block
+                                for sheet_name in check_wb.sheetnames:
+                                    orig_ws = check_wb[sheet_name]
+                                    upd_ws = wb[sheet_name] if sheet_name in wb.sheetnames else None
+                                    
+                                    if upd_ws:
+                                        for r in range(1, orig_ws.max_row + 1):
+                                            for c in range(1, orig_ws.max_column + 1):
+                                                cell_coord = f"{openpyxl.utils.get_column_letter(c)}{r}"
+                                                orig_val = orig_ws.cell(row=r, column=c).value
+                                                upd_val = upd_ws.cell(row=r, column=c).value
+                                                
+                                                is_target = any(cell_coord in ph_coords.get(ph, []) for ph in active_mapping)
+                                                
+                                                if is_target:
+                                                    if str(orig_val) != str(upd_val):
+                                                        log_entries.append({
+                                                            "Workbook": wb_name, "Sheet": sheet_name, "Coordinate": cell_coord,
+                                                            "Type": "INTENDED_UPDATE", "Status": "SUCCESS", "Color_Hint": "GREEN",
+                                                            "Original Value": str(orig_val), "Updated Value": str(upd_val)
+                                                        })
+                                                else:
+                                                    if orig_val != upd_val:
+                                                        log_entries.append({
+                                                            "Workbook": wb_name, "Sheet": sheet_name, "Coordinate": cell_coord,
+                                                            "Type": "UNINTENDED_MUTATION", "Status": "CRITICAL_ERROR", "Color_Hint": "RED",
+                                                            "Original Value": str(orig_val), "Updated Value": str(upd_val)
+                                                        })
+
+                                wb_buffer = io.BytesIO()
+                                wb.save(wb_buffer)
+                                zip_file.writestr(wb_name, wb_buffer.getvalue())
+                                files_written += 1
+                                
+                            processed_count += 1
+                            progress_bar.progress(processed_count / len(existing_files_dict))
+
+                    if files_written == 0:
+                        st.error("🚨 ERROR: Critical matching criteria failure.")
+                        st.session_state.zip_data = None
+                        st.stop()
+                    else:
+                        st.session_state.zip_data = zip_buffer.getvalue()
+                        st.session_state.change_log = pd.DataFrame(log_entries) if log_entries else pd.DataFrame(columns=["Workbook", "Sheet", "Coordinate", "Type", "Status", "Color_Hint", "Original Value", "Updated Value"])
+                        st.rerun()
+                    
+        if st.session_state.zip_data is not None:
+            has_errors = False
+            if st.session_state.change_log is not None and not st.session_state.change_log.empty:
+                has_errors = not st.session_state.change_log[st.session_state.change_log["Type"] == "UNINTENDED_MUTATION"].empty
+
+            if has_errors:
+                st.error("⚠️ REGRESSION WARNING: Mutation checks detected unintended variances outside core mapping coordinates.")
+            else:
+                st.success("Existing reports verified and compiled with zero external regressions!")
+
+            # --- COLOR INJECTED LOG RENDERING MATRIX ---
+            if st.session_state.change_log is not None and not st.session_state.change_log.empty:
+                st.markdown("### 📋 Real-Time Verification Audit Trail")
+                
+                # Highlight rows cleanly based on status using standard HTML/CSS formatting inside Streamlit
+                def highlight_audit_row(row):
+                    color = "#D4EDDA" if row["Color_Hint"] == "GREEN" else "#F8D7DA"
+                    return [f"background-color: {color}; color: #111111; font-weight: 500;"] * len(row)
+                
+                styled_log = st.session_state.change_log.style.apply(highlight_audit_row, axis=1)
+                st.dataframe(styled_log, use_container_width=True, hide_index=True)
+
+            dl_col1, dl_col2 = st.columns(2)
+            with dl_col1:
+                st.download_button("Download Updated Reports (.zip)", data=st.session_state.zip_data, file_name="Updated_Trade_Area_Reports.zip", mime="application/zip", use_container_width=True)
+            with dl_col2:
+                if st.session_state.change_log is not None:
+                    csv_buffer = io.StringIO()
+                    st.session_state.change_log.to_csv(csv_buffer, index=False)
+                    st.download_button("Download Verification Log (.csv)", data=csv_buffer.getvalue(), file_name="Report_Verification_Log.csv", mime="text/csv", use_container_width=True)
+
+            if st.button("Start Over"):
+                st.session_state.zip_data = None
+                st.session_state.change_log = None
+                st.rerun()
