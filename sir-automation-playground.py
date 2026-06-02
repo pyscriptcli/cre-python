@@ -3,6 +3,7 @@ import pandas as pd
 import openpyxl
 from openpyxl.styles import Alignment, PatternFill, Font, Border, Side
 from openpyxl.drawing.image import Image as OpenpyxlImage
+from openpyxl.utils import range_boundaries
 import re
 import io
 import zipfile
@@ -257,6 +258,44 @@ def clone_cell_styles(source_cell, target_cell):
     if source_cell.fill:
         target_cell.fill = copy(source_cell.fill)
 
+def copy_and_merge_aware_injection(template_ws, target_ws, coord, data_value):
+    """
+    Finds if the coordinate was part of a merged cell range in the template.
+    Forces structural block merge mapping inside the generated file output.
+    """
+    target_cell = target_ws[coord]
+    template_cell = template_ws[coord]
+    
+    # Write structural value content data
+    target_cell.value = data_value
+    
+    # Re-apply styles natively to top-left target coordinate tracking block
+    clone_cell_styles(template_cell, target_cell)
+    
+    # Check if this cell is within a merged cell array in our master layout sheet
+    merged_range_string = None
+    for merged_range in template_ws.merged_cells.ranges:
+        if template_cell.coordinate in merged_range:
+            merged_range_string = str(merged_range)
+            break
+            
+    if merged_range_string:
+        # Re-enact structural array layout boundaries into target workspace destination loop
+        min_col, min_row, max_col, max_row = range_boundaries(merged_range_string)
+        
+        # Guard against duplicative overlapping merge errors inside destination file
+        try:
+            target_ws.merge_cells(start_row=min_row, start_column=min_col, end_row=max_row, end_column=max_col)
+        except Exception:
+            pass # Keep execution flowing smoothly if already explicitly parsed or matching tracking
+            
+        # Re-propagate style clones to fill empty space fields across columns/rows inside the split box array footprint
+        for r in range(min_row, max_row + 1):
+            for c in range(min_col, max_col + 1):
+                sub_coord = f"{openpyxl.utils.get_column_letter(c)}{r}"
+                if sub_coord != coord:
+                    clone_cell_styles(template_ws[sub_coord], target_ws[sub_coord])
+
 class StreamWrapper:
     def __init__(self, data, filename):
         self.data = data
@@ -434,7 +473,7 @@ if mode == "Create New Reports":
                     else:
                         action_placeholder.empty() 
                         progress_bar = st.progress(0)
-                        status_text = st.empty()
+                        st.empty()
                         
                         filtered_df = df[df["TRADE AREA"].astype(str).isin(selected_tas)]
                         groups = filtered_df.groupby("TRADE AREA")
@@ -443,7 +482,6 @@ if mode == "Create New Reports":
                         
                         with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
                             for i, (trade_area, group) in enumerate(groups):
-                                status_text.text(f"Processing: {trade_area}...")
                                 if isinstance(resolved_template, io.BytesIO):
                                     resolved_template.seek(0)
                                 wb = openpyxl.load_workbook(resolved_template if isinstance(resolved_template, io.BytesIO) else template_file)
@@ -480,10 +518,7 @@ if mode == "Create New Reports":
                                                         if val_str.strip() != "": has_injected = True
                                                 
                                                 if has_injected:
-                                                    # Safely grab master style template maps 
-                                                    template_cell = base_sheet[cell.coordinate]
-                                                    cell.value = new_val.strip() if new_val else ""
-                                                    clone_cell_styles(template_cell, cell)
+                                                    copy_and_merge_aware_injection(base_sheet, new_sheet, cell.coordinate, new_val.strip() if new_val else "")
                                                 else:
                                                     cell.value = new_val.strip() if new_val else ""
                                                     
@@ -760,12 +795,12 @@ elif mode == "Edit / Update Existing Reports":
                                                 else:
                                                     val_str = format_with_mask(raw_data_val, mask_patt, ph)
                                                     
-                                                    # --- ABSOLUTE CLONING PASS FROM COORD MASTER TEMPLATE ---
-                                                    # Safely extract geometry configurations from the master design layout template
-                                                    template_cell_ref = template_sheet[coord]
+                                                    # --- MERGE-AWARE INJECTION ENHANCEMENT RUN ---
+                                                    # Rebuild and re-merge layout bounds based entirely on template sheet guidelines
+                                                    copy_and_merge_aware_injection(template_sheet, target_sheet, coord, val_str)
                                                     
-                                                    target_sheet[coord].value = val_str
-                                                    clone_cell_styles(template_cell_ref, target_sheet[coord])
+                                                    if val_str.strip() != "":
+                                                        target_sheet[coord].fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
 
                                 # Structural Diff Check Block
                                 for sheet_name in check_wb.sheetnames:
