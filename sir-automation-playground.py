@@ -62,11 +62,11 @@ def find_loose_media_match(file_path_str, media_dict):
     
     raw_path_clean = str(file_path_str).replace('\\', '/').split('/')[-1].upper().strip()
     
-    # Attempt 1: Check for direct literal match
+    # Attempt 1: Direct exact match
     if raw_path_clean in media_dict:
         return raw_path_clean
         
-    # Attempt 2: Extract structured keywords (e.g., 'PROPERTY PHOTOS 1')
+    # Attempt 2: Extract explicit token identifiers (e.g., 'PROPERTY PHOTOS 1')
     token_match = re.search(r'(PROPERTY\s*PHOTOS?\s*\d+)', raw_path_clean)
     if token_match:
         extracted_token = token_match.group(1)
@@ -74,7 +74,7 @@ def find_loose_media_match(file_path_str, media_dict):
             if extracted_token in uploaded_filename.upper():
                 return uploaded_filename
                 
-    # Attempt 3: Substring check fallback
+    # Attempt 3: Substring loop matching
     for uploaded_filename in media_dict.keys():
         cleaned_uploaded = uploaded_filename.upper()
         if cleaned_uploaded in raw_path_clean or raw_path_clean in cleaned_uploaded:
@@ -287,23 +287,6 @@ def inject_image_auto_fit(template_sheet, target_sheet, cell_coord, file_path_st
             pass 
     return False
 
-def validate_public_url(url_string):
-    """Executes a network validation pass to guarantee remote assets are accessible."""
-    if not url_string or not isinstance(url_string, str):
-        return False, "Invalid URL input parameters."
-    if "drive.google.com" in url_string or "onedrive.live.com" in url_string or "sharepoint.com" in url_string:
-        return True, "Cloud Storage directory endpoint detected."
-    if not (url_string.startswith("http://") or url_string.startswith("https://")):
-        return False, "Missing target protocol header (http/https)."
-    try:
-        response = requests.head(url_string, allow_redirects=True, timeout=5)
-        if response.status_code == 200:
-            return True, "URL confirmed public and responding cleanly (Status 200)."
-        else:
-            return False, f"Server responded with connection error code: {response.status_code}"
-    except Exception as e:
-        return False, f"Network Handshake Failure: {str(e)}"
-
 def resolve_file_source(uploader_obj, link_str):
     """Unified engine routing data from local storage blocks or remote URL streams."""
     if uploader_obj is not None:
@@ -515,10 +498,10 @@ if mode == "Create Report":
             st.markdown("### Data Mapping")
             
             ma_sel_all, ma_clr_all = st.columns(2)[0].columns(2)
-            if ma_sel_all.button("Select All Files", key="sa_map_a", use_container_width=True):
+            if ma_sel_all.button("Select All", key="sa_map_a", use_container_width=True):
                 for ph in placeholders: st.session_state[f"chk_a_{ph}"] = True
                 st.rerun()
-            if ma_clr_all.button("Clear All Files", key="ca_map_a", use_container_width=True):
+            if ma_clr_all.button("Clear All", key="ca_map_a", use_container_width=True):
                 for ph in placeholders: st.session_state[f"chk_a_{ph}"] = False
                 st.rerun()
                 
@@ -552,7 +535,7 @@ if mode == "Create Report":
                         else:
                             st.warning(f"❌ **No Matching Photo Found:** Missing raw target for `{sample_row_val.split('/')[-1] if sample_row_val else 'None'}`.")
                             
-                    st.markdown(f"<div style='text-align: right; opacity: 0.35; font-size: 10px; font-weight: bold;'>[Source: ({raw_data_filename_trail}) - {sel_col}] ──► [Imported to: {{{{ {ph} }}}}]</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='text-align: right; opacity: 0.35; font-size: 10px; font-weight: bold;'>[Source: ({raw_data_filename_trail}) - {sel_col}] ──► [Imported to: {ph}]</div>", unsafe_allow_html=True)
                     
                     if update_check_a:
                         mapping[ph] = {"column": sel_col, "mask": mask_id, "inferred_type": inferred_type}
@@ -562,10 +545,10 @@ if mode == "Create Report":
             unique_tas = sorted([str(ta) for ta in df["TRADE AREA"].dropna().unique()])
             
             col_sel, col_clr = st.columns(2)[0].columns(2)
-            if col_sel.button("Select All Files", key="sa1", use_container_width=True):
+            if col_sel.button("Select All", key="sa1", use_container_width=True):
                 for ta in unique_tas: st.session_state[f"chk_new_{ta}"] = True
                 st.rerun()
-            if col_clr.button("Clear All Files", key="ca1", use_container_width=True):
+            if col_clr.button("Clear All", key="ca1", use_container_width=True):
                 for ta in unique_tas: st.session_state[f"chk_new_{ta}"] = False
                 st.rerun()
 
@@ -788,7 +771,6 @@ elif mode == "Update Report":
 
         st.markdown("### Data Mapping")
         
-        # --- SELECT ALL / CLEAR ALL ACTION REGION FOR DATA MAPPING (PROMPT IMPLEMENTATION) ---
         map_sel_all, map_clr_all = st.columns(2)[0].columns(2)
         if map_sel_all.button("Select All Files", key="sa_map_b", use_container_width=True):
             for ph in placeholders: st.session_state[f"chk_{ph}"] = True
@@ -840,17 +822,17 @@ elif mode == "Update Report":
                         disabled=(input_type == "Image/Media Asset" or not update_check)
                     )
 
-                # --- UPGRADED: SUBSTRING LOOSE MEDIA MATCH VISUALIZER PASS ---
+                # --- LOOSE SUBSTRING MEDIA MATCH VISUALIZER PASS ---
                 if input_type == "Image/Media Asset" and update_check:
                     sample_img_row_val = str(df[mapped_val].dropna().iloc[0]).strip() if mapped_val in df.columns and not df[mapped_val].dropna().empty else ""
-                    matched_img_filename = find_loose_media_match(sample_row_val, media_dict)
+                    matched_img_filename = find_loose_media_match(sample_img_row_val, media_dict)
                     
                     if matched_img_filename:
-                        st.success(f"✅ **Photo Match Found:** `{matched_img_filename}` verified in session cache.")
+                        st.success(f"✅ **Photo Match Found:** `{matched_img_filename}` verified inside cloud session cache.")
                     else:
-                        st.warning(f"❌ **No Matching Photo Found:** Missing raw target for `{sample_row_val.split('/')[-1] if sample_row_val else 'None'}`.")
+                        st.warning(f"❌ **No Matching Photo Found:** Missing target binary metadata reference for `{sample_row_val.split('/')[-1] if sample_row_val else 'No Valid File Mapped'}` inside current session storage layers.")
 
-                st.markdown(f"<div style='text-align: right; opacity: 0.35; font-size: 10px; font-weight: bold;'>[Source: ({raw_edit_filename_trail}) - {mapped_val if update_check else 'None'}] ──► [Imported to: {{{{ {ph} }}}}]</div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='text-align: right; opacity: 0.35; font-size: 10px; font-weight: bold;'>[Source: ({raw_edit_filename_trail}) - {mapped_val if update_check else 'None'}] ──► [Imported to: {ph}]</div>", unsafe_allow_html=True)
 
             if update_check:
                 active_mapping[ph] = {
@@ -909,7 +891,7 @@ elif mode == "Update Report":
                                             target_sheet = wb[sheet_name]
                                             break
                                             
-                                    # --- SECURITY PILE: NONETYPE STABILITY SHIELD GATES ---
+                                    # --- ATOMIC STYLE SAFETY STABILITY GUARD PASS ---
                                     if target_sheet is not None:
                                         for ph, mapping_data in active_mapping.items():
                                             input_type = mapping_data["type"]
@@ -945,7 +927,6 @@ elif mode == "Update Report":
                                                     if val_str.strip() != "":
                                                         target_sheet[coord].fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
                                     else:
-                                        # Log structural warning trail metrics cleanly for reporting passes
                                         log_entries.append({
                                             "Workbook": wb_name, "Sheet": f"MISSING_TAB_{clean_name}", "Coordinate": "N/A",
                                             "Type": "TAB_NOT_FOUND", "Status": "SKIPPED", "Color_Hint": "RED",
