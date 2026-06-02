@@ -146,8 +146,8 @@ def generate_mock_value(mask_key):
     }
     return mock_registry.get(mask_key, "Sample String Value")
 
-def inject_image_auto_fit(target_sheet, cell_coord, file_path_str, media_dict):
-    """Calculates the exact pixel size of the target cell (merged or single) and auto-fits the image."""
+def inject_image_auto_fit(template_sheet, target_sheet, cell_coord, file_path_str, media_dict):
+    """Calculates the exact pixel geometry bounds from the placeholder cell template and fits image."""
     if isinstance(file_path_str, str) and any(ext in file_path_str.lower() for ext in ['.jpg', '.jpeg', '.png']):
         filename = file_path_str.replace('\\', '/').split('/')[-1]
         
@@ -156,13 +156,11 @@ def inject_image_auto_fit(target_sheet, cell_coord, file_path_str, media_dict):
                 img_stream = io.BytesIO(media_dict[filename].getvalue())
                 img = OpenpyxlImage(img_stream)
                 
-                # Default dimensional fallbacks (Standard Excel single cell envelope size)
                 target_width_px = 120
                 target_height_px = 30
                 
-                # Check if target is inside an active merged sequence block
                 merged_range_string = None
-                for merged_range in target_sheet.merged_cells.ranges:
+                for merged_range in template_sheet.merged_cells.ranges:
                     if cell_coord in merged_range:
                         merged_range_string = str(merged_range)
                         break
@@ -170,37 +168,30 @@ def inject_image_auto_fit(target_sheet, cell_coord, file_path_str, media_dict):
                 if merged_range_string:
                     min_col, min_row, max_col, max_row = range_boundaries(merged_range_string)
                     
-                    # Accumulate Column Width Metrics
                     total_width_chars = 0.0
                     for col in range(min_col, max_col + 1):
                         col_letter = get_column_letter(col)
-                        w = target_sheet.column_dimensions[col_letter].width
-                        total_width_chars += float(w) if w is not None else 8.43 # standard default char width
+                        w = template_sheet.column_dimensions[col_letter].width
+                        total_width_chars += float(w) if w is not None else 8.43
                     target_width_px = int(total_width_chars * 7) + 5
                     
-                    # Accumulate Row Height Metrics
                     total_height_points = 0.0
                     for row in range(min_row, max_row + 1):
-                        h = target_sheet.row_dimensions[row].height
-                        total_height_points += float(h) if h is not None else 15.0 # standard default row point height
+                        h = template_sheet.row_dimensions[row].height
+                        total_height_points += float(h) if h is not None else 15.0
                     target_height_px = int(total_height_points * 1.333)
                 else:
-                    # Single flat cell geometry execution lookup
                     col_letter = re.sub(r'\d+', '', cell_coord)
                     row_idx = int(re.sub(r'\D+', '', cell_coord))
-                    
-                    w = target_sheet.column_dimensions[col_letter].width
-                    h = target_sheet.row_dimensions[row_idx].height
-                    
+                    w = template_sheet.column_dimensions[col_letter].width
+                    h = template_sheet.row_dimensions[row_idx].height
                     target_width_px = int((float(w) if w is not None else 8.43) * 7) + 5
                     target_height_px = int((float(h) if h is not None else 15.0) * 1.333)
                 
-                # Force dynamic constraint scale metrics
                 width_ratio = target_width_px / img.width
                 height_ratio = target_height_px / img.height
                 scale_factor = min(width_ratio, height_ratio)
                 
-                # Apply balanced dimensions scaling
                 img.width = int(img.width * scale_factor)
                 img.height = int(img.height * scale_factor)
                 
@@ -473,12 +464,7 @@ if mode == "Create New Reports":
                     mock_seed = generate_mock_value(mask_id)
                     evaluated_preview = format_with_mask(mock_seed, mask_id, ph)
                     
-                    pv_1, pv_2 = st.columns([1, 2])
-                    with pv_1:
-                        st.markdown(f"    ↳ `<small>Live Output Visual:</small>`", unsafe_allow_html=True)
-                    with pv_2:
-                        st.markdown(f"`{evaluated_preview}`")
-                    
+                    st.markdown(f"`{evaluated_preview}`")
                     st.markdown(f"<div style='text-align: right; opacity: 0.35; font-size: 10px; font-weight: bold;'>[Source Column: {sel_col}] ──► [Injected Token Var: {{{{ {ph} }}}}]</div>", unsafe_allow_html=True)
                     
                     mapping[ph] = {"column": sel_col, "mask": mask_id}
@@ -544,8 +530,8 @@ if mode == "Create New Reports":
                                                         mask_patt = map_conf["mask"]
                                                         raw_data_val = row.get(header)
                                                         
-                                                        # Image injection upgraded with Auto-Fit mechanics
-                                                        is_image = inject_image_auto_fit(new_sheet, cell.coordinate, raw_data_val, media_dict)
+                                                        # Image injection geometry cloning from template asset maps
+                                                        is_image = inject_image_auto_fit(base_sheet, new_sheet, cell.coordinate, raw_data_val, media_dict)
                                                         
                                                         if is_image:
                                                             val_str = ""
@@ -633,9 +619,9 @@ elif mode == "Edit / Update Existing Reports":
     resolved_edit_raw = resolve_file_source(edit_raw_file, edit_raw_url)
     resolved_edit_temp = resolve_file_source(edit_temp_file, edit_temp_url)
     
-    existing_wbs = []
+    existing_files_dict = {}
     if existing_wbs_raw:
-        existing_wbs = existing_wbs_raw
+        existing_files_dict = {f.name: f for f in existing_wbs_raw}
     elif existing_wbs_url and existing_wbs_url.strip():
         resolved_wbs_zip = resolve_file_source(None, existing_wbs_url)
         if resolved_wbs_zip:
@@ -643,8 +629,7 @@ elif mode == "Edit / Update Existing Reports":
                 with zipfile.ZipFile(resolved_wbs_zip) as z:
                     for name in z.namelist():
                         if name.endswith('.xlsx') and not name.split('/')[-1].startswith('.'):
-                            existing_wbs.append(io.BytesIO(z.read(name)))
-                            existing_wbs[-1].name = name.split('/')[-1]
+                            existing_files_dict[name.split('/')[-1]] = io.BytesIO(z.read(name))
             except Exception as e:
                 st.error(f"Failed to unpack remote workbook package: {str(e)}")
 
@@ -663,7 +648,7 @@ elif mode == "Edit / Update Existing Reports":
             except zipfile.BadZipFile:
                 media_dict["photo1.jpg"] = StreamWrapper(resolved_media_data.getvalue(), "photo1.jpg")
 
-    if resolved_edit_raw and resolved_edit_temp and existing_wbs:
+    if resolved_edit_raw and resolved_edit_temp and existing_files_dict:
         df = pd.read_excel(resolved_edit_raw)
         df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
         df.columns = df.columns.str.strip().str.upper()
@@ -679,6 +664,27 @@ elif mode == "Edit / Update Existing Reports":
         ✅ Detected {len(df)} Rows Pending Inspection
         📸 System Media Cloud Drive Sync State Verified
         """)
+        st.divider()
+
+        st.markdown("### 🎯 Select Target Trade Area Workbooks to Update")
+        available_filenames = sorted(list(existing_files_dict.keys()))
+        
+        cb_col1, cb_col2, _ = st.columns([1, 1, 3])
+        if cb_col1.button("Select All Files", key="sa_wbs", use_container_width=True):
+            for name in available_filenames: st.session_state[f"chk_wb_{name}"] = True
+            st.rerun()
+        if cb_col2.button("Clear All Files", key="ca_wbs", use_container_width=True):
+            for name in available_filenames: st.session_state[f"chk_wb_{name}"] = False
+            st.rerun()
+
+        selected_wbs_names = []
+        with st.container(height=200, border=True):
+            for name in available_filenames:
+                if f"chk_wb_{name}" not in st.session_state: 
+                    st.session_state[f"chk_wb_{name}"] = True
+                if st.checkbox(name, key=f"chk_wb_{name}"): 
+                    selected_wbs_names.append(name)
+                    
         st.divider()
 
         template_wb = openpyxl.load_workbook(resolved_edit_temp)
@@ -712,7 +718,6 @@ elif mode == "Edit / Update Existing Reports":
                     sel_mask = st.selectbox("Data Formatting Mask Style", list(HUMAN_SPREADSHEET_MASKS.keys()), index=0, key=f"mask_edit_ui_{ph}", disabled=(not update_check or input_type=="Image/Media Asset"))
                 
                 with m2:
-                    # Cleaned up and streamlined sub-panels (manual sliders are now deprecated)
                     if input_type == "Image/Media Asset" and update_check:
                         st.info("⚡ **Automated Dynamic Ingestion Active:** Image auto-scales to fit the container bounds exactly.")
 
@@ -724,11 +729,7 @@ elif mode == "Edit / Update Existing Reports":
                         mock_seed = generate_mock_value(mask_id) if input_type == "From Column" else mapped_val
                         evaluated_preview = format_with_mask(mock_seed, mask_id, ph)
                     
-                    p_col1, p_col2 = st.columns([1, 2])
-                    with p_col1:
-                        st.markdown(f"    ↳ `<small>Live Output Visual:</small>`", unsafe_allow_html=True)
-                    with p_col2:
-                        st.markdown(f"`{evaluated_preview}`")
+                    st.markdown(f"`{evaluated_preview}`")
 
                 data_origin_label = mapped_val if update_check else "None Assigned"
                 st.markdown(f"<div style='text-align: right; opacity: 0.35; font-size: 10px; font-weight: bold;'>[Source: {data_origin_label}] ──► [Injected Token Var: {{{{ {ph} }}}}]</div>", unsafe_allow_html=True)
@@ -747,21 +748,23 @@ elif mode == "Edit / Update Existing Reports":
             if action_placeholder.button("Inject Data & Generate Updates", use_container_width=True):
                 if not active_mapping:
                     st.warning("Please check at least one field to update.")
+                elif not selected_wbs_names:
+                    st.warning("Please tick at least one Trade Area Workbook checkbox from the selector container list.")
                 else:
                     action_placeholder.empty()
                     progress_bar = st.progress(0)
                     status_text = st.empty()
                     
                     zip_buffer = io.BytesIO()
-                    existing_files_dict = {f.name: f for f in existing_wbs}
                     log_entries = []
                     
                     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
                         processed_count = 0
                         files_written = 0 
                         
-                        for wb_name, file_obj in existing_files_dict.items():
-                            status_text.text(f"Injecting into: {wb_name}...")
+                        for wb_name in selected_wbs_names:
+                            file_obj = existing_files_dict[wb_name]
+                            status_text.text(f"Injecting into selected target: {wb_name}...")
                             clean_filename = wb_name.replace(".xlsx", "").strip().upper()
                             
                             matched_group = None
@@ -801,7 +804,7 @@ elif mode == "Edit / Update Existing Reports":
                                             coords = ph_coords.get(ph, [])
                                             for coord in coords:
                                                 if input_type == "Image/Media Asset":
-                                                    is_image = inject_image_auto_fit(target_sheet, coord, raw_data_val, media_dict)
+                                                    is_image = inject_image_auto_fit(template_sheet, target_sheet, coord, raw_data_val, media_dict)
                                                 else:
                                                     is_image = False
 
@@ -848,7 +851,7 @@ elif mode == "Edit / Update Existing Reports":
                                 files_written += 1
                                 
                             processed_count += 1
-                            progress_bar.progress(processed_count / len(existing_files_dict))
+                            progress_bar.progress(processed_count / len(selected_wbs_names))
 
                     if files_written == 0:
                         st.error("🚨 ERROR: Critical matching criteria failure.")
