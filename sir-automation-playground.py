@@ -148,57 +148,60 @@ def generate_mock_value(mask_key):
 
 def inject_image_auto_fit(template_sheet, target_sheet, cell_coord, file_path_str, media_dict):
     """Calculates the exact pixel geometry bounds from the placeholder cell template and fits image."""
-    if isinstance(file_path_str, str) and any(ext in file_path_str.lower() for ext in ['.jpg', '.jpeg', '.png']):
-        filename = file_path_str.replace('\\', '/').split('/')[-1]
+    if not file_path_str or pd.isna(file_path_str):
+        return False
         
-        if filename in media_dict:
-            try:
-                img_stream = io.BytesIO(media_dict[filename].getvalue())
-                img = OpenpyxlImage(img_stream)
+    file_path_str = str(file_path_str).strip()
+    filename = file_path_str.replace('\\', '/').split('/')[-1]
+    
+    if filename in media_dict:
+        try:
+            img_stream = io.BytesIO(media_dict[filename].getvalue())
+            img = OpenpyxlImage(img_stream)
+            
+            target_width_px = 120
+            target_height_px = 30
+            
+            merged_range_string = None
+            for merged_range in template_sheet.merged_cells.ranges:
+                if cell_coord in merged_range:
+                    merged_range_string = str(merged_range)
+                    break
+            
+            if merged_range_string:
+                min_col, min_row, max_col, max_row = range_boundaries(merged_range_string)
                 
-                target_width_px = 120
-                target_height_px = 30
-                
-                merged_range_string = None
-                for merged_range in template_sheet.merged_cells.ranges:
-                    if cell_coord in merged_range:
-                        merged_range_string = str(merged_range)
-                        break
-                
-                if merged_range_string:
-                    min_col, min_row, max_col, max_row = range_boundaries(merged_range_string)
-                    
-                    total_width_chars = 0.0
-                    for col in range(min_col, max_col + 1):
-                        col_letter = get_column_letter(col)
-                        w = template_sheet.column_dimensions[col_letter].width
-                        total_width_chars += float(w) if w is not None else 8.43
-                    target_width_px = int(total_width_chars * 7) + 5
-                    
-                    total_height_points = 0.0
-                    for row in range(min_row, max_row + 1):
-                        h = template_sheet.row_dimensions[row].height
-                        total_height_points += float(h) if h is not None else 15.0
-                    target_height_px = int(total_height_points * 1.333)
-                else:
-                    col_letter = re.sub(r'\d+', '', cell_coord)
-                    row_idx = int(re.sub(r'\D+', '', cell_coord))
+                total_width_chars = 0.0
+                for col in range(min_col, max_col + 1):
+                    col_letter = get_column_letter(col)
                     w = template_sheet.column_dimensions[col_letter].width
-                    h = template_sheet.row_dimensions[row_idx].height
-                    target_width_px = int((float(w) if w is not None else 8.43) * 7) + 5
-                    target_height_px = int((float(h) if h is not None else 15.0) * 1.333)
+                    total_width_chars += float(w) if w is not None else 8.43
+                target_width_px = int(total_width_chars * 7) + 5
                 
-                width_ratio = target_width_px / img.width
-                height_ratio = target_height_px / img.height
-                scale_factor = min(width_ratio, height_ratio)
-                
-                img.width = int(img.width * scale_factor)
-                img.height = int(img.height * scale_factor)
-                
-                target_sheet.add_image(img, cell_coord)
-                return True 
-            except Exception:
-                pass 
+                total_height_points = 0.0
+                for row in range(min_row, max_row + 1):
+                    h = template_sheet.row_dimensions[row].height
+                    total_height_points += float(h) if h is not None else 15.0
+                target_height_px = int(total_height_points * 1.333)
+            else:
+                col_letter = re.sub(r'\d+', '', cell_coord)
+                row_idx = int(re.sub(r'\D+', '', cell_coord))
+                w = template_sheet.column_dimensions[col_letter].width
+                h = template_sheet.row_dimensions[row_idx].height
+                target_width_px = int((float(w) if w is not None else 8.43) * 7) + 5
+                target_height_px = int((float(h) if h is not None else 15.0) * 1.333)
+            
+            width_ratio = target_width_px / img.width
+            height_ratio = target_height_px / img.height
+            scale_factor = min(width_ratio, height_ratio)
+            
+            img.width = int(img.width * scale_factor)
+            img.height = int(img.height * scale_factor)
+            
+            target_sheet.add_image(img, cell_coord)
+            return True 
+        except Exception:
+            pass 
     return False
 
 def validate_public_url(url_string):
@@ -530,7 +533,6 @@ if mode == "Create New Reports":
                                                         mask_patt = map_conf["mask"]
                                                         raw_data_val = row.get(header)
                                                         
-                                                        # Image injection geometry cloning from template asset maps
                                                         is_image = inject_image_auto_fit(base_sheet, new_sheet, cell.coordinate, raw_data_val, media_dict)
                                                         
                                                         if is_image:
@@ -803,14 +805,15 @@ elif mode == "Edit / Update Existing Reports":
 
                                             coords = ph_coords.get(ph, [])
                                             for coord in coords:
+                                                # --- ABSOLUTE FIX: EARLY INTERCEPT OF IMAGE CONTENT TYPE ---
                                                 if input_type == "Image/Media Asset":
+                                                    # Clear string text out of cell area immediately before placing block-bounds image vectors
+                                                    target_sheet[coord].value = ""
                                                     is_image = inject_image_auto_fit(template_sheet, target_sheet, coord, raw_data_val, media_dict)
                                                 else:
                                                     is_image = False
 
-                                                if is_image:
-                                                    target_sheet[coord].value = "" 
-                                                else:
+                                                if not is_image and input_type != "Image/Media Asset":
                                                     val_str = format_with_mask(raw_data_val, mask_patt, ph)
                                                     copy_and_merge_aware_injection(template_sheet, target_sheet, coord, val_str)
                                                     if val_str.strip() != "":
