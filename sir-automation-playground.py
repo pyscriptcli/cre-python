@@ -12,35 +12,52 @@ import math
 import requests
 from copy import copy
 
-# Must be the first Streamlit command
-st.set_page_config(page_title="Report Generator", layout="centered")
+# --- CORE FOUNDATIONAL HELPER FUNCTIONS (DEFINED FIRST TO PREVENT NAMEERRORS) ---
+def validate_public_url(url_string):
+    """Executes a network validation pass to guarantee remote assets are accessible."""
+    if not url_string or not isinstance(url_string, str):
+        return False, "Invalid URL input parameters."
+    if "drive.google.com" in url_string or "onedrive.live.com" in url_string or "sharepoint.com" in url_string:
+        return True, "Cloud Storage directory endpoint detected."
+    if not (url_string.startswith("http://") or url_string.startswith("https://")):
+        return False, "Missing target protocol header (http/https)."
+    try:
+        response = requests.head(url_string, allow_redirects=True, timeout=5)
+        if response.status_code == 200:
+            return True, "URL confirmed public and responding cleanly (Status 200)."
+        else:
+            return False, f"Server responded with connection error code: {response.status_code}"
+    except Exception as e:
+        return False, f"Network Handshake Failure: {str(e)}"
 
-# --- HUMAN READABLE SHEET MASK LOOKUPS ---
-HUMAN_SPREADSHEET_MASKS = {
-    "Plain text": "TEXT",
-    "Number (1,000.12)": "NUMBER",
-    "Percentage (10.12%)": "PERCENT",
-    "Scientific (1.01E+03)": "SCIENTIFIC",
-    "Accounting ($ 1,000.12)": "ACCOUNTING",
-    "Financial (1,000.12)": "FINANCIAL",
-    "Currency ($1,000.12)": "CURRENCY_USD",
-    "Currency Rounded ($1,000)": "CURRENCY_USD_ROUND",
-    "Philippine Peso (₱1,000.12)": "CURRENCY_PHP",
-    "Philippine Peso Rounded (₱1,000)": "CURRENCY_PHP_ROUND",
-    "Date (06/01/2026)": "DATE_SHORT",
-    "Time (05:00:00 PM)": "TIME_STANDARD",
-    "Date & Time Full": "DATE_TIME_FULL",
-    "Date: June 01, 2026": "%B %d, %Y",
-    "Date: 01 Jun 26": "%d %b %Y",
-    "Date: YYYY-MM-DD": "%Y-%m-%d",
-    "Address: Extract Street": "STREET_SEGMENT",
-    "Address: Extract Barangay": "BARANGAY_SEGMENT",
-    "Address: Extract City": "CITY_SEGMENT"
-}
+def resolve_file_source(uploader_obj, link_str):
+    """Unified engine routing data from local storage blocks or remote URL streams."""
+    if uploader_obj is not None:
+        return uploader_obj
+        
+    if link_str and link_str.strip():
+        url = link_str.strip()
+        
+        if "drive.google.com" in url:
+            file_match = re.search(r'/d/([a-zA-Z0-9-_]+)', url)
+            if file_match:
+                file_id = file_match.group(1)
+                url = f"https://docs.google.com/uc?export=download&id={file_id}"
+            else:
+                st.info("📂 Mapping live cloud folder indexing vectors...")
+        elif "onedrive.live.com" in url:
+            url = url.replace("redir?", "download?").replace("1drv.ms", "1drv.ms/u")
 
-INVERSE_MASK_LOOKUP = {v: k for k, v in HUMAN_SPREADSHEET_MASKS.items()}
+        is_valid, msg = validate_public_url(url)
+        if is_valid:
+            try:
+                res = requests.get(url, timeout=10)
+                if res.status_code == 200:
+                    return io.BytesIO(res.content)
+            except Exception as e:
+                st.error(f"Download stream pipeline crashed: {str(e)}")
+    return None
 
-# --- CORE HELPER FUNCTIONS ---
 def parse_token_signature(raw_token):
     """Separates the placeholder identity name from its optional inline type assignment."""
     if ":" in raw_token:
@@ -362,18 +379,11 @@ def copy_and_merge_aware_injection(template_ws, target_ws, coord, data_value):
                 if sub_coord != coord:
                     clone_cell_styles(template_ws[sub_coord], target_ws[sub_coord])
 
-# --- SESSION STATE INITIALIZATION ---
-if "zip_data" not in st.session_state: st.session_state.zip_data = None
-if "change_log" not in st.session_state: st.session_state.change_log = None
-
-# --- UI: THE LANDING PAGE ---
-st.title("Site Information Report")
-
-mode = st.radio("Select Workflow Mode:", ["Create Report", "Update Report"], horizontal=True)
-st.divider()
+# --- INVERSE SCHEMA MASK LOOKUPS ---
+INVERSE_MASK_LOOKUP = {v: k for k, v in HUMAN_SPREADSHEET_MASKS.items()}
 
 # ==========================================
-# CREATE REPORT MODE
+# FLOW CONTROLLER: DISCOVERY DASHBOARD UI
 # ==========================================
 if mode == "Create Report":
     st.markdown("### Upload Files & Data Targets")
@@ -730,7 +740,6 @@ elif mode == "Update Report":
 
         st.markdown("### Data Mapping")
         
-        # --- ATOMIC CHECKBOX ACTION LAYER FIX (PROMPT ACTION) ---
         map_sel_all, map_clr_all = st.columns([1, 1, 3])[0:2]
         if map_sel_all.button("Select All", key="sa_map_b", use_container_width=True):
             for ph in placeholders: st.session_state[f"chk_{ph}"] = True
@@ -782,13 +791,14 @@ elif mode == "Update Report":
                         disabled=(input_type == "Image/Media Asset" or not update_check)
                     )
 
-                # --- SECURE INTEGRATION PREVIEW FIX SUITE ---
+                # --- PROTECTED SCOPE REGION: INLINE MEDIA RETRIEVAL ENGINE PASS ---
                 if input_type == "Image/Media Asset" and update_check:
-                    try:
-                        sample_img_row_val = str(df[mapped_val].dropna().iloc[0]).strip() if mapped_val in df.columns and not df[mapped_val].dropna().empty else ""
-                    except Exception:
-                        sample_img_row_val = ""
-                        
+                    sample_img_row_val = ""
+                    if mapped_val in df.columns:
+                        non_empty_rows = df[mapped_val].dropna()
+                        if not non_empty_rows.empty:
+                            sample_img_row_val = str(non_empty_rows.iloc[0]).strip()
+                            
                     matched_img_filename = find_loose_media_match(sample_img_row_val, media_dict)
                     
                     if matched_img_filename:
@@ -855,7 +865,6 @@ elif mode == "Update Report":
                                             target_sheet = wb[sheet_name]
                                             break
                                             
-                                    # --- SECURITY GATES LAYER PASS ---
                                     if target_sheet is not None:
                                         for ph, mapping_data in active_mapping.items():
                                             input_type = mapping_data["type"]
@@ -909,7 +918,6 @@ elif mode == "Update Report":
                                                 orig_val = orig_ws.cell(row=r, column=c).value
                                                 upd_val = upd_ws.cell(row=r, column=c).value
                                                 
-                                                # Identify active placeholder structures safely
                                                 mapped_ph_for_cell = None
                                                 for test_ph in active_mapping.keys():
                                                     if any(cell_coord == m["coord"] for m in ph_coords.get(test_ph, [])):
@@ -917,9 +925,9 @@ elif mode == "Update Report":
                                                         break
                                                 
                                                 if mapped_ph_for_cell is not None:
-                                                    # --- REGRESSION FIX: BYPASS ACCIDENTAL TEXT DELETION FLAGS FOR IMAGE ASSETS ---
+                                                    # --- BI-DIRECTIONAL MUTATION EXCLUSION FOR ACTIVE IMAGE ASSETS ---
                                                     if active_mapping[mapped_ph_for_cell]["type"] == "Image/Media Asset":
-                                                        continue # Ignore blanked text data layers safely since an image overlay is mapped here
+                                                        continue
                                                         
                                                     if str(orig_val) != str(upd_val):
                                                         log_entries.append({
