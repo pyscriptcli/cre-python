@@ -1,4 +1,4 @@
-import streamlit as st
+import streamlit st
 import pandas as pd
 import openpyxl
 from openpyxl.styles import Alignment, PatternFill, Font, Border, Side
@@ -42,10 +42,7 @@ INVERSE_MASK_LOOKUP = {v: k for k, v in HUMAN_SPREADSHEET_MASKS.items()}
 
 # --- CORE HELPER FUNCTIONS ---
 def parse_token_signature(raw_token):
-    """
-    Separates the placeholder identity name from its optional inline type assignment.
-    Example: 'RENT_RATE:CURRENCY_PHP' -> ('RENT_RATE', 'CURRENCY_PHP')
-    """
+    """Separates the placeholder identity name from its optional inline type assignment."""
     if ":" in raw_token:
         parts = raw_token.split(":", 1)
         name = parts[0].strip()
@@ -178,9 +175,34 @@ def format_with_mask(val, mask_pattern, placeholder_name):
             
     return str(val)
 
+def generate_mock_value(mask_key):
+    """Generates a dynamic baseline sample string to drive the real-time UI preview engine."""
+    mock_registry = {
+        "TEXT": "PRIME Philippines Core Workspace",
+        "NUMBER": "1250.75",
+        "PERCENT": "0.885",
+        "SCIENTIFIC": "4520000",
+        "ACCOUNTING": "7500.50",
+        "FINANCIAL": "-1500.25",
+        "CURRENCY_USD": "5200.50",
+        "CURRENCY_USD_ROUND": "5200.50",
+        "CURRENCY_PHP": "85400.65",
+        "CURRENCY_PHP_ROUND": "85400.65",
+        "DATE_SHORT": "2026-06-01 17:00:00",
+        "TIME_STANDARD": "2026-06-01 17:00:00",
+        "DATE_TIME_FULL": "2026-06-01 17:00:00",
+        "%B %d, %Y": "2026-06-01 17:00:00",
+        "%d %b %Y": "2026-06-01 17:00:00",
+        "%Y-%m-%d": "2026-06-01 17:00:00",
+        "STREET_SEGMENT": "Suite 401, Fortune Building, Pasig, Metro Manila, 1600, Philippines",
+        "BARANGAY_SEGMENT": "Suite 401, Fortune Building, Pasig, Metro Manila, 1600, Philippines",
+        "CITY_SEGMENT": "Suite 401, Fortune Building, Pasig, Metro Manila, 1600, Philippines"
+    }
+    return mock_registry.get(mask_key, "Sample String Value")
+
 def inject_image_auto_fit(template_sheet, target_sheet, cell_coord, file_path_str, media_dict):
     """Calculates the exact pixel geometry bounds from the placeholder cell template and fits image."""
-    if not file_path_str or pd.isna(file_path_str):
+    if not target_sheet or not file_path_str or pd.isna(file_path_str):
         return False
         
     file_path_str = str(file_path_str).strip()
@@ -321,7 +343,9 @@ def clone_cell_styles(source_cell, target_cell):
         target_cell.fill = copy(source_cell.fill)
 
 def copy_and_merge_aware_injection(template_ws, target_ws, coord, data_value):
-    """Finds if the coordinate was part of a merged cell range in the template and mirrors it."""
+    """Finds if the coordinate was part of a merged cell range in the template and mirrors it safely."""
+    if not target_ws:
+        return
     target_cell = target_ws[coord]
     template_cell = template_ws[coord]
     
@@ -426,6 +450,7 @@ if mode == "Create Report":
     resolved_template = resolve_file_source(template_file, template_url)
 
     media_dict = {}
+    raw_data_filename_trail = raw_file.name if raw_file else "REMOTE_LINK_STREAM"
     if media_files:
         media_dict = {f.name: f for f in media_files}
     elif media_url and media_url.strip():
@@ -478,7 +503,7 @@ if mode == "Create Report":
                         sel_mask = st.selectbox("Data Format", list(HUMAN_SPREADSHEET_MASKS.keys()), index=mask_index, key=f"mask_{ph}", label_visibility="visible")
                     
                     mask_id = HUMAN_SPREADSHEET_MASKS[sel_mask]
-                    st.markdown(f"<div style='text-align: right; opacity: 0.35; font-size: 10px; font-weight: bold;'>[Source Column: {sel_col}] ──► [Injected Token Var: {{{{ {ph} }}}}]</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='text-align: right; opacity: 0.35; font-size: 10px; font-weight: bold;'>[Source: ({raw_data_filename_trail}) - {sel_col}] ──► [Imported to: {ph}]</div>", unsafe_allow_html=True)
                     
                     mapping[ph] = {"column": sel_col, "mask": mask_id, "inferred_type": inferred_type}
             
@@ -714,14 +739,15 @@ elif mode == "Update Report":
         st.markdown("### Data Mapping")
         
         active_mapping = {}
+        raw_edit_filename_trail = edit_raw_file.name if edit_raw_file else "REMOTE_LINK_STREAM"
         for ph in placeholders:
             match = difflib.get_close_matches(ph, headers, n=1, cutoff=0.3)
             default_index = headers.index(match[0]) if match else 0
             
             with st.container(border=True):
-                st.markdown(f"#### **{{{{{ph}}}}}**")
+                # --- PROMPT SPECIFIED UPDATE: CLEAN CHECKBOX LABELING ---
+                update_check = st.checkbox(f"Update {ph}", key=f"chk_{ph}", value=True)
                 
-                # --- ACTIVE UPDATE: EXPANDED RADIAL UNCOLLAPSED FORM MATRIX SUITE ---
                 col_radio, col_inputs = st.columns([1.2, 2.8])
                 
                 with col_radio:
@@ -733,16 +759,17 @@ elif mode == "Update Report":
                         "Data Source",
                         ["From Column", "Custom Value", "Image/Media Asset"],
                         index=default_radio_index,
-                        key=f"type_{ph}"
+                        key=f"type_{ph}",
+                        disabled=not update_check
                     )
                 
                 with col_inputs:
                     if input_type == "From Column":
-                        mapped_val = st.selectbox("Header Reference", headers, index=default_index, key=f"map_edit_{ph}")
+                        mapped_val = st.selectbox("Header Reference", headers, index=default_index, key=f"map_edit_{ph}", disabled=not update_check)
                     elif input_type == "Custom Value":
-                        mapped_val = st.text_input("Enter Static Global Constant Value Text:", placeholder="e.g., June 1, 2026", key=f"custom_edit_{ph}")
+                        mapped_val = st.text_input("Enter Static Global Constant Value Text:", placeholder="e.g., June 1, 2026", key=f"custom_edit_{ph}", disabled=not update_check)
                     else:
-                        mapped_val = st.selectbox("Header Reference", headers, index=default_index, key=f"image_edit_{ph}")
+                        mapped_val = st.selectbox("Header Reference", headers, index=default_index, key=f"image_edit_{ph}", disabled=not update_check)
                 
                     default_mask_label = INVERSE_MASK_LOOKUP.get(inferred_type, "Plain text") if inferred_type != "IMAGE" else "Plain text"
                     mask_index = list(HUMAN_SPREADSHEET_MASKS.keys()).index(default_mask_label)
@@ -751,13 +778,11 @@ elif mode == "Update Report":
                         list(HUMAN_SPREADSHEET_MASKS.keys()), 
                         index=mask_index, 
                         key=f"mask_edit_ui_{ph}", 
-                        disabled=(input_type == "Image/Media Asset")
+                        disabled=(input_type == "Image/Media Asset" or not update_check)
                     )
-                
-                update_check = st.checkbox(f"Approve Active Update Sequence Injection Flag Pass for {{{{{ph}}}}} Context Block Array", key=f"chk_{ph}", value=True)
 
                 data_origin_label = mapped_val if update_check else "None Assigned"
-                st.markdown(f"<div style='text-align: right; opacity: 0.35; font-size: 10px; font-weight: bold;'>[Source: {data_origin_label}] ──► [Injected Token Var: {{{{ {ph} }}}}]</div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='text-align: right; opacity: 0.35; font-size: 10px; font-weight: bold;'>[Source: ({raw_edit_filename_trail}) - {data_origin_label}] ──► [Imported to: {ph}]</div>", unsafe_allow_html=True)
 
             if update_check:
                 active_mapping[ph] = {
@@ -816,6 +841,8 @@ elif mode == "Update Report":
                                             target_sheet = wb[sheet_name]
                                             break
                                             
+                                    # --- ATOMIC STYLE SAFETY STABILITY GUARD PASS ---
+                                    # Execute mutations ONLY if tab identity matches discovery targets
                                     if target_sheet:
                                         for ph, mapping_data in active_mapping.items():
                                             input_type = mapping_data["type"]
@@ -851,7 +878,7 @@ elif mode == "Update Report":
                                                     if val_str.strip() != "":
                                                         target_sheet[coord].fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
 
-                                # Structural Diff Check Block
+                                # Structural Diff Check Block (Skip processing tracking changes if sheet name matching rules returned None)
                                 for sheet_name in check_wb.sheetnames:
                                     orig_ws = check_wb[sheet_name]
                                     upd_ws = wb[sheet_name] if sheet_name in wb.sheetnames else None
@@ -863,7 +890,7 @@ elif mode == "Update Report":
                                                 orig_val = orig_ws.cell(row=r, column=c).value
                                                 upd_val = upd_ws.cell(row=r, column=c).value
                                                 
-                                                is_target = any(cell_coord == m["coord"] for m in ph_coords.get(ph, []))
+                                                is_target = any(cell_coord == m["coord"] for m in ph_coords.get(ph, [])) if active_mapping else False
                                                 
                                                 if is_target:
                                                     if str(orig_val) != str(upd_val):
