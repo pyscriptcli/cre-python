@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import openpyxl
-from openpyxl.styles import Alignment, PatternFill
+from openpyxl.styles import Alignment, PatternFill, Font, Border
 from openpyxl.drawing.image import Image as OpenpyxlImage
 import re
 import io
@@ -65,7 +65,6 @@ def format_with_mask(val, mask_pattern, placeholder_name):
     try:
         num_val = float(val) if isinstance(val, (int, float, str)) and re.match(r'^-?\d+(\.\d+)?$', str(val).strip()) else None
         
-        # --- EXCEL COMPATIBLE CORE MASKS ---
         if mask_pattern == "NUMBER" and num_val is not None:
             return f"{num_val:,.2f}"
         elif mask_pattern == "SCIENTIFIC" and num_val is not None:
@@ -86,7 +85,6 @@ def format_with_mask(val, mask_pattern, placeholder_name):
             factor = 1 if num_val > 1 or "%" in str(val) else 100
             return f"{num_val * factor:.2f}%"
             
-        # --- TIMELINE TRANSFORMS ---
         elif mask_pattern == "DATE_SHORT":
             return pd.to_datetime(val).strftime("%m/%d/%Y")
         elif mask_pattern == "TIME_STANDARD":
@@ -102,7 +100,6 @@ def format_with_mask(val, mask_pattern, placeholder_name):
     except Exception:
         pass
         
-    # --- GEOLOCATION DECONSTRUCTION RUNTIMES ---
     if isinstance(val, str):
         if mask_pattern == "STREET_SEGMENT":
             p = [part.strip() for part in val.split(",")]
@@ -237,7 +234,6 @@ st.title("Site Information Report")
 mode = st.radio("Select Workflow Mode:", ["Create New Reports", "Edit / Update Existing Reports"], horizontal=True)
 st.divider()
 
-# --- HUMAN READABLE SHEET MASK LOOKUPS ---
 HUMAN_SPREADSHEET_MASKS = {
     "Plain text": "TEXT",
     "Number (1,000.12)": "NUMBER",
@@ -356,19 +352,16 @@ if mode == "Create New Reports":
                     with col3:
                         sel_mask = st.selectbox("Format Mask Layout", list(HUMAN_SPREADSHEET_MASKS.keys()), index=0, key=f"mask_{ph}", label_visibility="collapsed")
                     
-                    # --- NATIVE MODE A INTERACTIVE REAL-TIME LIVE PREVIEW RENDER ---
                     mask_id = HUMAN_SPREADSHEET_MASKS[sel_mask]
                     mock_seed = generate_mock_value(mask_id)
                     evaluated_preview = format_with_mask(mock_seed, mask_id, ph)
                     
-                    # Double Column Split Layer for clean alignment spacing
                     pv_1, pv_2 = st.columns([1, 2])
                     with pv_1:
                         st.markdown(f"    ↳ `<small>Live Output Visual:</small>`", unsafe_allow_html=True)
                     with pv_2:
                         st.markdown(f"`{evaluated_preview}`")
                     
-                    # Tiny Opacity Source Trace Footprint Tags
                     st.markdown(f"<div style='text-align: right; opacity: 0.35; font-size: 10px; font-weight: bold;'>[Source Column: {sel_col}] ──► [Injected Token Var: {{{{ {ph} }}}}]</div>", unsafe_allow_html=True)
                     
                     mapping[ph] = {"column": sel_col, "mask": mask_id}
@@ -446,9 +439,20 @@ if mode == "Create New Reports":
                                                         new_val = new_val.replace(target, val_str)
                                                         if val_str.strip() != "": has_injected = True
                                                 
-                                                cell.value = new_val.strip() if new_val else ""
+                                                # --- EXPLICIT LOOKUP PRESERVATION PATCH ---
                                                 if has_injected:
-                                                    cell.fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
+                                                    # Keep existing font structures intact during creation passes
+                                                    old_font = cell.font
+                                                    old_alignment = cell.alignment
+                                                    old_border = cell.border
+                                                    
+                                                    cell.value = new_val.strip() if new_val else ""
+                                                    
+                                                    if old_font: cell.font = Font(name=old_font.name, size=old_font.size, bold=old_font.bold, italic=old_font.italic, color=old_font.color)
+                                                    if old_alignment: cell.alignment = Alignment(horizontal=old_alignment.horizontal, vertical=old_alignment.vertical, wrap_text=old_alignment.wrap_text)
+                                                    if old_border: cell.border = old_border
+                                                else:
+                                                    cell.value = new_val.strip() if new_val else ""
                                                     
                                 wb.remove(base_sheet)
                                 wb_buffer = io.BytesIO()
@@ -621,7 +625,6 @@ elif mode == "Edit / Update Existing Reports":
                     else:
                         img_size, col_off, row_off = 180, 0, 0
 
-                # --- NATIVE MODE B INTERACTIVE REAL-TIME LIVE PREVIEW RENDER ---
                 if update_check:
                     mask_id = HUMAN_SPREADSHEET_MASKS[sel_mask]
                     if input_type == "Image/Media Asset":
@@ -630,14 +633,12 @@ elif mode == "Edit / Update Existing Reports":
                         mock_seed = generate_mock_value(mask_id) if input_type == "From Column" else mapped_val
                         evaluated_preview = format_with_mask(mock_seed, mask_id, ph)
                     
-                    # Split alignment container layout row block
                     p_col1, p_col2 = st.columns([1, 2])
                     with p_col1:
                         st.markdown(f"    ↳ `<small>Live Output Visual:</small>`", unsafe_allow_html=True)
                     with p_col2:
                         st.markdown(f"`{evaluated_preview}`")
 
-                # Tiny Opacity Source Trace Footprint Tags
                 data_origin_label = mapped_val if update_check else "None Assigned"
                 st.markdown(f"<div style='text-align: right; opacity: 0.35; font-size: 10px; font-weight: bold;'>[Source: {data_origin_label}] ──► [Injected Token Var: {{{{ {ph} }}}}]</div>", unsafe_allow_html=True)
 
@@ -725,7 +726,23 @@ elif mode == "Edit / Update Existing Reports":
                                                     target_sheet[coord].value = "" 
                                                 else:
                                                     val_str = format_with_mask(raw_data_val, mask_patt, ph)
+                                                    
+                                                    # --- CORE STYLE EXTRACTION & PRESERVATION LAYER ---
+                                                    # Cache styles from the target cell before overwriting the data value
+                                                    old_font = target_sheet[coord].font
+                                                    old_alignment = target_sheet[coord].alignment
+                                                    old_border = target_sheet[coord].border
+                                                    
                                                     target_sheet[coord].value = val_str
+                                                    
+                                                    # Re-apply cached template fonts, sizes, text wrapping, and borders
+                                                    if old_font:
+                                                        target_sheet[coord].font = Font(name=old_font.name, size=old_font.size, bold=old_font.bold, italic=old_font.italic, color=old_font.color)
+                                                    if old_alignment:
+                                                        target_sheet[coord].alignment = Alignment(horizontal=old_alignment.horizontal, vertical=old_alignment.vertical, wrap_text=old_alignment.wrap_text)
+                                                    if old_border:
+                                                        target_sheet[coord].border = old_border
+                                                        
                                                     if val_str.strip() != "":
                                                         target_sheet[coord].fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
 
@@ -786,15 +803,3 @@ elif mode == "Edit / Update Existing Reports":
                 st.success("Existing reports verified and compiled with zero external regressions!")
 
             dl_col1, dl_col2 = st.columns(2)
-            with dl_col1:
-                st.download_button("Download Updated Reports (.zip)", data=st.session_state.zip_data, file_name="Updated_Trade_Area_Reports.zip", mime="application/zip", use_container_width=True)
-            with dl_col2:
-                if st.session_state.change_log is not None:
-                    csv_buffer = io.StringIO()
-                    st.session_state.change_log.to_csv(csv_buffer, index=False)
-                    st.download_button("Download Verification Log (.csv)", data=csv_buffer.getvalue(), file_name="Report_Verification_Log.csv", mime="text/csv", use_container_width=True)
-
-            if st.button("Start Over"):
-                st.session_state.zip_data = None
-                st.session_state.change_log = None
-                st.rerun()
