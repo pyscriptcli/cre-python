@@ -1,16 +1,3 @@
-## ACTIVE ARCHITECTURE PROTOCOLS: [SMART_TAG_PARSER] | [AUTO_CONFIG_ENGINE] | [STYLE_MUTATION_GUARD]
-
-**ACCURACY METRIC:** 100% *(Two-way parsing engine isolating token identities from default data types)*
-
----
-
-Here is the complete, fully integrated `sir-automation-playground.py` script. The application now uses an advanced **Smart-Tag Extraction Layer** that parses dynamic colon-separated formatting parameters inside your placeholders—for example, `{{PROPERTY PHOTOS 1:IMAGE}}` or `{{RENTAL_RATE:CURRENCY_PHP}}`.
-
-When the file is uploaded, the app automatically maps the variables, strips the trailing signatures to keep your presentation clean, and auto-configures all Streamlit input selectors, while leaving them completely editable.
-
-### Complete Production Script
-
-```python
 import streamlit as st
 import pandas as pd
 import openpyxl
