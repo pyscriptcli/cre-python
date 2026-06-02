@@ -342,7 +342,7 @@ if "change_log" not in st.session_state: st.session_state.change_log = None
 # --- UI: THE LANDING PAGE ---
 st.title("Site Information Report")
 
-mode = st.radio("Select Workflow Mode:", ["Create New Reports", "Edit / Update Existing Reports"], horizontal=True)
+mode = st.radio("Select Workflow Mode:", ["Create Report", "Update Report"], horizontal=True)
 st.divider()
 
 HUMAN_SPREADSHEET_MASKS = {
@@ -378,7 +378,7 @@ if mode == "Create New Reports":
     
     with m_row1_col1:
         with st.container(border=True):
-            st.markdown("📊 **1. New Raw Data**")
+            st.markdown("📊 **1. Raw Data**")
             mode_a_type_1 = st.segmented_control("Source Type A1", ["File Upload", "Remote Link"], default="File Upload", key="mode_a_type_1", label_visibility="collapsed")
             if mode_a_type_1 == "File Upload":
                 raw_file = st.file_uploader("Upload Data Sheet A", type=["xlsx", "xls"], key="new_raw", label_visibility="collapsed")
@@ -400,7 +400,7 @@ if mode == "Create New Reports":
 
     with m_row2_col1:
         with st.container(border=True):
-            st.markdown("📸 **3. Photos / Docs (Folder / Link)**")
+            st.markdown("📸 **3. Photos **")
             mode_a_type_3 = st.segmented_control("Source Type A3", ["File Upload", "Remote Link"], default="File Upload", key="mode_a_type_3", label_visibility="collapsed")
             if mode_a_type_3 == "File Upload":
                 media_files = st.file_uploader("Upload Images A", accept_multiple_files=True, key="new_media", type=['png', 'jpg', 'jpeg'], label_visibility="collapsed")
@@ -576,7 +576,7 @@ elif mode == "Edit / Update Existing Reports":
     
     with row1_col1:
         with st.container(border=True):
-            st.markdown("📊 **1. New Raw Data**")
+            st.markdown("📊 **1. Raw Data**")
             src_type_1 = st.segmented_control("Source Type 1", ["File Upload", "Remote Link"], default="File Upload", key="src_type_1", label_visibility="collapsed")
             if src_type_1 == "File Upload":
                 edit_raw_file = st.file_uploader("Upload Data Sheet", type=["xlsx", "xls"], key="edit_raw", label_visibility="collapsed")
@@ -587,7 +587,7 @@ elif mode == "Edit / Update Existing Reports":
 
     with row1_col2:
         with st.container(border=True):
-            st.markdown("🗂️ **2. Existing Trade Area Workbooks**")
+            st.markdown("🗂️ **2. Reports to Update**")
             src_type_2 = st.segmented_control("Source Type 2", ["File Upload", "Remote Link"], default="File Upload", key="src_type_2", label_visibility="collapsed")
             if src_type_2 == "File Upload":
                 existing_wbs_raw = st.file_uploader("Upload Existing Sheets", type=["xlsx"], accept_multiple_files=True, key="edit_wbs", label_visibility="collapsed")
@@ -598,7 +598,7 @@ elif mode == "Edit / Update Existing Reports":
 
     with row2_col1:
         with st.container(border=True):
-            st.markdown("📐 **3. Excel Template (For Coordinates)**")
+            st.markdown("📐 **3. Report Template**")
             src_type_3 = st.segmented_control("Source Type 3", ["File Upload", "Remote Link"], default="File Upload", key="src_type_3", label_visibility="collapsed")
             if src_type_3 == "File Upload":
                 edit_temp_file = st.file_uploader("Upload Coordinate Template", type=["xlsx"], key="edit_temp", label_visibility="collapsed")
@@ -609,7 +609,7 @@ elif mode == "Edit / Update Existing Reports":
 
     with row2_col2:
         with st.container(border=True):
-            st.markdown("📸 **4. Photos / Docs (Folder / Link)**")
+            st.markdown("📸 **4. Photos**")
             src_type_4 = st.segmented_control("Source Type 4", ["File Upload", "Remote Link"], default="File Upload", key="src_type_4", label_visibility="collapsed")
             if src_type_4 == "File Upload":
                 media_files = st.file_uploader("Upload Images", accept_multiple_files=True, key="edit_media", type=['png', 'jpg', 'jpeg'], label_visibility="collapsed")
@@ -668,7 +668,7 @@ elif mode == "Edit / Update Existing Reports":
         """)
         st.divider()
 
-        st.markdown("### 🎯 Select Target Trade Area Workbooks to Update")
+        st.markdown("### 🎯 Select Files to Update")
         available_filenames = sorted(list(existing_files_dict.keys()))
         
         cb_col1, cb_col2, _ = st.columns([1, 1, 3])
@@ -694,7 +694,7 @@ elif mode == "Edit / Update Existing Reports":
         placeholders = get_placeholders(template_sheet)
         ph_coords = get_placeholder_coords(template_sheet) 
 
-        st.markdown("### Selective Injection & Calibration Suite")
+        st.markdown("### Data Mapping")
         
         active_mapping = {}
         for ph in placeholders:
@@ -876,7 +876,7 @@ elif mode == "Edit / Update Existing Reports":
                 st.success("Existing reports verified and compiled with zero external regressions!")
 
             if st.session_state.change_log is not None and not st.session_state.change_log.empty:
-                st.markdown("### 📋 Real-Time Verification Audit Trail")
+                st.markdown("### 📋 Changelog")
                 
                 def highlight_audit_row(row):
                     color = "#D4EDDA" if row["Color_Hint"] == "GREEN" else "#F8D7DA"
