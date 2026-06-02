@@ -38,7 +38,6 @@ HUMAN_SPREADSHEET_MASKS = {
     "Address: Extract City": "CITY_SEGMENT"
 }
 
-# Inverse lookup engine mapping template inline flags directly to human layout indices
 INVERSE_MASK_LOOKUP = {v: k for k, v in HUMAN_SPREADSHEET_MASKS.items()}
 
 # --- CORE HELPER FUNCTIONS ---
@@ -51,9 +50,8 @@ def parse_token_signature(raw_token):
         parts = raw_token.split(":", 1)
         name = parts[0].strip()
         tag_type = parts[1].strip().upper()
-        # Normalize simple shortcut tag inputs
-        if tag_type == "IMAGE" or tag_type == "PHOTO": return name, "IMAGE"
-        if tag_type == "TEXT" or tag_type == "STRING": return name, "TEXT"
+        if tag_type in ["IMAGE", "PHOTO"]: return name, "IMAGE"
+        if tag_type in ["TEXT", "STRING"]: return name, "TEXT"
         if tag_type in INVERSE_MASK_LOOKUP: return name, tag_type
     return raw_token.strip(), "TEXT"
 
@@ -80,7 +78,6 @@ def get_placeholder_coords(sheet):
                     clean_name, _ = parse_token_signature(match)
                     if clean_name not in mapping:
                         mapping[clean_name] = []
-                    # Record tracking tuples to handle replacement criteria
                     mapping[clean_name].append({
                         "coord": cell.coordinate,
                         "raw_token_string": f"{{{{{match}}}}}"
@@ -180,31 +177,6 @@ def format_with_mask(val, mask_pattern, placeholder_name):
             return p[len(p) - 2] if len(p) >= 2 else ""
             
     return str(val)
-
-def generate_mock_value(mask_key):
-    """Generates a dynamic baseline sample string to drive the real-time UI preview engine."""
-    mock_registry = {
-        "TEXT": "PRIME Philippines Core Workspace",
-        "NUMBER": "1250.75",
-        "PERCENT": "0.885",
-        "SCIENTIFIC": "4520000",
-        "ACCOUNTING": "7500.50",
-        "FINANCIAL": "-1500.25",
-        "CURRENCY_USD": "5200.50",
-        "CURRENCY_USD_ROUND": "5200.50",
-        "CURRENCY_PHP": "85400.65",
-        "CURRENCY_PHP_ROUND": "85400.65",
-        "DATE_SHORT": "2026-06-01 17:00:00",
-        "TIME_STANDARD": "2026-06-01 17:00:00",
-        "DATE_TIME_FULL": "2026-06-01 17:00:00",
-        "%B %d, %Y": "2026-06-01 17:00:00",
-        "%d %b %Y": "2026-06-01 17:00:00",
-        "%Y-%m-%d": "2026-06-01 17:00:00",
-        "STREET_SEGMENT": "Suite 401, Fortune Building, Pasig, Metro Manila, 1600, Philippines",
-        "BARANGAY_SEGMENT": "Suite 401, Fortune Building, Pasig, Metro Manila, 1600, Philippines",
-        "CITY_SEGMENT": "Suite 401, Fortune Building, Pasig, Metro Manila, 1600, Philippines"
-    }
-    return mock_registry.get(mask_key, "Sample String Value")
 
 def inject_image_auto_fit(template_sheet, target_sheet, cell_coord, file_path_str, media_dict):
     """Calculates the exact pixel geometry bounds from the placeholder cell template and fits image."""
@@ -388,6 +360,13 @@ def copy_and_merge_aware_injection(template_ws, target_ws, coord, data_value):
                 if sub_coord != coord:
                     clone_cell_styles(template_ws[sub_coord], target_ws[sub_coord])
 
+class StreamWrapper:
+    def __init__(self, data, filename):
+        self.data = data
+        self.name = filename
+    def getvalue(self): 
+        return self.data
+
 # --- SESSION STATE INITIALIZATION ---
 if "zip_data" not in st.session_state: st.session_state.zip_data = None
 if "change_log" not in st.session_state: st.session_state.change_log = None
@@ -491,19 +470,14 @@ if mode == "Create Report":
                     col1, col2, col3 = st.columns([1, 1.2, 1.2])
                     with col1: st.markdown(f"**{{{{{ph}}}}}**")
                     with col2: 
-                        sel_col = st.selectbox("Map to column:", headers, index=default_index, key=f"map_{ph}", label_visibility="collapsed")
+                        sel_col = st.selectbox("Header Reference:", headers, index=default_index, key=f"map_{ph}", label_visibility="visible")
                     with col3:
-                        # --- AUTOCONFIG PASS MODE A ---
                         inferred_type = template_types_registry.get(ph, "TEXT")
                         default_mask_label = INVERSE_MASK_LOOKUP.get(inferred_type, "Plain text") if inferred_type != "IMAGE" else "Plain text"
                         mask_index = list(HUMAN_SPREADSHEET_MASKS.keys()).index(default_mask_label)
-                        sel_mask = st.selectbox("Format Mask Layout", list(HUMAN_SPREADSHEET_MASKS.keys()), index=mask_index, key=f"mask_{ph}", label_visibility="collapsed")
+                        sel_mask = st.selectbox("Data Format", list(HUMAN_SPREADSHEET_MASKS.keys()), index=mask_index, key=f"mask_{ph}", label_visibility="visible")
                     
                     mask_id = HUMAN_SPREADSHEET_MASKS[sel_mask]
-                    mock_seed = generate_mock_value(mask_id)
-                    evaluated_preview = format_with_mask(mock_seed, mask_id, ph)
-                    
-                    st.markdown(f"`{evaluated_preview}`")
                     st.markdown(f"<div style='text-align: right; opacity: 0.35; font-size: 10px; font-weight: bold;'>[Source Column: {sel_col}] ──► [Injected Token Var: {{{{ {ph} }}}}]</div>", unsafe_allow_html=True)
                     
                     mapping[ph] = {"column": sel_col, "mask": mask_id, "inferred_type": inferred_type}
@@ -563,7 +537,6 @@ if mode == "Create Report":
                                                 new_val = cell.value
                                                 has_injected = False
                                                 for ph, map_conf in mapping.items():
-                                                    # Clear tracking parameters handles match loops
                                                     target_regex = r"\{\{\s*" + re.escape(ph) + r"(\s*:.*?)?\}\}"
                                                     if re.search(target_regex, new_val):
                                                         header = map_conf["column"]
@@ -577,7 +550,7 @@ if mode == "Create Report":
                                                             
                                                         if is_image:
                                                             val_str = ""
-                                                            new_val = "" # Wipe text completely
+                                                            new_val = ""
                                                         else:
                                                             val_str = format_with_mask(raw_data_val, mask_patt, ph)
                                                             new_val = re.sub(target_regex, val_str, new_val)
@@ -748,34 +721,33 @@ elif mode == "Update Report":
             with st.container(border=True):
                 st.markdown(f"#### **{{{{{ph}}}}}**")
                 
-                # --- AUTOCONFIG LOGIC IN MODE B PANEL PASS ---
-                inferred_type = template_types_registry.get(ph, "TEXT")
-                default_radio_index = 0
-                if inferred_type == "IMAGE": default_radio_index = 2
+                # --- ACTIVE UPDATE: EXPANDED RADIAL UNCOLLAPSED FORM MATRIX SUITE ---
+                col_radio, col_inputs = st.columns([1.2, 2.8])
                 
-                input_type = st.radio(
-                    "Data Assignment Type Source:",
-                    ["From Column", "Custom Value", "Image/Media Asset"],
-                    index=default_radio_index,
-                    key=f"type_{ph}",
-                    horizontal=True
-                )
+                with col_radio:
+                    inferred_type = template_types_registry.get(ph, "TEXT")
+                    default_radio_index = 0
+                    if inferred_type == "IMAGE": default_radio_index = 2
+                    
+                    input_type = st.radio(
+                        "Data Source",
+                        ["From Column", "Custom Value", "Image/Media Asset"],
+                        index=default_radio_index,
+                        key=f"type_{ph}"
+                    )
                 
-                col_ctrl, col_mask = st.columns(2)
-                
-                with col_ctrl:
+                with col_inputs:
                     if input_type == "From Column":
-                        mapped_val = st.selectbox("Select Target Sheet Column Header Reference:", headers, index=default_index, key=f"map_edit_{ph}")
+                        mapped_val = st.selectbox("Header Reference", headers, index=default_index, key=f"map_edit_{ph}")
                     elif input_type == "Custom Value":
                         mapped_val = st.text_input("Enter Static Global Constant Value Text:", placeholder="e.g., June 1, 2026", key=f"custom_edit_{ph}")
                     else:
-                        mapped_val = st.selectbox("Select Target Image/Photo File Stream Pointer Header Reference:", headers, index=default_index, key=f"image_edit_{ph}")
+                        mapped_val = st.selectbox("Header Reference", headers, index=default_index, key=f"image_edit_{ph}")
                 
-                with col_mask:
                     default_mask_label = INVERSE_MASK_LOOKUP.get(inferred_type, "Plain text") if inferred_type != "IMAGE" else "Plain text"
                     mask_index = list(HUMAN_SPREADSHEET_MASKS.keys()).index(default_mask_label)
                     sel_mask = st.selectbox(
-                        "Data Formatting Mask Layout Style Type Configuration Rule:", 
+                        "Data Format", 
                         list(HUMAN_SPREADSHEET_MASKS.keys()), 
                         index=mask_index, 
                         key=f"mask_edit_ui_{ph}", 
@@ -783,16 +755,6 @@ elif mode == "Update Report":
                     )
                 
                 update_check = st.checkbox(f"Approve Active Update Sequence Injection Flag Pass for {{{{{ph}}}}} Context Block Array", key=f"chk_{ph}", value=True)
-
-                if update_check:
-                    mask_id = HUMAN_SPREADSHEET_MASKS[sel_mask]
-                    if input_type == "Image/Media Asset":
-                        evaluated_preview = "[Image Stream Automated Fitting Protocol Mapped]"
-                    else:
-                        mock_seed = generate_mock_value(mask_id) if input_type == "From Column" else mapped_val
-                        evaluated_preview = format_with_mask(mock_seed, mask_id, ph)
-                    
-                    st.markdown(f"`Preview: {evaluated_preview}`")
 
                 data_origin_label = mapped_val if update_check else "None Assigned"
                 st.markdown(f"<div style='text-align: right; opacity: 0.35; font-size: 10px; font-weight: bold;'>[Source: {data_origin_label}] ──► [Injected Token Var: {{{{ {ph} }}}}]</div>", unsafe_allow_html=True)
@@ -879,12 +841,10 @@ elif mode == "Update Report":
                                                 if not is_image and input_type != "Image/Media Asset":
                                                     val_str = format_with_mask(raw_data_val, mask_patt, ph)
                                                     
-                                                    # Safe localized inline token replace block execution
                                                     current_cell_val = str(target_sheet[coord].value) if target_sheet[coord].value else ""
                                                     if raw_token in current_cell_val:
                                                         new_cell_str = current_cell_val.replace(raw_token, val_str)
                                                     else:
-                                                        # Fallback to direct replacement string matches if cell content drifted
                                                         new_cell_str = val_str
                                                         
                                                     copy_and_merge_aware_injection(template_sheet, target_sheet, coord, new_cell_str)
