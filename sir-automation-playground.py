@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import openpyxl
-from openpyxl.styles import Alignment, PatternFill, Font, Border
+from openpyxl.styles import Alignment, PatternFill, Font, Border, Side
 from openpyxl.drawing.image import Image as OpenpyxlImage
 import re
 import io
@@ -9,6 +9,7 @@ import zipfile
 import difflib
 import math
 import requests
+from copy import copy
 
 # Must be the first Streamlit command
 st.set_page_config(page_title="Report Generator", layout="centered")
@@ -216,6 +217,45 @@ def resolve_file_source(uploader_obj, link_str):
             except Exception as e:
                 st.error(f"Download stream pipeline crashed: {str(e)}")
     return None
+
+def clone_cell_styles(source_cell, target_cell):
+    """Deep clones style objects safely from source cell to target cell to prevent openpyxl hashing collisions."""
+    if source_cell.font:
+        target_cell.font = Font(
+            name=source_cell.font.name,
+            size=source_cell.font.size,
+            bold=source_cell.font.bold,
+            italic=source_cell.font.italic,
+            charset=source_cell.font.charset,
+            color=copy(source_cell.font.color),
+            underline=source_cell.font.underline,
+            strike=source_cell.font.strike,
+            vertAlign=source_cell.font.vertAlign,
+            scheme=source_cell.font.scheme
+        )
+    if source_cell.alignment:
+        target_cell.alignment = Alignment(
+            horizontal=source_cell.alignment.horizontal,
+            vertical=source_cell.alignment.vertical,
+            text_rotation=source_cell.alignment.text_rotation,
+            wrap_text=source_cell.alignment.wrap_text,
+            shrink_to_fit=source_cell.alignment.shrink_to_fit,
+            indent=source_cell.alignment.indent
+        )
+    if source_cell.border:
+        target_cell.border = Border(
+            left=copy(source_cell.border.left),
+            right=copy(source_cell.border.right),
+            top=copy(source_cell.border.top),
+            bottom=copy(source_cell.border.bottom),
+            diagonal=copy(source_cell.border.diagonal),
+            diagonal_direction=source_cell.border.diagonal_direction,
+            outline=copy(source_cell.border.outline),
+            vertical=copy(source_cell.border.vertical),
+            horizontal=copy(source_cell.border.horizontal)
+        )
+    if source_cell.fill:
+        target_cell.fill = copy(source_cell.fill)
 
 class StreamWrapper:
     def __init__(self, data, filename):
@@ -439,18 +479,11 @@ if mode == "Create New Reports":
                                                         new_val = new_val.replace(target, val_str)
                                                         if val_str.strip() != "": has_injected = True
                                                 
-                                                # --- EXPLICIT LOOKUP PRESERVATION PATCH ---
                                                 if has_injected:
-                                                    # Keep existing font structures intact during creation passes
-                                                    old_font = cell.font
-                                                    old_alignment = cell.alignment
-                                                    old_border = cell.border
-                                                    
+                                                    # Safely grab master style template maps 
+                                                    template_cell = base_sheet[cell.coordinate]
                                                     cell.value = new_val.strip() if new_val else ""
-                                                    
-                                                    if old_font: cell.font = Font(name=old_font.name, size=old_font.size, bold=old_font.bold, italic=old_font.italic, color=old_font.color)
-                                                    if old_alignment: cell.alignment = Alignment(horizontal=old_alignment.horizontal, vertical=old_alignment.vertical, wrap_text=old_alignment.wrap_text)
-                                                    if old_border: cell.border = old_border
+                                                    clone_cell_styles(template_cell, cell)
                                                 else:
                                                     cell.value = new_val.strip() if new_val else ""
                                                     
@@ -727,24 +760,12 @@ elif mode == "Edit / Update Existing Reports":
                                                 else:
                                                     val_str = format_with_mask(raw_data_val, mask_patt, ph)
                                                     
-                                                    # --- CORE STYLE EXTRACTION & PRESERVATION LAYER ---
-                                                    # Cache styles from the target cell before overwriting the data value
-                                                    old_font = target_sheet[coord].font
-                                                    old_alignment = target_sheet[coord].alignment
-                                                    old_border = target_sheet[coord].border
+                                                    # --- ABSOLUTE CLONING PASS FROM COORD MASTER TEMPLATE ---
+                                                    # Safely extract geometry configurations from the master design layout template
+                                                    template_cell_ref = template_sheet[coord]
                                                     
                                                     target_sheet[coord].value = val_str
-                                                    
-                                                    # Re-apply cached template fonts, sizes, text wrapping, and borders
-                                                    if old_font:
-                                                        target_sheet[coord].font = Font(name=old_font.name, size=old_font.size, bold=old_font.bold, italic=old_font.italic, color=old_font.color)
-                                                    if old_alignment:
-                                                        target_sheet[coord].alignment = Alignment(horizontal=old_alignment.horizontal, vertical=old_alignment.vertical, wrap_text=old_alignment.wrap_text)
-                                                    if old_border:
-                                                        target_sheet[coord].border = old_border
-                                                        
-                                                    if val_str.strip() != "":
-                                                        target_sheet[coord].fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
+                                                    clone_cell_styles(template_cell_ref, target_sheet[coord])
 
                                 # Structural Diff Check Block
                                 for sheet_name in check_wb.sheetnames:
@@ -803,3 +824,15 @@ elif mode == "Edit / Update Existing Reports":
                 st.success("Existing reports verified and compiled with zero external regressions!")
 
             dl_col1, dl_col2 = st.columns(2)
+            with dl_col1:
+                st.download_button("Download Updated Reports (.zip)", data=st.session_state.zip_data, file_name="Updated_Trade_Area_Reports.zip", mime="application/zip", use_container_width=True)
+            with dl_col2:
+                if st.session_state.change_log is not None:
+                    csv_buffer = io.StringIO()
+                    st.session_state.change_log.to_csv(csv_buffer, index=False)
+                    st.download_button("Download Verification Log (.csv)", data=csv_buffer.getvalue(), file_name="Report_Verification_Log.csv", mime="text/csv", use_container_width=True)
+
+            if st.button("Start Over"):
+                st.session_state.zip_data = None
+                st.session_state.change_log = None
+                st.rerun()
