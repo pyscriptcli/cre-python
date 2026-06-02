@@ -175,31 +175,6 @@ def format_with_mask(val, mask_pattern, placeholder_name):
             
     return str(val)
 
-def generate_mock_value(mask_key):
-    """Generates a dynamic baseline sample string to drive the real-time UI preview engine."""
-    mock_registry = {
-        "TEXT": "PRIME Philippines Core Workspace",
-        "NUMBER": "1250.75",
-        "PERCENT": "0.885",
-        "SCIENTIFIC": "4520000",
-        "ACCOUNTING": "7500.50",
-        "FINANCIAL": "-1500.25",
-        "CURRENCY_USD": "5200.50",
-        "CURRENCY_USD_ROUND": "5200.50",
-        "CURRENCY_PHP": "85400.65",
-        "CURRENCY_PHP_ROUND": "85400.65",
-        "DATE_SHORT": "2026-06-01 17:00:00",
-        "TIME_STANDARD": "2026-06-01 17:00:00",
-        "DATE_TIME_FULL": "2026-06-01 17:00:00",
-        "%B %d, %Y": "2026-06-01 17:00:00",
-        "%d %b %Y": "2026-06-01 17:00:00",
-        "%Y-%m-%d": "2026-06-01 17:00:00",
-        "STREET_SEGMENT": "Suite 401, Fortune Building, Pasig, Metro Manila, 1600, Philippines",
-        "BARANGAY_SEGMENT": "Suite 401, Fortune Building, Pasig, Metro Manila, 1600, Philippines",
-        "CITY_SEGMENT": "Suite 401, Fortune Building, Pasig, Metro Manila, 1600, Philippines"
-    }
-    return mock_registry.get(mask_key, "Sample String Value")
-
 def inject_image_auto_fit(template_sheet, target_sheet, cell_coord, file_path_str, media_dict):
     """Calculates the exact pixel geometry bounds from the placeholder cell template and fits image."""
     if not target_sheet or not file_path_str or pd.isna(file_path_str):
@@ -483,7 +458,7 @@ if mode == "Create Report":
         if not placeholders:
             st.warning("No {{Placeholders}} found in the uploaded template.")
         else:
-            st.markdown("### Data Mapping & Advanced Mask Configuration")
+            st.markdown("### Data Mapping")
             mapping = {}
             for ph in placeholders:
                 match = difflib.get_close_matches(ph, headers, n=1, cutoff=0.3)
@@ -495,7 +470,7 @@ if mode == "Create Report":
                     col1, col2, col3 = st.columns([1, 1.2, 1.2])
                     with col1: st.markdown(f"**{{{{{ph}}}}}**")
                     with col2: 
-                        sel_col = st.selectbox("Header Reference:", headers, index=default_index, key=f"map_{ph}", label_visibility="visible")
+                        sel_col = st.selectbox("Header Reference", headers, index=default_index, key=f"map_{ph}", label_visibility="visible")
                     with col3:
                         inferred_type = template_types_registry.get(ph, "TEXT")
                         default_mask_label = INVERSE_MASK_LOOKUP.get(inferred_type, "Plain text") if inferred_type != "IMAGE" else "Plain text"
@@ -503,7 +478,7 @@ if mode == "Create Report":
                         sel_mask = st.selectbox("Data Format", list(HUMAN_SPREADSHEET_MASKS.keys()), index=mask_index, key=f"mask_{ph}", label_visibility="visible")
                     
                     mask_id = HUMAN_SPREADSHEET_MASKS[sel_mask]
-                    st.markdown(f"<div style='text-align: right; opacity: 0.35; font-size: 10px; font-weight: bold;'>[Source: ({raw_data_filename_trail}) - {sel_col}] ──► [Imported to: {ph}]</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='text-align: right; opacity: 0.35; font-size: 10px; font-weight: bold;'>[Source: ({raw_data_filename_trail}) - {sel_col}] ──► [Imported to: {{{{ {ph} }}}}]</div>", unsafe_allow_html=True)
                     
                     mapping[ph] = {"column": sel_col, "mask": mask_id, "inferred_type": inferred_type}
             
@@ -745,7 +720,7 @@ elif mode == "Update Report":
             default_index = headers.index(match[0]) if match else 0
             
             with st.container(border=True):
-                # --- PROMPT SPECIFIED UPDATE: CLEAN CHECKBOX LABELING ---
+                # --- PRONOUNCED UPDATE TOGGLE REFACTOR ---
                 update_check = st.checkbox(f"Update {ph}", key=f"chk_{ph}", value=True)
                 
                 col_radio, col_inputs = st.columns([1.2, 2.8])
@@ -781,8 +756,9 @@ elif mode == "Update Report":
                         disabled=(input_type == "Image/Media Asset" or not update_check)
                     )
 
+                # --- EXACT SPECIFIED FOOTPRINT TRAIL ---
                 data_origin_label = mapped_val if update_check else "None Assigned"
-                st.markdown(f"<div style='text-align: right; opacity: 0.35; font-size: 10px; font-weight: bold;'>[Source: ({raw_edit_filename_trail}) - {data_origin_label}] ──► [Imported to: {ph}]</div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='text-align: right; opacity: 0.35; font-size: 10px; font-weight: bold;'>[Source: ({raw_edit_filename_trail}) - {data_origin_label}] ──► [Imported to: {{{{ {ph} }}}}]</div>", unsafe_allow_html=True)
 
             if update_check:
                 active_mapping[ph] = {
@@ -841,9 +817,8 @@ elif mode == "Update Report":
                                             target_sheet = wb[sheet_name]
                                             break
                                             
-                                    # --- ATOMIC STYLE SAFETY STABILITY GUARD PASS ---
-                                    # Execute mutations ONLY if tab identity matches discovery targets
-                                    if target_sheet:
+                                    # --- STABILITY CRASH PROTECTION AND CLONING LAYER ---
+                                    if target_sheet is not None:
                                         for ph, mapping_data in active_mapping.items():
                                             input_type = mapping_data["type"]
                                             mapped_val = mapping_data["value"]
@@ -878,12 +853,12 @@ elif mode == "Update Report":
                                                     if val_str.strip() != "":
                                                         target_sheet[coord].fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
 
-                                # Structural Diff Check Block (Skip processing tracking changes if sheet name matching rules returned None)
+                                # Structural Diff Check Block
                                 for sheet_name in check_wb.sheetnames:
                                     orig_ws = check_wb[sheet_name]
                                     upd_ws = wb[sheet_name] if sheet_name in wb.sheetnames else None
                                     
-                                    if upd_ws:
+                                    if upd_ws is not None:
                                         for r in range(1, orig_ws.max_row + 1):
                                             for c in range(1, orig_ws.max_column + 1):
                                                 cell_coord = f"{openpyxl.utils.get_column_letter(c)}{r}"
