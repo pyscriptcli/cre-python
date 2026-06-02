@@ -54,28 +54,27 @@ def parse_token_signature(raw_token):
 
 def find_loose_media_match(file_path_str, media_dict):
     """
-    Tries to find a filename within the media dictionary using a loose token match strategy.
-    Extracts patterns like 'PROPERTY PHOTOS 1' from the path string and flags matches.
+    Finds an image within the uploaded media cache using a loose substring lookup.
+    Examines file paths to match strings like 'PROPERTY PHOTOS 1' with uploaded filenames.
     """
     if not file_path_str or pd.isna(file_path_str):
         return None
     
     raw_path_clean = str(file_path_str).replace('\\', '/').split('/')[-1].upper().strip()
     
-    # Attempt 1: Check for a direct exact match
+    # Attempt 1: Check for direct literal match
     if raw_path_clean in media_dict:
         return raw_path_clean
         
-    # Attempt 2: Extract explicit token keys (e.g., 'PROPERTY PHOTOS 1')
+    # Attempt 2: Extract structured keywords (e.g., 'PROPERTY PHOTOS 1')
     token_match = re.search(r'(PROPERTY\s*PHOTOS?\s*\d+)', raw_path_clean)
     if token_match:
         extracted_token = token_match.group(1)
-        # Look through our session archive filenames for this token string sequence
         for uploaded_filename in media_dict.keys():
             if extracted_token in uploaded_filename.upper():
                 return uploaded_filename
                 
-    # Attempt 3: Fallback loose look up pass
+    # Attempt 3: Substring check fallback
     for uploaded_filename in media_dict.keys():
         cleaned_uploaded = uploaded_filename.upper()
         if cleaned_uploaded in raw_path_clean or raw_path_clean in cleaned_uploaded:
@@ -515,11 +514,11 @@ if mode == "Create Report":
         else:
             st.markdown("### Data Mapping")
             
-            ma_sel_all, ma_clr_all, _ = st.columns([1, 1, 3])
-            if ma_sel_all.button("Select All", key="sa_map_a", use_container_width=True):
+            ma_sel_all, ma_clr_all = st.columns(2)[0].columns(2)
+            if ma_sel_all.button("Select All Files", key="sa_map_a", use_container_width=True):
                 for ph in placeholders: st.session_state[f"chk_a_{ph}"] = True
                 st.rerun()
-            if ma_clr_all.button("Clear All", key="ca_map_a", use_container_width=True):
+            if ma_clr_all.button("Clear All Files", key="ca_map_a", use_container_width=True):
                 for ph in placeholders: st.session_state[f"chk_a_{ph}"] = False
                 st.rerun()
                 
@@ -553,7 +552,7 @@ if mode == "Create Report":
                         else:
                             st.warning(f"❌ **No Matching Photo Found:** Missing raw target for `{sample_row_val.split('/')[-1] if sample_row_val else 'None'}`.")
                             
-                    st.markdown(f"<div style='text-align: right; opacity: 0.35; font-size: 10px; font-weight: bold;'>[Source: ({raw_data_filename_trail}) - {sel_col}] ──► [Imported to: {ph}]</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='text-align: right; opacity: 0.35; font-size: 10px; font-weight: bold;'>[Source: ({raw_data_filename_trail}) - {sel_col}] ──► [Imported to: {{{{ {ph} }}}}]</div>", unsafe_allow_html=True)
                     
                     if update_check_a:
                         mapping[ph] = {"column": sel_col, "mask": mask_id, "inferred_type": inferred_type}
@@ -562,11 +561,11 @@ if mode == "Create Report":
             st.markdown("### Select Trade Areas")
             unique_tas = sorted([str(ta) for ta in df["TRADE AREA"].dropna().unique()])
             
-            col_sel, col_clr, _ = st.columns([1, 1, 3])
-            if col_sel.button("Select All", key="sa1", use_container_width=True):
+            col_sel, col_clr = st.columns(2)[0].columns(2)
+            if col_sel.button("Select All Files", key="sa1", use_container_width=True):
                 for ta in unique_tas: st.session_state[f"chk_new_{ta}"] = True
                 st.rerun()
-            if col_clr.button("Clear All", key="ca1", use_container_width=True):
+            if col_clr.button("Clear All Files", key="ca1", use_container_width=True):
                 for ta in unique_tas: st.session_state[f"chk_new_{ta}"] = False
                 st.rerun()
 
@@ -763,7 +762,7 @@ elif mode == "Update Report":
         st.markdown("### 🎯 Select Target Trade Area Workbooks to Update")
         available_filenames = sorted(list(existing_files_dict.keys()))
         
-        cb_col1, cb_col2, _ = st.columns([1, 1, 3])
+        cb_col1, cb_col2 = st.columns(2)[0].columns(2)
         if cb_col1.button("Select All Files", key="sa_wbs", use_container_width=True):
             for name in available_filenames: st.session_state[f"chk_wb_{name}"] = True
             st.rerun()
@@ -789,11 +788,12 @@ elif mode == "Update Report":
 
         st.markdown("### Data Mapping")
         
-        map_sel_all, map_clr_all, _ = st.columns([1, 1, 3])
-        if map_sel_all.button("Select All", key="sa_map_b", use_container_width=True):
+        # --- SELECT ALL / CLEAR ALL ACTION REGION FOR DATA MAPPING (PROMPT IMPLEMENTATION) ---
+        map_sel_all, map_clr_all = st.columns(2)[0].columns(2)
+        if map_sel_all.button("Select All Files", key="sa_map_b", use_container_width=True):
             for ph in placeholders: st.session_state[f"chk_{ph}"] = True
             st.rerun()
-        if map_clr_all.button("Clear All", key="ca_map_b", use_container_width=True):
+        if map_clr_all.button("Clear All Files", key="ca_map_b", use_container_width=True):
             for ph in placeholders: st.session_state[f"chk_{ph}"] = False
             st.rerun()
         
@@ -843,15 +843,14 @@ elif mode == "Update Report":
                 # --- UPGRADED: SUBSTRING LOOSE MEDIA MATCH VISUALIZER PASS ---
                 if input_type == "Image/Media Asset" and update_check:
                     sample_img_row_val = str(df[mapped_val].dropna().iloc[0]).strip() if mapped_val in df.columns and not df[mapped_val].dropna().empty else ""
-                    matched_img_filename = find_loose_media_match(sample_img_row_val, media_dict)
+                    matched_img_filename = find_loose_media_match(sample_row_val, media_dict)
                     
                     if matched_img_filename:
-                        st.success(f"✅ **Photo Match Found:** Mapped `{sample_img_row_val.split('/')[-1]}` to session file `{matched_img_filename}` via dynamic token sequence lookup.")
+                        st.success(f"✅ **Photo Match Found:** `{matched_img_filename}` verified in session cache.")
                     else:
-                        st.warning(f"❌ **No Matching Photo Found:** Missing raw target for `{sample_img_row_val.split('/')[-1] if sample_img_row_val else 'None'}` inside current session storage layers.")
+                        st.warning(f"❌ **No Matching Photo Found:** Missing raw target for `{sample_row_val.split('/')[-1] if sample_row_val else 'None'}`.")
 
-                data_origin_label = mapped_val if update_check else "None Assigned"
-                st.markdown(f"<div style='text-align: right; opacity: 0.35; font-size: 10px; font-weight: bold;'>[Source: ({raw_edit_filename_trail}) - {data_origin_label}] ──► [Imported to: {ph}]</div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='text-align: right; opacity: 0.35; font-size: 10px; font-weight: bold;'>[Source: ({raw_edit_filename_trail}) - {mapped_val if update_check else 'None'}] ──► [Imported to: {{{{ {ph} }}}}]</div>", unsafe_allow_html=True)
 
             if update_check:
                 active_mapping[ph] = {
@@ -910,7 +909,8 @@ elif mode == "Update Report":
                                             target_sheet = wb[sheet_name]
                                             break
                                             
-                                    if target_sheet:
+                                    # --- SECURITY PILE: NONETYPE STABILITY SHIELD GATES ---
+                                    if target_sheet is not None:
                                         for ph, mapping_data in active_mapping.items():
                                             input_type = mapping_data["type"]
                                             mapped_val = mapping_data["value"]
@@ -944,6 +944,13 @@ elif mode == "Update Report":
                                                     copy_and_merge_aware_injection(template_sheet, target_sheet, coord, new_cell_str)
                                                     if val_str.strip() != "":
                                                         target_sheet[coord].fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
+                                    else:
+                                        # Log structural warning trail metrics cleanly for reporting passes
+                                        log_entries.append({
+                                            "Workbook": wb_name, "Sheet": f"MISSING_TAB_{clean_name}", "Coordinate": "N/A",
+                                            "Type": "TAB_NOT_FOUND", "Status": "SKIPPED", "Color_Hint": "RED",
+                                            "Original Value": "N/A", "Updated Value": "N/A"
+                                        })
 
                                 # Structural Diff Check Block
                                 for sheet_name in check_wb.sheetnames:
