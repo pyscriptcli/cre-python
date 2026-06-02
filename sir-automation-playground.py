@@ -52,6 +52,37 @@ def parse_token_signature(raw_token):
         if tag_type in INVERSE_MASK_LOOKUP: return name, tag_type
     return raw_token.strip(), "TEXT"
 
+def find_loose_media_match(file_path_str, media_dict):
+    """
+    Tries to find a filename within the media dictionary using a loose token match strategy.
+    Extracts patterns like 'PROPERTY PHOTOS 1' from the path string and flags matches.
+    """
+    if not file_path_str or pd.isna(file_path_str):
+        return None
+    
+    raw_path_clean = str(file_path_str).replace('\\', '/').split('/')[-1].upper().strip()
+    
+    # Attempt 1: Check for a direct exact match
+    if raw_path_clean in media_dict:
+        return raw_path_clean
+        
+    # Attempt 2: Extract explicit token keys (e.g., 'PROPERTY PHOTOS 1')
+    token_match = re.search(r'(PROPERTY\s*PHOTOS?\s*\d+)', raw_path_clean)
+    if token_match:
+        extracted_token = token_match.group(1)
+        # Look through our session archive filenames for this token string sequence
+        for uploaded_filename in media_dict.keys():
+            if extracted_token in uploaded_filename.upper():
+                return uploaded_filename
+                
+    # Attempt 3: Fallback loose look up pass
+    for uploaded_filename in media_dict.keys():
+        cleaned_uploaded = uploaded_filename.upper()
+        if cleaned_uploaded in raw_path_clean or raw_path_clean in cleaned_uploaded:
+            return uploaded_filename
+            
+    return None
+
 def get_placeholders(sheet):
     """Extract all parsed variable names from the Excel sheet, stripped of type flags."""
     placeholders = set()
@@ -175,17 +206,41 @@ def format_with_mask(val, mask_pattern, placeholder_name):
             
     return str(val)
 
+def generate_mock_value(mask_key):
+    """Generates a dynamic baseline sample string to drive the real-time UI preview engine."""
+    mock_registry = {
+        "TEXT": "PRIME Philippines Core Workspace",
+        "NUMBER": "1250.75",
+        "PERCENT": "0.885",
+        "SCIENTIFIC": "4520000",
+        "ACCOUNTING": "7500.50",
+        "FINANCIAL": "-1500.25",
+        "CURRENCY_USD": "5200.50",
+        "CURRENCY_USD_ROUND": "5200.50",
+        "CURRENCY_PHP": "85400.65",
+        "CURRENCY_PHP_ROUND": "85400.65",
+        "DATE_SHORT": "2026-06-01 17:00:00",
+        "TIME_STANDARD": "2026-06-01 17:00:00",
+        "DATE_TIME_FULL": "2026-06-01 17:00:00",
+        "%B %d, %Y": "2026-06-01 17:00:00",
+        "%d %b %Y": "2026-06-01 17:00:00",
+        "%Y-%m-%d": "2026-06-01 17:00:00",
+        "STREET_SEGMENT": "Suite 401, Fortune Building, Pasig, Metro Manila, 1600, Philippines",
+        "BARANGAY_SEGMENT": "Suite 401, Fortune Building, Pasig, Metro Manila, 1600, Philippines",
+        "CITY_SEGMENT": "Suite 401, Fortune Building, Pasig, Metro Manila, 1600, Philippines"
+    }
+    return mock_registry.get(mask_key, "Sample String Value")
+
 def inject_image_auto_fit(template_sheet, target_sheet, cell_coord, file_path_str, media_dict):
     """Calculates the exact pixel geometry bounds from the placeholder cell template and fits image."""
-    if not target_sheet or not file_path_str or pd.isna(file_path_str):
+    if not target_sheet:
         return False
         
-    file_path_str = str(file_path_str).strip()
-    filename = file_path_str.replace('\\', '/').split('/')[-1]
+    matched_filename = find_loose_media_match(file_path_str, media_dict)
     
-    if filename in media_dict:
+    if matched_filename:
         try:
-            img_stream = io.BytesIO(media_dict[filename].getvalue())
+            img_stream = io.BytesIO(media_dict[matched_filename].getvalue())
             img = OpenpyxlImage(img_stream)
             
             target_width_px = 120
@@ -460,7 +515,6 @@ if mode == "Create Report":
         else:
             st.markdown("### Data Mapping")
             
-            # Master checklist operations toggles array for Mode A
             ma_sel_all, ma_clr_all, _ = st.columns([1, 1, 3])
             if ma_sel_all.button("Select All", key="sa_map_a", use_container_width=True):
                 for ph in placeholders: st.session_state[f"chk_a_{ph}"] = True
@@ -477,9 +531,8 @@ if mode == "Create Report":
                     default_index = headers.index("LOCATION/ADDRESS")
                 
                 with st.container(border=True):
-                    # Ingest explicitly named checklist component tags
                     if f"chk_a_{ph}" not in st.session_state: st.session_state[f"chk_a_{ph}"] = True
-                    update_check_a = st.checkbox(f"Update {{{ ph }}}", key=f"chk_a_{ph}")
+                    update_check_a = st.checkbox(f"Update {ph}", key=f"chk_a_{ph}")
                     
                     col1, col2 = st.columns(2)
                     with col1: 
@@ -491,6 +544,15 @@ if mode == "Create Report":
                         sel_mask = st.selectbox("Data Format", list(HUMAN_SPREADSHEET_MASKS.keys()), index=mask_index, key=f"mask_{ph}", disabled=not update_check_a)
                     
                     mask_id = HUMAN_SPREADSHEET_MASKS[sel_mask]
+                    
+                    if inferred_type == "IMAGE" and update_check_a:
+                        sample_row_val = str(df[sel_col].dropna().iloc[0]).strip() if sel_col in df.columns and not df[sel_col].dropna().empty else ""
+                        matched_img_filename = find_loose_media_match(sample_row_val, media_dict)
+                        if matched_img_filename:
+                            st.success(f"✅ **Photo Match Found:** `{matched_img_filename}` verified in session cache.")
+                        else:
+                            st.warning(f"❌ **No Matching Photo Found:** Missing raw target for `{sample_row_val.split('/')[-1] if sample_row_val else 'None'}`.")
+                            
                     st.markdown(f"<div style='text-align: right; opacity: 0.35; font-size: 10px; font-weight: bold;'>[Source: ({raw_data_filename_trail}) - {sel_col}] ──► [Imported to: {ph}]</div>", unsafe_allow_html=True)
                     
                     if update_check_a:
@@ -727,7 +789,6 @@ elif mode == "Update Report":
 
         st.markdown("### Data Mapping")
         
-        # --- BATCH GLOBAL INGESTION SELECTION MAP EVENT TOGGLES (PROMPT REQUEST) ---
         map_sel_all, map_clr_all, _ = st.columns([1, 1, 3])
         if map_sel_all.button("Select All", key="sa_map_b", use_container_width=True):
             for ph in placeholders: st.session_state[f"chk_{ph}"] = True
@@ -743,7 +804,6 @@ elif mode == "Update Report":
             default_index = headers.index(match[0]) if match else 0
             
             with st.container(border=True):
-                # --- PROMPT REQUESTED ADJUSTMENT: CLEAN REDUCED SYNTAX LABELING ---
                 if f"chk_{ph}" not in st.session_state: st.session_state[f"chk_{ph}"] = True
                 update_check = st.checkbox(f"Update {ph}", key=f"chk_{ph}")
                 
@@ -780,16 +840,15 @@ elif mode == "Update Report":
                         disabled=(input_type == "Image/Media Asset" or not update_check)
                     )
 
-                # --- PROMPT ACTION: DYNAMIC IMAGE INTEGRITY TRACKING MATCH VISUALIZER ---
+                # --- UPGRADED: SUBSTRING LOOSE MEDIA MATCH VISUALIZER PASS ---
                 if input_type == "Image/Media Asset" and update_check:
-                    # Snatch image path sample text preview string references from our dataframe rows
                     sample_img_row_val = str(df[mapped_val].dropna().iloc[0]).strip() if mapped_val in df.columns and not df[mapped_val].dropna().empty else ""
-                    clean_target_filename = sample_img_row_val.replace('\\', '/').split('/')[-1] if sample_img_row_val else ""
+                    matched_img_filename = find_loose_media_match(sample_img_row_val, media_dict)
                     
-                    if clean_target_filename and clean_target_filename in media_dict:
-                        st.success(f"✅ **Photo Match Found:** `{clean_target_filename}` confirmed inside cloud session cache.")
+                    if matched_img_filename:
+                        st.success(f"✅ **Photo Match Found:** Mapped `{sample_img_row_val.split('/')[-1]}` to session file `{matched_img_filename}` via dynamic token sequence lookup.")
                     else:
-                        st.warning(f"❌ **No Matching Photo Found:** Missing target binary metadata reference for `{clean_target_filename if clean_target_filename else 'No Valid File Mapped'}` inside current session storage layers.")
+                        st.warning(f"❌ **No Matching Photo Found:** Missing raw target for `{sample_img_row_val.split('/')[-1] if sample_img_row_val else 'None'}` inside current session storage layers.")
 
                 data_origin_label = mapped_val if update_check else "None Assigned"
                 st.markdown(f"<div style='text-align: right; opacity: 0.35; font-size: 10px; font-weight: bold;'>[Source: ({raw_edit_filename_trail}) - {data_origin_label}] ──► [Imported to: {ph}]</div>", unsafe_allow_html=True)
@@ -851,7 +910,6 @@ elif mode == "Update Report":
                                             target_sheet = wb[sheet_name]
                                             break
                                             
-                                    # Style validation safety guard logic
                                     if target_sheet:
                                         for ph, mapping_data in active_mapping.items():
                                             input_type = mapping_data["type"]
