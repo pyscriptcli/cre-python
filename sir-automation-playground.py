@@ -459,6 +459,16 @@ if mode == "Create Report":
             st.warning("No {{Placeholders}} found in the uploaded template.")
         else:
             st.markdown("### Data Mapping")
+            
+            # Master checklist operations toggles array for Mode A
+            ma_sel_all, ma_clr_all, _ = st.columns([1, 1, 3])
+            if ma_sel_all.button("Select All", key="sa_map_a", use_container_width=True):
+                for ph in placeholders: st.session_state[f"chk_a_{ph}"] = True
+                st.rerun()
+            if ma_clr_all.button("Clear All", key="ca_map_a", use_container_width=True):
+                for ph in placeholders: st.session_state[f"chk_a_{ph}"] = False
+                st.rerun()
+                
             mapping = {}
             for ph in placeholders:
                 match = difflib.get_close_matches(ph, headers, n=1, cutoff=0.3)
@@ -467,20 +477,24 @@ if mode == "Create Report":
                     default_index = headers.index("LOCATION/ADDRESS")
                 
                 with st.container(border=True):
-                    col1, col2, col3 = st.columns([1, 1.2, 1.2])
-                    with col1: st.markdown(f"**{{{{{ph}}}}}**")
-                    with col2: 
-                        sel_col = st.selectbox("Header Reference", headers, index=default_index, key=f"map_{ph}", label_visibility="visible")
-                    with col3:
+                    # Ingest explicitly named checklist component tags
+                    if f"chk_a_{ph}" not in st.session_state: st.session_state[f"chk_a_{ph}"] = True
+                    update_check_a = st.checkbox(f"Update {{{ ph }}}", key=f"chk_a_{ph}")
+                    
+                    col1, col2 = st.columns(2)
+                    with col1: 
+                        sel_col = st.selectbox("Header Reference", headers, index=default_index, key=f"map_{ph}", disabled=not update_check_a)
+                    with col2:
                         inferred_type = template_types_registry.get(ph, "TEXT")
                         default_mask_label = INVERSE_MASK_LOOKUP.get(inferred_type, "Plain text") if inferred_type != "IMAGE" else "Plain text"
                         mask_index = list(HUMAN_SPREADSHEET_MASKS.keys()).index(default_mask_label)
-                        sel_mask = st.selectbox("Data Format", list(HUMAN_SPREADSHEET_MASKS.keys()), index=mask_index, key=f"mask_{ph}", label_visibility="visible")
+                        sel_mask = st.selectbox("Data Format", list(HUMAN_SPREADSHEET_MASKS.keys()), index=mask_index, key=f"mask_{ph}", disabled=not update_check_a)
                     
                     mask_id = HUMAN_SPREADSHEET_MASKS[sel_mask]
-                    st.markdown(f"<div style='text-align: right; opacity: 0.35; font-size: 10px; font-weight: bold;'>[Source: ({raw_data_filename_trail}) - {sel_col}] ──► [Imported to: {{{{ {ph} }}}}]</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='text-align: right; opacity: 0.35; font-size: 10px; font-weight: bold;'>[Source: ({raw_data_filename_trail}) - {sel_col}] ──► [Imported to: {ph}]</div>", unsafe_allow_html=True)
                     
-                    mapping[ph] = {"column": sel_col, "mask": mask_id, "inferred_type": inferred_type}
+                    if update_check_a:
+                        mapping[ph] = {"column": sel_col, "mask": mask_id, "inferred_type": inferred_type}
             
             st.divider()
             st.markdown("### Select Trade Areas")
@@ -713,6 +727,15 @@ elif mode == "Update Report":
 
         st.markdown("### Data Mapping")
         
+        # --- BATCH GLOBAL INGESTION SELECTION MAP EVENT TOGGLES (PROMPT REQUEST) ---
+        map_sel_all, map_clr_all, _ = st.columns([1, 1, 3])
+        if map_sel_all.button("Select All", key="sa_map_b", use_container_width=True):
+            for ph in placeholders: st.session_state[f"chk_{ph}"] = True
+            st.rerun()
+        if map_clr_all.button("Clear All", key="ca_map_b", use_container_width=True):
+            for ph in placeholders: st.session_state[f"chk_{ph}"] = False
+            st.rerun()
+        
         active_mapping = {}
         raw_edit_filename_trail = edit_raw_file.name if edit_raw_file else "REMOTE_LINK_STREAM"
         for ph in placeholders:
@@ -720,8 +743,9 @@ elif mode == "Update Report":
             default_index = headers.index(match[0]) if match else 0
             
             with st.container(border=True):
-                # --- PRONOUNCED UPDATE TOGGLE REFACTOR ---
-                update_check = st.checkbox(f"Update {ph}", key=f"chk_{ph}", value=True)
+                # --- PROMPT REQUESTED ADJUSTMENT: CLEAN REDUCED SYNTAX LABELING ---
+                if f"chk_{ph}" not in st.session_state: st.session_state[f"chk_{ph}"] = True
+                update_check = st.checkbox(f"Update {ph}", key=f"chk_{ph}")
                 
                 col_radio, col_inputs = st.columns([1.2, 2.8])
                 
@@ -756,9 +780,19 @@ elif mode == "Update Report":
                         disabled=(input_type == "Image/Media Asset" or not update_check)
                     )
 
-                # --- EXACT SPECIFIED FOOTPRINT TRAIL ---
+                # --- PROMPT ACTION: DYNAMIC IMAGE INTEGRITY TRACKING MATCH VISUALIZER ---
+                if input_type == "Image/Media Asset" and update_check:
+                    # Snatch image path sample text preview string references from our dataframe rows
+                    sample_img_row_val = str(df[mapped_val].dropna().iloc[0]).strip() if mapped_val in df.columns and not df[mapped_val].dropna().empty else ""
+                    clean_target_filename = sample_img_row_val.replace('\\', '/').split('/')[-1] if sample_img_row_val else ""
+                    
+                    if clean_target_filename and clean_target_filename in media_dict:
+                        st.success(f"✅ **Photo Match Found:** `{clean_target_filename}` confirmed inside cloud session cache.")
+                    else:
+                        st.warning(f"❌ **No Matching Photo Found:** Missing target binary metadata reference for `{clean_target_filename if clean_target_filename else 'No Valid File Mapped'}` inside current session storage layers.")
+
                 data_origin_label = mapped_val if update_check else "None Assigned"
-                st.markdown(f"<div style='text-align: right; opacity: 0.35; font-size: 10px; font-weight: bold;'>[Source: ({raw_edit_filename_trail}) - {data_origin_label}] ──► [Imported to: {{{{ {ph} }}}}]</div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='text-align: right; opacity: 0.35; font-size: 10px; font-weight: bold;'>[Source: ({raw_edit_filename_trail}) - {data_origin_label}] ──► [Imported to: {ph}]</div>", unsafe_allow_html=True)
 
             if update_check:
                 active_mapping[ph] = {
@@ -817,8 +851,8 @@ elif mode == "Update Report":
                                             target_sheet = wb[sheet_name]
                                             break
                                             
-                                    # --- STABILITY CRASH PROTECTION AND CLONING LAYER ---
-                                    if target_sheet is not None:
+                                    # Style validation safety guard logic
+                                    if target_sheet:
                                         for ph, mapping_data in active_mapping.items():
                                             input_type = mapping_data["type"]
                                             mapped_val = mapping_data["value"]
@@ -858,7 +892,7 @@ elif mode == "Update Report":
                                     orig_ws = check_wb[sheet_name]
                                     upd_ws = wb[sheet_name] if sheet_name in wb.sheetnames else None
                                     
-                                    if upd_ws is not None:
+                                    if upd_ws:
                                         for r in range(1, orig_ws.max_row + 1):
                                             for c in range(1, orig_ws.max_column + 1):
                                                 cell_coord = f"{openpyxl.utils.get_column_letter(c)}{r}"
