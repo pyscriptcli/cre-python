@@ -53,20 +53,15 @@ def parse_token_signature(raw_token):
     return raw_token.strip(), "TEXT"
 
 def find_loose_media_match(file_path_str, media_dict):
-    """
-    Finds an image within the uploaded media cache using a loose substring lookup.
-    Examines file paths to match strings like 'PROPERTY PHOTOS 1' with uploaded filenames.
-    """
+    """Finds an image within the uploaded media cache using a loose substring lookup."""
     if not file_path_str or pd.isna(file_path_str):
         return None
     
     raw_path_clean = str(file_path_str).replace('\\', '/').split('/')[-1].upper().strip()
     
-    # Attempt 1: Direct exact match
     if raw_path_clean in media_dict:
         return raw_path_clean
         
-    # Attempt 2: Extract structured keywords (e.g., 'PROPERTY PHOTOS 1')
     token_match = re.search(r'(PROPERTY\s*PHOTOS?\s*\d+)', raw_path_clean)
     if token_match:
         extracted_token = token_match.group(1)
@@ -74,7 +69,6 @@ def find_loose_media_match(file_path_str, media_dict):
             if extracted_token in uploaded_filename.upper():
                 return uploaded_filename
                 
-    # Attempt 3: Substring loop matching
     for uploaded_filename in media_dict.keys():
         cleaned_uploaded = uploaded_filename.upper()
         if cleaned_uploaded in raw_path_clean or raw_path_clean in cleaned_uploaded:
@@ -287,34 +281,6 @@ def inject_image_auto_fit(template_sheet, target_sheet, cell_coord, file_path_st
             pass 
     return False
 
-def resolve_file_source(uploader_obj, link_str):
-    """Unified engine routing data from local storage blocks or remote URL streams."""
-    if uploader_obj is not None:
-        return uploader_obj
-        
-    if link_str and link_str.strip():
-        url = link_str.strip()
-        
-        if "drive.google.com" in url:
-            file_match = re.search(r'/d/([a-zA-Z0-9-_]+)', url)
-            if file_match:
-                file_id = file_match.group(1)
-                url = f"https://docs.google.com/uc?export=download&id={file_id}"
-            else:
-                st.info("📂 Mapping live cloud folder indexing vectors...")
-        elif "onedrive.live.com" in url:
-            url = url.replace("redir?", "download?").replace("1drv.ms", "1drv.ms/u")
-
-        is_valid, msg = validate_public_url(url)
-        if is_valid:
-            try:
-                res = requests.get(url, timeout=10)
-                if res.status_code == 200:
-                    return io.BytesIO(res.content)
-            except Exception as e:
-                st.error(f"Download stream pipeline crashed: {str(e)}")
-    return None
-
 def clone_cell_styles(source_cell, target_cell):
     """Deep clones style objects safely from source cell to target cell to prevent openpyxl hashing collisions."""
     if source_cell.font:
@@ -395,13 +361,6 @@ def copy_and_merge_aware_injection(template_ws, target_ws, coord, data_value):
                 sub_coord = f"{openpyxl.utils.get_column_letter(c)}{r}"
                 if sub_coord != coord:
                     clone_cell_styles(template_ws[sub_coord], target_ws[sub_coord])
-
-class StreamWrapper:
-    def __init__(self, data, filename):
-        self.data = data
-        self.name = filename
-    def getvalue(self): 
-        return self.data
 
 # --- SESSION STATE INITIALIZATION ---
 if "zip_data" not in st.session_state: st.session_state.zip_data = None
@@ -497,7 +456,7 @@ if mode == "Create Report":
         else:
             st.markdown("### Data Mapping")
             
-            ma_sel_all, ma_clr_all = st.columns(2)[0].columns(2)
+            ma_sel_all, ma_clr_all = st.columns([1, 1, 3])[0:2]
             if ma_sel_all.button("Select All", key="sa_map_a", use_container_width=True):
                 for ph in placeholders: st.session_state[f"chk_a_{ph}"] = True
                 st.rerun()
@@ -544,11 +503,11 @@ if mode == "Create Report":
             st.markdown("### Select Trade Areas")
             unique_tas = sorted([str(ta) for ta in df["TRADE AREA"].dropna().unique()])
             
-            col_sel, col_clr = st.columns(2)[0].columns(2)
-            if col_sel.button("Select All Files", key="sa1", use_container_width=True):
+            col_sel, col_clr = st.columns([1, 1, 3])[0:2]
+            if col_sel.button("Select All", key="sa1", use_container_width=True):
                 for ta in unique_tas: st.session_state[f"chk_new_{ta}"] = True
                 st.rerun()
-            if col_clr.button("Clear All Files", key="ca1", use_container_width=True):
+            if col_clr.button("Clear All", key="ca1", use_container_width=True):
                 for ta in unique_tas: st.session_state[f"chk_new_{ta}"] = False
                 st.rerun()
 
@@ -745,11 +704,11 @@ elif mode == "Update Report":
         st.markdown("### 🎯 Select Target Trade Area Workbooks to Update")
         available_filenames = sorted(list(existing_files_dict.keys()))
         
-        cb_col1, cb_col2 = st.columns(2)[0].columns(2)
-        if cb_col1.button("Select All Files", key="sa_wbs", use_container_width=True):
+        cb_col1, cb_col2 = st.columns([1, 1, 3])[0:2]
+        if cb_col1.button("Select All", key="sa_wbs", use_container_width=True):
             for name in available_filenames: st.session_state[f"chk_wb_{name}"] = True
             st.rerun()
-        if cb_col2.button("Clear All Files", key="ca_wbs", use_container_width=True):
+        if cb_col2.button("Clear All", key="ca_wbs", use_container_width=True):
             for name in available_filenames: st.session_state[f"chk_wb_{name}"] = False
             st.rerun()
 
@@ -771,7 +730,8 @@ elif mode == "Update Report":
 
         st.markdown("### Data Mapping")
         
-        map_sel_all, map_clr_all = st.columns(2)[0].columns(2)
+        # --- ATOMIC CHECKBOX ACTION LAYER FIX (PROMPT ACTION) ---
+        map_sel_all, map_clr_all = st.columns([1, 1, 3])[0:2]
         if map_sel_all.button("Select All", key="sa_map_b", use_container_width=True):
             for ph in placeholders: st.session_state[f"chk_{ph}"] = True
             st.rerun()
@@ -822,7 +782,7 @@ elif mode == "Update Report":
                         disabled=(input_type == "Image/Media Asset" or not update_check)
                     )
 
-                # --- SECURE INTEGRATION BOUND PASS WITH DYNAMIC FALLBACK SAFETY SHIELDS ---
+                # --- SECURE INTEGRATION PREVIEW FIX SUITE ---
                 if input_type == "Image/Media Asset" and update_check:
                     try:
                         sample_img_row_val = str(df[mapped_val].dropna().iloc[0]).strip() if mapped_val in df.columns and not df[mapped_val].dropna().empty else ""
@@ -834,7 +794,7 @@ elif mode == "Update Report":
                     if matched_img_filename:
                         st.success(f"✅ **Photo Match Found:** `{matched_img_filename}` verified inside cloud session cache.")
                     else:
-                        st.warning(f"❌ **No Matching Photo Found:** Missing target binary metadata reference for `{sample_img_row_val.split('/')[-1] if sample_img_row_val else 'No Valid File Mapped'}` inside current session storage layers.")
+                        st.warning(f"❌ **No Matching Photo Found:** Missing target binary metadata reference for `{sample_img_row_val.replace('\\\\', '/').split('/')[-1] if sample_img_row_val else 'No Valid File Mapped'}` inside current session storage layers.")
 
                 st.markdown(f"<div style='text-align: right; opacity: 0.35; font-size: 10px; font-weight: bold;'>[Source: ({raw_edit_filename_trail}) - {mapped_val if update_check else 'None'}] ──► [Imported to: {ph}]</div>", unsafe_allow_html=True)
 
@@ -895,7 +855,7 @@ elif mode == "Update Report":
                                             target_sheet = wb[sheet_name]
                                             break
                                             
-                                    # --- STABILITY PASS GATES: VERIFY TAB INSTANCE VALIDITY BEFORE EXECUTION ---
+                                    # --- SECURITY GATES LAYER PASS ---
                                     if target_sheet is not None:
                                         for ph, mapping_data in active_mapping.items():
                                             input_type = mapping_data["type"]
@@ -949,9 +909,18 @@ elif mode == "Update Report":
                                                 orig_val = orig_ws.cell(row=r, column=c).value
                                                 upd_val = upd_ws.cell(row=r, column=c).value
                                                 
-                                                is_target = any(cell_coord == m["coord"] for m in ph_coords.get(ph, [])) if active_mapping else False
+                                                # Identify active placeholder structures safely
+                                                mapped_ph_for_cell = None
+                                                for test_ph in active_mapping.keys():
+                                                    if any(cell_coord == m["coord"] for m in ph_coords.get(test_ph, [])):
+                                                        mapped_ph_for_cell = test_ph
+                                                        break
                                                 
-                                                if is_target:
+                                                if mapped_ph_for_cell is not None:
+                                                    # --- REGRESSION FIX: BYPASS ACCIDENTAL TEXT DELETION FLAGS FOR IMAGE ASSETS ---
+                                                    if active_mapping[mapped_ph_for_cell]["type"] == "Image/Media Asset":
+                                                        continue # Ignore blanked text data layers safely since an image overlay is mapped here
+                                                        
                                                     if str(orig_val) != str(upd_val):
                                                         log_entries.append({
                                                             "Workbook": wb_name, "Sheet": sheet_name, "Coordinate": cell_coord,
