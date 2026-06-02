@@ -62,7 +62,7 @@ def find_loose_media_match(file_path_str, media_dict):
     
     raw_path_clean = str(file_path_str).replace('\\', '/').split('/')[-1].upper().strip()
     
-    # Attempt 1: Direct literal match
+    # Attempt 1: Direct exact match
     if raw_path_clean in media_dict:
         return raw_path_clean
         
@@ -498,10 +498,10 @@ if mode == "Create Report":
             st.markdown("### Data Mapping")
             
             ma_sel_all, ma_clr_all = st.columns(2)[0].columns(2)
-            if ma_sel_all.button("Select All Files", key="sa_map_a", use_container_width=True):
+            if ma_sel_all.button("Select All", key="sa_map_a", use_container_width=True):
                 for ph in placeholders: st.session_state[f"chk_a_{ph}"] = True
                 st.rerun()
-            if ma_clr_all.button("Clear All Files", key="ca_map_a", use_container_width=True):
+            if ma_clr_all.button("Clear All", key="ca_map_a", use_container_width=True):
                 for ph in placeholders: st.session_state[f"chk_a_{ph}"] = False
                 st.rerun()
                 
@@ -772,10 +772,10 @@ elif mode == "Update Report":
         st.markdown("### Data Mapping")
         
         map_sel_all, map_clr_all = st.columns(2)[0].columns(2)
-        if map_sel_all.button("Select All Files", key="sa_map_b", use_container_width=True):
+        if map_sel_all.button("Select All", key="sa_map_b", use_container_width=True):
             for ph in placeholders: st.session_state[f"chk_{ph}"] = True
             st.rerun()
-        if map_clr_all.button("Clear All Files", key="ca_map_b", use_container_width=True):
+        if map_clr_all.button("Clear All", key="ca_map_b", use_container_width=True):
             for ph in placeholders: st.session_state[f"chk_{ph}"] = False
             st.rerun()
         
@@ -822,15 +822,18 @@ elif mode == "Update Report":
                         disabled=(input_type == "Image/Media Asset" or not update_check)
                     )
 
-                # --- SECURE IMAGE INTERCEPT METADATA RETRIEVAL PASS ---
+                # --- SECURE INTEGRATION BOUND PASS WITH DYNAMIC FALLBACK SAFETY SHIELDS ---
                 if input_type == "Image/Media Asset" and update_check:
-                    sample_img_row_val = str(df[mapped_val].dropna().iloc[0]).strip() if mapped_val in df.columns and not df[mapped_val].dropna().empty else ""
-                    matched_img_filename = find_loose_media_match(sample_row_val, media_dict)
+                    try:
+                        sample_img_row_val = str(df[mapped_val].dropna().iloc[0]).strip() if mapped_val in df.columns and not df[mapped_val].dropna().empty else ""
+                    except Exception:
+                        sample_img_row_val = ""
+                        
+                    matched_img_filename = find_loose_media_match(sample_img_row_val, media_dict)
                     
                     if matched_img_filename:
                         st.success(f"✅ **Photo Match Found:** `{matched_img_filename}` verified inside cloud session cache.")
                     else:
-                        # Fixed reference scoping fallback mapping bug cleanly
                         st.warning(f"❌ **No Matching Photo Found:** Missing target binary metadata reference for `{sample_img_row_val.split('/')[-1] if sample_img_row_val else 'No Valid File Mapped'}` inside current session storage layers.")
 
                 st.markdown(f"<div style='text-align: right; opacity: 0.35; font-size: 10px; font-weight: bold;'>[Source: ({raw_edit_filename_trail}) - {mapped_val if update_check else 'None'}] ──► [Imported to: {ph}]</div>", unsafe_allow_html=True)
@@ -892,7 +895,7 @@ elif mode == "Update Report":
                                             target_sheet = wb[sheet_name]
                                             break
                                             
-                                    # --- SECURITY GATE: NONETYPE SHEET DRIFT PROTECTION PARSER ---
+                                    # --- STABILITY PASS GATES: VERIFY TAB INSTANCE VALIDITY BEFORE EXECUTION ---
                                     if target_sheet is not None:
                                         for ph, mapping_data in active_mapping.items():
                                             input_type = mapping_data["type"]
