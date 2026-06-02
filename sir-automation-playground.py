@@ -3,7 +3,7 @@ import pandas as pd
 import openpyxl
 from openpyxl.styles import Alignment, PatternFill, Font, Border, Side
 from openpyxl.drawing.image import Image as OpenpyxlImage
-from openpyxl.utils import range_boundaries
+from openpyxl.utils import range_boundaries, get_column_letter
 import re
 import io
 import zipfile
@@ -146,8 +146,8 @@ def generate_mock_value(mask_key):
     }
     return mock_registry.get(mask_key, "Sample String Value")
 
-def inject_image_calibrated(target_sheet, cell_coord, file_path_str, media_dict, max_size, col_offset, row_offset):
-    """Injects an image applying explicit width constraints and positional cell anchors."""
+def inject_image_auto_fit(target_sheet, cell_coord, file_path_str, media_dict):
+    """Calculates the exact pixel size of the target cell (merged or single) and auto-fits the image."""
     if isinstance(file_path_str, str) and any(ext in file_path_str.lower() for ext in ['.jpg', '.jpeg', '.png']):
         filename = file_path_str.replace('\\', '/').split('/')[-1]
         
@@ -156,19 +156,55 @@ def inject_image_calibrated(target_sheet, cell_coord, file_path_str, media_dict,
                 img_stream = io.BytesIO(media_dict[filename].getvalue())
                 img = OpenpyxlImage(img_stream)
                 
-                if img.width > max_size or img.height > max_size:
-                    ratio = min(max_size / img.width, max_size / img.height)
-                    img.width = int(img.width * ratio)
-                    img.height = int(img.height * ratio)
+                # Default dimensional fallbacks (Standard Excel single cell envelope size)
+                target_width_px = 120
+                target_height_px = 30
                 
-                if col_offset != 0 or row_offset != 0:
-                    current_col = openpyxl.utils.column_index_from_string(re.sub(r'\d+', '', cell_coord))
-                    current_row = int(re.sub(r'\D+', '', cell_coord))
-                    target_coord = f"{openpyxl.utils.get_column_letter(current_col + col_offset)}{current_row + row_offset}"
-                else:
-                    target_coord = cell_coord
+                # Check if target is inside an active merged sequence block
+                merged_range_string = None
+                for merged_range in target_sheet.merged_cells.ranges:
+                    if cell_coord in merged_range:
+                        merged_range_string = str(merged_range)
+                        break
+                
+                if merged_range_string:
+                    min_col, min_row, max_col, max_row = range_boundaries(merged_range_string)
                     
-                target_sheet.add_image(img, target_coord)
+                    # Accumulate Column Width Metrics
+                    total_width_chars = 0.0
+                    for col in range(min_col, max_col + 1):
+                        col_letter = get_column_letter(col)
+                        w = target_sheet.column_dimensions[col_letter].width
+                        total_width_chars += float(w) if w is not None else 8.43 # standard default char width
+                    target_width_px = int(total_width_chars * 7) + 5
+                    
+                    # Accumulate Row Height Metrics
+                    total_height_points = 0.0
+                    for row in range(min_row, max_row + 1):
+                        h = target_sheet.row_dimensions[row].height
+                        total_height_points += float(h) if h is not None else 15.0 # standard default row point height
+                    target_height_px = int(total_height_points * 1.333)
+                else:
+                    # Single flat cell geometry execution lookup
+                    col_letter = re.sub(r'\d+', '', cell_coord)
+                    row_idx = int(re.sub(r'\D+', '', cell_coord))
+                    
+                    w = target_sheet.column_dimensions[col_letter].width
+                    h = target_sheet.row_dimensions[row_idx].height
+                    
+                    target_width_px = int((float(w) if w is not None else 8.43) * 7) + 5
+                    target_height_px = int((float(h) if h is not None else 15.0) * 1.333)
+                
+                # Force dynamic constraint scale metrics
+                width_ratio = target_width_px / img.width
+                height_ratio = target_height_px / img.height
+                scale_factor = min(width_ratio, height_ratio)
+                
+                # Apply balanced dimensions scaling
+                img.width = int(img.width * scale_factor)
+                img.height = int(img.height * scale_factor)
+                
+                target_sheet.add_image(img, cell_coord)
                 return True 
             except Exception:
                 pass 
@@ -259,20 +295,13 @@ def clone_cell_styles(source_cell, target_cell):
         target_cell.fill = copy(source_cell.fill)
 
 def copy_and_merge_aware_injection(template_ws, target_ws, coord, data_value):
-    """
-    Finds if the coordinate was part of a merged cell range in the template.
-    Purges overlapping dirty target merges natively before executing clean matrix updates.
-    """
+    """Finds if the coordinate was part of a merged cell range in the template and mirrors it."""
     target_cell = target_ws[coord]
     template_cell = template_ws[coord]
     
-    # Write value payload
     target_cell.value = data_value
-    
-    # Apply baseline styles to root coordinate cell
     clone_cell_styles(template_cell, target_cell)
     
-    # Check if this target coordinates intersect a structural block inside template maps
     merged_range_string = None
     for merged_range in template_ws.merged_cells.ranges:
         if template_cell.coordinate in merged_range:
@@ -282,29 +311,23 @@ def copy_and_merge_aware_injection(template_ws, target_ws, coord, data_value):
     if merged_range_string:
         min_col, min_row, max_col, max_row = range_boundaries(merged_range_string)
         
-        # --- NATIVE MERGE PURGE ROUTINE ---
-        # Scan the target file for overlapping ranges to prevent Excel's xml tracking engine from corrupting
         overlapping_target_ranges = []
         for target_range in target_ws.merged_cells.ranges:
             t_min_c, t_min_r, t_max_c, t_max_r = range_boundaries(str(target_range))
-            # If coordinates conflict or touch, clear them entirely
             if not (max_col < t_min_c or min_col > t_max_c or max_row < t_min_r or min_row > t_max_r):
                 overlapping_target_ranges.append(target_range)
                 
-        # Unmerge any toxic ranges found inside target instances first
         for target_conflict in overlapping_target_ranges:
             try:
                 target_ws.unmerge_cells(str(target_conflict))
             except Exception:
                 pass
                 
-        # Execute clean array layout merge pass safely
         try:
             target_ws.merge_cells(start_row=min_row, start_column=min_col, end_row=max_row, end_column=max_col)
         except Exception:
             pass
             
-        # Distribute style layouts down across sub-cells inside block envelope arrays
         for r in range(min_row, max_row + 1):
             for c in range(min_col, max_col + 1):
                 sub_coord = f"{openpyxl.utils.get_column_letter(c)}{r}"
@@ -521,7 +544,8 @@ if mode == "Create New Reports":
                                                         mask_patt = map_conf["mask"]
                                                         raw_data_val = row.get(header)
                                                         
-                                                        is_image = inject_image_calibrated(new_sheet, cell.coordinate, raw_data_val, media_dict, max_size=180, col_offset=0, row_offset=0)
+                                                        # Image injection upgraded with Auto-Fit mechanics
+                                                        is_image = inject_image_auto_fit(new_sheet, cell.coordinate, raw_data_val, media_dict)
                                                         
                                                         if is_image:
                                                             val_str = ""
@@ -688,29 +712,14 @@ elif mode == "Edit / Update Existing Reports":
                     sel_mask = st.selectbox("Data Formatting Mask Style", list(HUMAN_SPREADSHEET_MASKS.keys()), index=0, key=f"mask_edit_ui_{ph}", disabled=(not update_check or input_type=="Image/Media Asset"))
                 
                 with m2:
+                    # Cleaned up and streamlined sub-panels (manual sliders are now deprecated)
                     if input_type == "Image/Media Asset" and update_check:
-                        with st.expander("🖼️ Interactive WYSIWYG Layout Alignment Matrix", expanded=True):
-                            img_size = st.slider("Target Envelope Box Width (px)", 50, 800, 180, step=10, key=f"size_geo_{ph}")
-                            st.markdown("<small><b>Interactive Placement Target Block Picker</b></small>", unsafe_allow_html=True)
-                            
-                            grid_pos = st.radio("Anchor Target Location", 
-                                ["Top-Left (Standard Cell)", "Shift Left (-1 Col)", "Shift Right (+1 Col)", "Shift Up (-1 Row)", "Shift Down (+1 Row)"], 
-                                index=0, horizontal=True, key=f"grid_geo_{ph}")
-                            
-                            col_off, row_off = 0, 0
-                            if "Shift Left" in grid_pos: col_off = -1
-                            elif "Shift Right" in grid_pos: col_off = 1
-                            elif "Shift Up" in grid_pos: row_off = -1
-                            elif "Shift Down" in grid_pos: row_off = 1
-                            
-                            st.caption(f"📍 **Dynamic Mapping Indicator:** Asset locks inside target cell coordinate path offset by **[{col_off} Col, {row_off} Row]**.")
-                    else:
-                        img_size, col_off, row_off = 180, 0, 0
+                        st.info("⚡ **Automated Dynamic Ingestion Active:** Image auto-scales to fit the container bounds exactly.")
 
                 if update_check:
                     mask_id = HUMAN_SPREADSHEET_MASKS[sel_mask]
                     if input_type == "Image/Media Asset":
-                        evaluated_preview = f"[Image Asset File Stream Loaded ──► Envelope Scale Bound to: {img_size}px]"
+                        evaluated_preview = "[Image Stream Automated Fitting Protocol Mapped]"
                     else:
                         mock_seed = generate_mock_value(mask_id) if input_type == "From Column" else mapped_val
                         evaluated_preview = format_with_mask(mock_seed, mask_id, ph)
@@ -728,10 +737,7 @@ elif mode == "Edit / Update Existing Reports":
                 active_mapping[ph] = {
                     "type": input_type, 
                     "value": mapped_val, 
-                    "mask": HUMAN_SPREADSHEET_MASKS[sel_mask],
-                    "img_size": img_size,
-                    "col_offset": col_off,
-                    "row_offset": row_off
+                    "mask": HUMAN_SPREADSHEET_MASKS[sel_mask]
                 }
 
         st.divider()
@@ -795,12 +801,7 @@ elif mode == "Edit / Update Existing Reports":
                                             coords = ph_coords.get(ph, [])
                                             for coord in coords:
                                                 if input_type == "Image/Media Asset":
-                                                    is_image = inject_image_calibrated(
-                                                        target_sheet, coord, raw_data_val, media_dict,
-                                                        max_size=mapping_data["img_size"],
-                                                        col_offset=mapping_data["col_offset"],
-                                                        row_offset=mapping_data["row_offset"]
-                                                    )
+                                                    is_image = inject_image_auto_fit(target_sheet, coord, raw_data_val, media_dict)
                                                 else:
                                                     is_image = False
 
@@ -868,11 +869,9 @@ elif mode == "Edit / Update Existing Reports":
             else:
                 st.success("Existing reports verified and compiled with zero external regressions!")
 
-            # --- COLOR INJECTED LOG RENDERING MATRIX ---
             if st.session_state.change_log is not None and not st.session_state.change_log.empty:
                 st.markdown("### 📋 Real-Time Verification Audit Trail")
                 
-                # Highlight rows cleanly based on status using standard HTML/CSS formatting inside Streamlit
                 def highlight_audit_row(row):
                     color = "#D4EDDA" if row["Color_Hint"] == "GREEN" else "#F8D7DA"
                     return [f"background-color: {color}; color: #111111; font-weight: 500;"] * len(row)
