@@ -285,6 +285,46 @@ if not st.session_state.authenticated:
     with r1_col2:
         with st.container():
             st.markdown("<h3 style='text-align: center; margin-bottom: 20px;'>Access Required</h3>", unsafe_allow_html=True)
+            
+            # Add JavaScript to disable password autocomplete/save
+            st.markdown("""
+            <script>
+                // Function to disable password autocomplete
+                function disablePasswordAutocomplete() {
+                    const passwordInputs = document.querySelectorAll('input[type="password"]');
+                    passwordInputs.forEach(input => {
+                        // Set autocomplete attributes to prevent password saving
+                        input.setAttribute('autocomplete', 'new-password');
+                        input.setAttribute('autocomplete', 'off');
+                        
+                        // Remove any name attribute that might trigger password save
+                        input.removeAttribute('name');
+                        
+                        // Add a dummy hidden input before each password field
+                        const dummy = document.createElement('input');
+                        dummy.type = 'text';
+                        dummy.style.display = 'none';
+                        dummy.setAttribute('autocomplete', 'off');
+                        input.parentNode.insertBefore(dummy, input);
+                    });
+                }
+                
+                // Run immediately and after delays to catch dynamically created inputs
+                disablePasswordAutocomplete();
+                setTimeout(disablePasswordAutocomplete, 100);
+                setTimeout(disablePasswordAutocomplete, 300);
+                setTimeout(disablePasswordAutocomplete, 500);
+                
+                // Also run on DOM changes
+                if (window.MutationObserver) {
+                    const observer = new MutationObserver(function(mutations) {
+                        disablePasswordAutocomplete();
+                    });
+                    observer.observe(document.body, { childList: true, subtree: true });
+                }
+            </script>
+            """, unsafe_allow_html=True)
+            
             password_input = st.text_input("Enter password:", type="password", label_visibility="collapsed")
             login_btn = st.button("Login", use_container_width=True)
             
