@@ -67,8 +67,6 @@ def get_google_drive_download_url(file_id):
 
 def get_google_drive_folder_contents(folder_id):
     """Fetches file list from Google Drive folder (simplified - requires additional auth for full functionality)."""
-    # Note: Full Google Drive API integration would require OAuth2 credentials
-    # This is a placeholder for the URL structure
     return f"https://drive.google.com/drive/folders/{folder_id}"
 
 # --- CORE FOUNDATIONAL HELPER FUNCTIONS (DEFINED FIRST TO PREVENT NAMEERRORS) ---
@@ -103,7 +101,7 @@ def resolve_file_source(uploader_obj, link_str):
                 file_id = file_match.group(1)
                 url = f"https://docs.google.com/uc?export=download&id={file_id}"
             else:
-                st.info("📂 Mapping live cloud folder indexing vectors...")
+                st.info("Mapping live cloud folder indexing vectors...")
         elif "onedrive.live.com" in url:
             url = url.replace("redir?", "download?").replace("1drv.ms", "1drv.ms/u")
 
@@ -130,7 +128,7 @@ def parse_token_signature(raw_token):
 
 def find_loose_media_match(file_path_str, media_dict):
     """Finds an image within the uploaded media cache using a loose substring lookup."""
-    if not file_path_str or pd.isna(file_path_str):
+    if not file_path_str or pd.isna(file_path_str) or not media_dict:
         return None
     
     raw_path_clean = str(file_path_str).replace('\\', '/').split('/')[-1].upper().strip()
@@ -304,7 +302,7 @@ def generate_mock_value(mask_key):
 
 def inject_image_auto_fit(template_sheet, target_sheet, cell_coord, file_path_str, media_dict):
     """Calculates the exact pixel geometry bounds from the placeholder cell template and fits image."""
-    if not target_sheet:
+    if not target_sheet or not media_dict:
         return False
         
     matched_filename = find_loose_media_match(file_path_str, media_dict)
@@ -453,7 +451,7 @@ if 'change_log' not in st.session_state:
 # FLOW CONTROLLER: DISCOVERY DASHBOARD UI
 # ==========================================
 if mode == "Create Report":
-    st.markdown("### Upload Files & Data Targets")
+    st.markdown("### Upload Files and Data Targets")
     
     # --- USE DEFAULT CONFIGURATION OPTION ---
     use_defaults = st.checkbox("Use default Google Drive configuration", value=True)
@@ -463,9 +461,9 @@ if mode == "Create Report":
     
     with m_row1_col1:
         with st.container(border=True):
-            st.markdown("📊 **1. Raw Data**")
+            st.markdown("**1. Raw Data**")
             if use_defaults:
-                st.info(f"📎 Using default source: {DEFAULT_SOURCE_SPREADSHEET_ID}")
+                st.info(f"Using default source: {DEFAULT_SOURCE_SPREADSHEET_ID}")
                 mode_a_type_1 = "Remote Link"
                 raw_url = get_google_drive_download_url(DEFAULT_SOURCE_SPREADSHEET_ID)
                 raw_file = None
@@ -480,9 +478,9 @@ if mode == "Create Report":
 
     with m_row1_col2:
         with st.container(border=True):
-            st.markdown("📐 **2. Excel Template**")
+            st.markdown("**2. Excel Template**")
             if use_defaults:
-                st.info(f"📎 Using default template: {DEFAULT_TEMPLATE_FILE_ID}")
+                st.info(f"Using default template: {DEFAULT_TEMPLATE_FILE_ID}")
                 mode_a_type_2 = "Remote Link"
                 template_url = get_google_drive_download_url(DEFAULT_TEMPLATE_FILE_ID)
                 template_file = None
@@ -497,18 +495,18 @@ if mode == "Create Report":
 
     with m_row2_col1:
         with st.container(border=True):
-            st.markdown("📸 **3. Photos**")
+            st.markdown("**3. Photos (Optional)**")
             mode_a_type_3 = st.segmented_control("Source Type A3", ["File Upload", "Remote Link"], default="File Upload", key="mode_a_type_3", label_visibility="collapsed")
             if mode_a_type_3 == "File Upload":
-                media_files = st.file_uploader("Upload Images A", accept_multiple_files=True, key="new_media", type=['png', 'jpg', 'jpeg'], label_visibility="collapsed")
+                media_files = st.file_uploader("Upload Images A (Optional)", accept_multiple_files=True, key="new_media", type=['png', 'jpg', 'jpeg'], label_visibility="collapsed")
                 media_url = None
             else:
-                media_url = st.text_input("Cloud Drive Directory Link URL A", placeholder="Paste Google Drive or OneDrive Shared Folder Link", key="new_media_url", label_visibility="collapsed")
+                media_url = st.text_input("Cloud Drive Directory Link URL A (Optional)", placeholder="Paste Google Drive or OneDrive Shared Folder Link", key="new_media_url", label_visibility="collapsed")
                 media_files = None
 
     with m_row2_col2:
         if use_defaults:
-            st.info(f"📁 Default destination folder: {DEFAULT_DESTINATION_FOLDER_ID}")
+            st.info(f"Default destination folder: {DEFAULT_DESTINATION_FOLDER_ID}")
             st.caption("Reports will be saved to the default Google Drive folder")
 
     resolved_raw = resolve_file_source(raw_file, raw_url)
@@ -580,15 +578,17 @@ if mode == "Create Report":
                     
                     mask_id = HUMAN_SPREADSHEET_MASKS[sel_mask]
                     
-                    if inferred_type == "IMAGE" and update_check_a:
+                    if inferred_type == "IMAGE" and update_check_a and media_dict:
                         sample_row_val = str(df[sel_col].dropna().iloc[0]).strip() if sel_col in df.columns and not df[sel_col].dropna().empty else ""
                         matched_img_filename = find_loose_media_match(sample_row_val, media_dict)
                         if matched_img_filename:
-                            st.success(f"✅ **Photo Match Found:** `{matched_img_filename}` verified in session cache.")
+                            st.success(f"Photo Match Found: `{matched_img_filename}` verified in session cache.")
                         else:
-                            st.warning(f"❌ **No Matching Photo Found:** Missing raw target for `{sample_row_val.split('/')[-1] if sample_row_val else 'None'}`.")
+                            st.warning(f"No Matching Photo Found: Missing raw target for `{sample_row_val.split('/')[-1] if sample_row_val else 'None'}`.")
+                    elif inferred_type == "IMAGE" and update_check_a and not media_dict:
+                        st.info("No photos uploaded. Image placeholders will be skipped.")
                             
-                    st.markdown(f"<div style='text-align: right; opacity: 0.35; font-size: 10px; font-weight: bold;'>[Source: ({raw_data_filename_trail}) - {sel_col}] ──► [Imported to: {ph}]</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='text-align: right; opacity: 0.35; font-size: 10px; font-weight: bold;'>[Source: ({raw_data_filename_trail}) - {sel_col}] --> [Imported to: {ph}]</div>", unsafe_allow_html=True)
                     
                     if update_check_a:
                         mapping[ph] = {"column": sel_col, "mask": mask_id, "inferred_type": inferred_type}
@@ -654,7 +654,7 @@ if mode == "Create Report":
                                                         mask_patt = map_conf["mask"]
                                                         raw_data_val = row.get(header)
                                                         
-                                                        if map_conf["inferred_type"] == "IMAGE":
+                                                        if map_conf["inferred_type"] == "IMAGE" and media_dict:
                                                             is_image = inject_image_auto_fit(base_sheet, new_sheet, cell.coordinate, raw_data_val, media_dict)
                                                         else:
                                                             is_image = False
@@ -696,7 +696,7 @@ if mode == "Create Report":
 # UPDATE REPORT MODE
 # ==========================================
 elif mode == "Update Report":
-    st.markdown("### Upload Workbooks & Data Targets")
+    st.markdown("### Upload Workbooks and Data Targets")
     
     # --- USE DEFAULT CONFIGURATION OPTION ---
     use_defaults = st.checkbox("Use default Google Drive configuration", value=True)
@@ -706,9 +706,9 @@ elif mode == "Update Report":
     
     with row1_col1:
         with st.container(border=True):
-            st.markdown("📊 **1. Raw Data**")
+            st.markdown("**1. Raw Data**")
             if use_defaults:
-                st.info(f"📎 Using default source: {DEFAULT_SOURCE_SPREADSHEET_ID}")
+                st.info(f"Using default source: {DEFAULT_SOURCE_SPREADSHEET_ID}")
                 src_type_1 = "Remote Link"
                 edit_raw_url = get_google_drive_download_url(DEFAULT_SOURCE_SPREADSHEET_ID)
                 edit_raw_file = None
@@ -723,7 +723,7 @@ elif mode == "Update Report":
 
     with row1_col2:
         with st.container(border=True):
-            st.markdown("🗂️ **2. Reports to Update**")
+            st.markdown("**2. Reports to Update**")
             src_type_2 = st.segmented_control("Source Type 2", ["File Upload", "Remote Link"], default="File Upload", key="src_type_2", label_visibility="collapsed")
             if src_type_2 == "File Upload":
                 existing_wbs_raw = st.file_uploader("Upload Existing Sheets", type=["xlsx"], accept_multiple_files=True, key="edit_wbs", label_visibility="collapsed")
@@ -734,9 +734,9 @@ elif mode == "Update Report":
 
     with row2_col1:
         with st.container(border=True):
-            st.markdown("📐 **3. Report Template**")
+            st.markdown("**3. Report Template**")
             if use_defaults:
-                st.info(f"📎 Using default template: {DEFAULT_TEMPLATE_FILE_ID}")
+                st.info(f"Using default template: {DEFAULT_TEMPLATE_FILE_ID}")
                 src_type_3 = "Remote Link"
                 edit_temp_url = get_google_drive_download_url(DEFAULT_TEMPLATE_FILE_ID)
                 edit_temp_file = None
@@ -751,13 +751,13 @@ elif mode == "Update Report":
 
     with row2_col2:
         with st.container(border=True):
-            st.markdown("📸 **4. Photos**")
+            st.markdown("**4. Photos (Optional)**")
             src_type_4 = st.segmented_control("Source Type 4", ["File Upload", "Remote Link"], default="File Upload", key="src_type_4", label_visibility="collapsed")
             if src_type_4 == "File Upload":
-                media_files = st.file_uploader("Upload Images", accept_multiple_files=True, key="edit_media", type=['png', 'jpg', 'jpeg'], label_visibility="collapsed")
+                media_files = st.file_uploader("Upload Images (Optional)", accept_multiple_files=True, key="edit_media", type=['png', 'jpg', 'jpeg'], label_visibility="collapsed")
                 media_url = None
             else:
-                media_url = st.text_input("Cloud Drive Directory Link URL", placeholder="Paste Google Drive or OneDrive Folder URL Link", key="edit_media_url", label_visibility="collapsed")
+                media_url = st.text_input("Cloud Drive Directory Link URL (Optional)", placeholder="Paste Google Drive or OneDrive Folder URL Link", key="edit_media_url", label_visibility="collapsed")
                 media_files = None
 
     resolved_edit_raw = resolve_file_source(edit_raw_file, edit_raw_url)
@@ -803,14 +803,14 @@ elif mode == "Update Report":
             st.stop()
 
         st.success(f"""
-        🔍 **DISCOVERY PASSED:**
-        ✅ Processed Trade Area Workbooks Data Feed
-        ✅ Detected {len(df)} Rows Pending Inspection
-        📸 System Media Cloud Drive Sync State Verified
+        DISCOVERY PASSED:
+        - Processed Trade Area Workbooks Data Feed
+        - Detected {len(df)} Rows Pending Inspection
+        - System Media Cloud Drive Sync State Verified
         """)
         st.divider()
 
-        st.markdown("### 🎯 Select Target Trade Area Workbooks to Update")
+        st.markdown("### Select Target Trade Area Workbooks to Update")
         available_filenames = sorted(list(existing_files_dict.keys()))
         
         cb_col1, cb_col2 = st.columns([1, 1, 3])[0:2]
@@ -891,7 +891,7 @@ elif mode == "Update Report":
                     )
 
                 # --- PROTECTED SCOPE REGION: INLINE MEDIA RETRIEVAL ENGINE PASS ---
-                if input_type == "Image/Media Asset" and update_check:
+                if input_type == "Image/Media Asset" and update_check and media_dict:
                     sample_img_row_val = ""
                     if mapped_val in df.columns:
                         non_empty_rows = df[mapped_val].dropna()
@@ -901,11 +901,13 @@ elif mode == "Update Report":
                     matched_img_filename = find_loose_media_match(sample_img_row_val, media_dict)
                     
                     if matched_img_filename:
-                        st.success(f"✅ **Photo Match Found:** `{matched_img_filename}` verified inside cloud session cache.")
+                        st.success(f"Photo Match Found: `{matched_img_filename}` verified inside cloud session cache.")
                     else:
-                        st.warning(f"❌ **No Matching Photo Found:** Missing target binary metadata reference for `{sample_img_row_val.replace('\\\\', '/').split('/')[-1] if sample_img_row_val else 'No Valid File Mapped'}` inside current session storage layers.")
+                        st.warning(f"No Matching Photo Found: Missing target binary metadata reference for `{sample_img_row_val.replace('\\\\', '/').split('/')[-1] if sample_img_row_val else 'No Valid File Mapped'}` inside current session storage layers.")
+                elif input_type == "Image/Media Asset" and update_check and not media_dict:
+                    st.info("No photos uploaded. Image/Media Asset option will be skipped during processing.")
 
-                st.markdown(f"<div style='text-align: right; opacity: 0.35; font-size: 10px; font-weight: bold;'>[Source: ({raw_edit_filename_trail}) - {mapped_val if update_check else 'None'}] ──► [Imported to: {ph}]</div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='text-align: right; opacity: 0.35; font-size: 10px; font-weight: bold;'>[Source: ({raw_edit_filename_trail}) - {mapped_val if update_check else 'None'}] --> [Imported to: {ph}]</div>", unsafe_allow_html=True)
 
             if update_check:
                 active_mapping[ph] = {
@@ -919,7 +921,7 @@ elif mode == "Update Report":
         action_placeholder = st.empty()
 
         if st.session_state.zip_data is None:
-            if action_placeholder.button("Inject Data & Generate Updates", use_container_width=True):
+            if action_placeholder.button("Inject Data and Generate Updates", use_container_width=True):
                 if not active_mapping:
                     st.warning("Please check at least one field to update.")
                 elif not selected_wbs_names:
@@ -980,7 +982,7 @@ elif mode == "Update Report":
                                                 coord = meta["coord"]
                                                 raw_token = meta["raw_token_string"]
                                                 
-                                                if input_type == "Image/Media Asset":
+                                                if input_type == "Image/Media Asset" and media_dict:
                                                     target_sheet[coord].value = ""
                                                     is_image = inject_image_auto_fit(template_sheet, target_sheet, coord, raw_data_val, media_dict)
                                                 else:
@@ -1051,7 +1053,7 @@ elif mode == "Update Report":
                             progress_bar.progress(processed_count / len(selected_wbs_names))
 
                     if files_written == 0:
-                        st.error("🚨 ERROR: Critical matching criteria failure.")
+                        st.error("ERROR: Critical matching criteria failure.")
                         st.session_state.zip_data = None
                         st.stop()
                     else:
@@ -1065,12 +1067,12 @@ elif mode == "Update Report":
                 has_errors = not st.session_state.change_log[st.session_state.change_log["Type"] == "UNINTENDED_MUTATION"].empty
 
             if has_errors:
-                st.error("⚠️ REGRESSION WARNING: Mutation checks detected unintended variances outside core mapping coordinates.")
+                st.error("REGRESSION WARNING: Mutation checks detected unintended variances outside core mapping coordinates.")
             else:
                 st.success("Existing reports verified and compiled with zero external regressions!")
 
             if st.session_state.change_log is not None and not st.session_state.change_log.empty:
-                st.markdown("### 📋 Changelog")
+                st.markdown("### Changelog")
                 
                 def highlight_audit_row(row):
                     color = "#D4EDDA" if row["Color_Hint"] == "GREEN" else "#F8D7DA"
