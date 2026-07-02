@@ -12,6 +12,65 @@ import math
 import requests
 from copy import copy
 
+# --- STREAM WRAPPER CLASS FOR MEDIA HANDLING ---
+class StreamWrapper:
+    """Wrapper class to mimic file-like objects for streamed data."""
+    def __init__(self, data, name):
+        self.data = data
+        self.name = name
+        
+    def getvalue(self):
+        return self.data
+        
+    def read(self):
+        return self.data
+
+# --- HUMAN READABLE MASK DEFINITIONS ---
+HUMAN_SPREADSHEET_MASKS = {
+    "Plain text": "TEXT",
+    "Number": "NUMBER",
+    "Percentage": "PERCENT",
+    "Scientific": "SCIENTIFIC",
+    "Accounting": "ACCOUNTING",
+    "Financial": "FINANCIAL",
+    "Currency (USD)": "CURRENCY_USD",
+    "Currency (USD, Rounded)": "CURRENCY_USD_ROUND",
+    "Currency (PHP)": "CURRENCY_PHP",
+    "Currency (PHP, Rounded)": "CURRENCY_PHP_ROUND",
+    "Date (Short)": "DATE_SHORT",
+    "Time (Standard)": "TIME_STANDARD",
+    "Date Time (Full)": "DATE_TIME_FULL",
+    "Date (Month Day, Year)": "%B %d, %Y",
+    "Date (ISO)": "%Y-%m-%d",
+    "Date (Day Month Year)": "%d %b %Y",
+    "Street Segment": "STREET_SEGMENT",
+    "Barangay Segment": "BARANGAY_SEGMENT",
+    "City Segment": "CITY_SEGMENT",
+    "Region Segment": "REGION_SEGMENT",
+    "Postal Segment": "POSTAL_SEGMENT"
+}
+
+# --- INVERSE SCHEMA MASK LOOKUPS ---
+INVERSE_MASK_LOOKUP = {v: k for k, v in HUMAN_SPREADSHEET_MASKS.items()}
+
+# --- GOOGLE DRIVE DEFAULT CONFIGURATION ---
+# ==========================================
+# CONFIGURATION: REPLACE THESE WITH YOUR IDs
+# ==========================================
+DEFAULT_SOURCE_SPREADSHEET_ID = "14nhO9u7zJRcOoux8I7l2IzwU7iQZNW9fRX6TCip47CE" 
+DEFAULT_TEMPLATE_FILE_ID = "1uS3xmnPi0o4c_EayQtURYDSMMPRDRGSb"
+DEFAULT_DESTINATION_FOLDER_ID = "1MAo_8VYditz-BV3vGx3aX31-SLzxSAD8"
+
+def get_google_drive_download_url(file_id):
+    """Generates a direct download URL for Google Drive files."""
+    return f"https://docs.google.com/uc?export=download&id={file_id}"
+
+def get_google_drive_folder_contents(folder_id):
+    """Fetches file list from Google Drive folder (simplified - requires additional auth for full functionality)."""
+    # Note: Full Google Drive API integration would require OAuth2 credentials
+    # This is a placeholder for the URL structure
+    return f"https://drive.google.com/drive/folders/{folder_id}"
+
 # --- CORE FOUNDATIONAL HELPER FUNCTIONS (DEFINED FIRST TO PREVENT NAMEERRORS) ---
 def validate_public_url(url_string):
     """Executes a network validation pass to guarantee remote assets are accessible."""
@@ -237,7 +296,9 @@ def generate_mock_value(mask_key):
         "%Y-%m-%d": "2026-06-01 17:00:00",
         "STREET_SEGMENT": "Suite 401, Fortune Building, Pasig, Metro Manila, 1600, Philippines",
         "BARANGAY_SEGMENT": "Suite 401, Fortune Building, Pasig, Metro Manila, 1600, Philippines",
-        "CITY_SEGMENT": "Suite 401, Fortune Building, Pasig, Metro Manila, 1600, Philippines"
+        "CITY_SEGMENT": "Suite 401, Fortune Building, Pasig, Metro Manila, 1600, Philippines",
+        "REGION_SEGMENT": "Suite 401, Fortune Building, Pasig, Metro Manila, 1600, Philippines",
+        "POSTAL_SEGMENT": "Suite 401, Fortune Building, Pasig, Metro Manila, 1600, Philippines"
     }
     return mock_registry.get(mask_key, "Sample String Value")
 
@@ -379,8 +440,14 @@ def copy_and_merge_aware_injection(template_ws, target_ws, coord, data_value):
                 if sub_coord != coord:
                     clone_cell_styles(template_ws[sub_coord], target_ws[sub_coord])
 
-# --- INVERSE SCHEMA MASK LOOKUPS ---
-INVERSE_MASK_LOOKUP = {v: k for k, v in HUMAN_SPREADSHEET_MASKS.items()}
+# --- APP MODE CONFIGURATION ---
+mode = st.radio("Select Mode", ["Create Report", "Update Report"], index=0)
+
+# --- SESSION STATE INITIALIZATION ---
+if 'zip_data' not in st.session_state:
+    st.session_state.zip_data = None
+if 'change_log' not in st.session_state:
+    st.session_state.change_log = None
 
 # ==========================================
 # FLOW CONTROLLER: DISCOVERY DASHBOARD UI
@@ -388,30 +455,45 @@ INVERSE_MASK_LOOKUP = {v: k for k, v in HUMAN_SPREADSHEET_MASKS.items()}
 if mode == "Create Report":
     st.markdown("### Upload Files & Data Targets")
     
+    # --- USE DEFAULT CONFIGURATION OPTION ---
+    use_defaults = st.checkbox("Use default Google Drive configuration", value=True)
+    
     m_row1_col1, m_row1_col2 = st.columns(2)
     m_row2_col1, m_row2_col2 = st.columns(2)
     
     with m_row1_col1:
         with st.container(border=True):
             st.markdown("📊 **1. Raw Data**")
-            mode_a_type_1 = st.segmented_control("Source Type A1", ["File Upload", "Remote Link"], default="File Upload", key="mode_a_type_1", label_visibility="collapsed")
-            if mode_a_type_1 == "File Upload":
-                raw_file = st.file_uploader("Upload Data Sheet A", type=["xlsx", "xls"], key="new_raw", label_visibility="collapsed")
-                raw_url = None
-            else:
-                raw_url = st.text_input("Data Link URL A", placeholder="https://example.com/data.xlsx", key="new_raw_url", label_visibility="collapsed")
+            if use_defaults:
+                st.info(f"📎 Using default source: {DEFAULT_SOURCE_SPREADSHEET_ID}")
+                mode_a_type_1 = "Remote Link"
+                raw_url = get_google_drive_download_url(DEFAULT_SOURCE_SPREADSHEET_ID)
                 raw_file = None
+            else:
+                mode_a_type_1 = st.segmented_control("Source Type A1", ["File Upload", "Remote Link"], default="File Upload", key="mode_a_type_1", label_visibility="collapsed")
+                if mode_a_type_1 == "File Upload":
+                    raw_file = st.file_uploader("Upload Data Sheet A", type=["xlsx", "xls"], key="new_raw", label_visibility="collapsed")
+                    raw_url = None
+                else:
+                    raw_url = st.text_input("Data Link URL A", placeholder="https://example.com/data.xlsx", key="new_raw_url", label_visibility="collapsed")
+                    raw_file = None
 
     with m_row1_col2:
         with st.container(border=True):
             st.markdown("📐 **2. Excel Template**")
-            mode_a_type_2 = st.segmented_control("Source Type A2", ["File Upload", "Remote Link"], default="File Upload", key="mode_a_type_2", label_visibility="collapsed")
-            if mode_a_type_2 == "File Upload":
-                template_file = st.file_uploader("Upload Template File A", type=["xlsx"], key="new_temp", label_visibility="collapsed")
-                template_url = None
-            else:
-                template_url = st.text_input("Template URL A", placeholder="https://example.com/template.xlsx", key="new_temp_url", label_visibility="collapsed")
+            if use_defaults:
+                st.info(f"📎 Using default template: {DEFAULT_TEMPLATE_FILE_ID}")
+                mode_a_type_2 = "Remote Link"
+                template_url = get_google_drive_download_url(DEFAULT_TEMPLATE_FILE_ID)
                 template_file = None
+            else:
+                mode_a_type_2 = st.segmented_control("Source Type A2", ["File Upload", "Remote Link"], default="File Upload", key="mode_a_type_2", label_visibility="collapsed")
+                if mode_a_type_2 == "File Upload":
+                    template_file = st.file_uploader("Upload Template File A", type=["xlsx"], key="new_temp", label_visibility="collapsed")
+                    template_url = None
+                else:
+                    template_url = st.text_input("Template URL A", placeholder="https://example.com/template.xlsx", key="new_temp_url", label_visibility="collapsed")
+                    template_file = None
 
     with m_row2_col1:
         with st.container(border=True):
@@ -425,7 +507,9 @@ if mode == "Create Report":
                 media_files = None
 
     with m_row2_col2:
-        st.empty()
+        if use_defaults:
+            st.info(f"📁 Default destination folder: {DEFAULT_DESTINATION_FOLDER_ID}")
+            st.caption("Reports will be saved to the default Google Drive folder")
 
     resolved_raw = resolve_file_source(raw_file, raw_url)
     resolved_template = resolve_file_source(template_file, template_url)
@@ -614,19 +698,28 @@ if mode == "Create Report":
 elif mode == "Update Report":
     st.markdown("### Upload Workbooks & Data Targets")
     
+    # --- USE DEFAULT CONFIGURATION OPTION ---
+    use_defaults = st.checkbox("Use default Google Drive configuration", value=True)
+    
     row1_col1, row1_col2 = st.columns(2)
     row2_col1, row2_col2 = st.columns(2)
     
     with row1_col1:
         with st.container(border=True):
             st.markdown("📊 **1. Raw Data**")
-            src_type_1 = st.segmented_control("Source Type 1", ["File Upload", "Remote Link"], default="File Upload", key="src_type_1", label_visibility="collapsed")
-            if src_type_1 == "File Upload":
-                edit_raw_file = st.file_uploader("Upload Data Sheet", type=["xlsx", "xls"], key="edit_raw", label_visibility="collapsed")
-                edit_raw_url = None
-            else:
-                edit_raw_url = st.text_input("Data Link URL", placeholder="https://example.com/new_data.xlsx", key="edit_raw_url", label_visibility="collapsed")
+            if use_defaults:
+                st.info(f"📎 Using default source: {DEFAULT_SOURCE_SPREADSHEET_ID}")
+                src_type_1 = "Remote Link"
+                edit_raw_url = get_google_drive_download_url(DEFAULT_SOURCE_SPREADSHEET_ID)
                 edit_raw_file = None
+            else:
+                src_type_1 = st.segmented_control("Source Type 1", ["File Upload", "Remote Link"], default="File Upload", key="src_type_1", label_visibility="collapsed")
+                if src_type_1 == "File Upload":
+                    edit_raw_file = st.file_uploader("Upload Data Sheet", type=["xlsx", "xls"], key="edit_raw", label_visibility="collapsed")
+                    edit_raw_url = None
+                else:
+                    edit_raw_url = st.text_input("Data Link URL", placeholder="https://example.com/new_data.xlsx", key="edit_raw_url", label_visibility="collapsed")
+                    edit_raw_file = None
 
     with row1_col2:
         with st.container(border=True):
@@ -642,13 +735,19 @@ elif mode == "Update Report":
     with row2_col1:
         with st.container(border=True):
             st.markdown("📐 **3. Report Template**")
-            src_type_3 = st.segmented_control("Source Type 3", ["File Upload", "Remote Link"], default="File Upload", key="src_type_3", label_visibility="collapsed")
-            if src_type_3 == "File Upload":
-                edit_temp_file = st.file_uploader("Upload Coordinate Template", type=["xlsx"], key="edit_temp", label_visibility="collapsed")
-                edit_temp_url = None
-            else:
-                edit_temp_url = st.text_input("Template URL", placeholder="https://example.com/template.xlsx", key="edit_temp_url", label_visibility="collapsed")
+            if use_defaults:
+                st.info(f"📎 Using default template: {DEFAULT_TEMPLATE_FILE_ID}")
+                src_type_3 = "Remote Link"
+                edit_temp_url = get_google_drive_download_url(DEFAULT_TEMPLATE_FILE_ID)
                 edit_temp_file = None
+            else:
+                src_type_3 = st.segmented_control("Source Type 3", ["File Upload", "Remote Link"], default="File Upload", key="src_type_3", label_visibility="collapsed")
+                if src_type_3 == "File Upload":
+                    edit_temp_file = st.file_uploader("Upload Coordinate Template", type=["xlsx"], key="edit_temp", label_visibility="collapsed")
+                    edit_temp_url = None
+                else:
+                    edit_temp_url = st.text_input("Template URL", placeholder="https://example.com/template.xlsx", key="edit_temp_url", label_visibility="collapsed")
+                    edit_temp_file = None
 
     with row2_col2:
         with st.container(border=True):
