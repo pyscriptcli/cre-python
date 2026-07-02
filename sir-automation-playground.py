@@ -9,11 +9,6 @@ import zipfile
 import difflib
 import requests
 from copy import copy
-import json
-from google.oauth2 import service_account
-from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
-import time
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(
@@ -26,22 +21,16 @@ st.set_page_config(
 # --- HIDE STREAMLIT HEADER ---
 st.markdown("""
 <style>
-    /* Hide Streamlit header and footer */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
-    
-    /* Remove padding from top */
     .block-container {
         padding-top: 0rem !important;
         padding-bottom: 0rem !important;
     }
-    
-    /* AppSheet-like styling */
     .stApp {
         background-color: #f5f5f5;
     }
-    
     .main-header {
         background-color: #003366;
         padding: 1.5rem;
@@ -50,20 +39,17 @@ st.markdown("""
         color: white;
         margin-top: -1rem;
     }
-    
     .main-header h1 {
         color: white;
         font-weight: 600;
         margin: 0;
         font-size: 2rem;
     }
-    
     .main-header p {
         color: #e6e6e6;
         margin: 0.5rem 0 0 0;
         font-size: 1rem;
     }
-    
     .stButton > button {
         background-color: #003366;
         color: white;
@@ -73,22 +59,17 @@ st.markdown("""
         font-weight: 500;
         transition: all 0.3s ease;
     }
-    
     .stButton > button:hover {
         background-color: #002244;
         color: white;
         box-shadow: 0 2px 8px rgba(0, 51, 102, 0.3);
     }
-    
     .stButton > button:active {
         background-color: #001a33;
     }
-    
     .stButton > button[data-baseweb="button"] {
         background-color: #003366;
     }
-    
-    /* Card-like containers */
     div[data-testid="stContainer"] {
         background-color: white;
         border-radius: 8px;
@@ -96,78 +77,55 @@ st.markdown("""
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         border: 1px solid #e0e0e0;
     }
-    
-    /* Success messages */
     .stAlert {
         border-radius: 8px;
         border-left: 4px solid #003366;
     }
-    
     .stAlert[data-baseweb="notification"] {
         background-color: #e8f0fe;
         border-left-color: #003366;
     }
-    
-    /* Headers */
     h1, h2, h3, h4 {
         color: #003366;
         font-weight: 600;
     }
-    
-    /* Checkbox labels */
     .stCheckbox label {
         font-weight: 500;
         color: #1a1a1a;
     }
-    
-    /* Select boxes */
     .stSelectbox label {
         font-weight: 500;
         color: #003366;
         font-size: 0.9rem;
     }
-    
-    /* Progress bar */
     .stProgress > div > div {
         background-color: #003366;
     }
-    
-    /* Divider */
     hr {
         border-color: #003366;
         opacity: 0.2;
         margin: 2rem 0;
     }
-    
-    /* Info boxes */
     .stInfo {
         background-color: #e8f0fe;
         border-radius: 8px;
         border-left: 4px solid #003366;
     }
-    
-    /* Warning boxes */
     .stWarning {
         background-color: #fff3cd;
         border-radius: 8px;
         border-left: 4px solid #ffc107;
     }
-    
-    /* Success boxes */
     .stSuccess {
         background-color: #d4edda;
         border-radius: 8px;
         border-left: 4px solid #28a745;
     }
-    
-    /* Error boxes */
     .stError {
         background-color: #f8d7da;
         border-radius: 8px;
         border-left: 4px solid #dc3545;
     }
-    
-    /* Download button */
     .stDownloadButton > button {
         background-color: #28a745;
         color: white;
@@ -176,13 +134,10 @@ st.markdown("""
         padding: 0.5rem 1rem;
         font-weight: 500;
     }
-    
     .stDownloadButton > button:hover {
         background-color: #218838;
         box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
     }
-    
-    /* Custom metric cards */
     .metric-card {
         background-color: white;
         border-radius: 8px;
@@ -190,13 +145,11 @@ st.markdown("""
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         border-left: 4px solid #003366;
     }
-    
     .metric-value {
         font-size: 1.5rem;
         font-weight: 700;
         color: #003366;
     }
-    
     .metric-label {
         color: #666;
         font-size: 0.9rem;
@@ -204,24 +157,10 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- SERVICE ACCOUNT CONFIGURATION ---
-SERVICE_ACCOUNT_INFO = {
-    "type": "service_account",
-    "project_id": "focused-studio-501200-f2",
-    "private_key_id": "d5fa49f27824d4a2bbce318f88a1e379b2c2e122",
-    "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEuwIBADANBgkqhkiG9w0BAQEFAASCBKUwggShAgEAAoIBAQDHpyC4irELswst\nGF2SsnFdFj2R7CrdJRFEwhBdKVQA6Djlojd1d7uRLPO7T6DhohFZRPDhJ44UgjGg\n2sPffOfTTIJz8tCT3Qm/EKoA1i/BX5Z0TO0EIUd5R1RjOExTIABDwoTZoSifdSjT\nxDKGSOmBZPPxGKzoJ6PzcW/gvF0OxPBgGkDg+4CMupvutqEqO9hhe/LeVcxySLsF\ngUiDXBwBRW7wIX3k3XxB1ob5srD1FXoa7DsXbkgnkH/TgybkjCXXbnC/uvaR27xf\nN0FWdcfSG5cx2P8qdSD7FRg8J+QfInaWiE/BLFf12oFYU5BuP7Nk9jVxqCxxG+0E\n154JdaVhAgMBAAECgf8ZY9lD0exCBW4rOSk6Bq3NnY5zu3Axpdnt8vmk+PFRGQP8\n8AXT6OFWZqKrjeAMnoR/5CyRKNHNk3ql1V+J6sojxo8W5iiji6PTQ7za7mIt87ug\nGEhSeVXFlQFxiZW4D7gsGQi1quRBPLA8fhVbm0CKAnSjX8GQpIazgH5h1JKUPG20\nXNTAR7C0w2C8oGv1PUNkus9Fxjw1PGme6ujBfIfZEbXPeKpsjz2QUYjlg/B+8r1c\nwSMoNsxdTKMxCG4zzaSrOpsVkeodZbdwmIkHzDikb8r0NiBeQ6Bgp2BN4phVKRD5\nk/ZQXo5s+ENrTVXL5SQwYNmF0Ae3Jo2m2z/XPUECgYEA8xv/YC0LDjRHqUo5KI23\n0lM1Y1JOqGU+/q9LZpmCPKzsud9tCQ0CouR2m30vRnLhJv4+DJmc49HpvLYh3Lff\nOfdyn384/TmMWr1FUrNupkrXI+l29BC+UYXfg8P12MYcrUy2Q/GKvj/BqEWfC/aj\n9LYo9IDeQsXvJJ3z64HLTkECgYEA0j0+uEupvq3vdigEgW5hKO/o3UcOAm1LoEVD\ndOu0IvqCatGmDDLrfk+w01X7ZIW95gYrKW/mFs3hVCqJwplRGkp0nsYg+FWDkq7F\n2QCi9WAVu0Gqfavyg9asPMeGoTNVgj2gzjJc4fILw2N6PvyOOin0HmISLwnVZtQ2\nAd96zyECgYAIfMG9qdTo+gpGbsDwGYKBZUZH4We9mUtJuPT48AML+z2If7RezIV7\nCl7ZrtUnsHsL0XR5HCPOEFYIsJMeEY1JiMoHp3ll3cx4noL9ECacx6AbMNtmSe9b\nCUF0aDL9Dm2R30u9s4EUg0VPip6y3Dl9IZ7salNYIXDn5lvNrQpcAQKBgFZ/xFJn\nLwu43JEsnc3y8B67tn90QJtXBIqIdNyiLZdGomn4n+zc9m8dso8BDVGqhRsi5pdB\n5tTzGAZdChj6o5fBkoHQ2rfR1zR+nABQdrumMMq+lbrnB/yeUncfUJD6YfAYExVD\nO1vrDlPxldZcatgbcskdaIXZ8edA4IecvxaBAoGBAOLRIcIKa5cJ3sMmmSvuMGTL\n17GLxtsXZGN0OltqSgT6pu3/uODGVH1ljqm9SrDFSmcnRZwn8a2aZoAG7brPuoT0\n5OcYYnbwDMKG0hcQbXNtbshjYPQMXb9si6gacKfcCny2Q9KSIhEz6ioEsvrmYOYz\njmfWgXnpGmDWcsgk7nKF\n-----END PRIVATE KEY-----\n",
-    "client_email": "report-generator@focused-studio-501200-f2.iam.gserviceaccount.com",
-    "client_id": "118306996332253581955",
-    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-    "token_uri": "https://oauth2.googleapis.com/token",
-    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-    "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/report-generator%40focused-studio-501200-f2.iam.gserviceaccount.com",
-    "universe_domain": "googleapis.com"
-}
-
-# Your file IDs
-SOURCE_SPREADSHEET_ID = "14nhO9u7zJRcOoux8I7l2IzwU7iQZNW9fRX6TCip47CE"
-TEMPLATE_SPREADSHEET_ID = "1uS3xmnPi0o4c_EayQtURYDSMMPRDRGSb"
+# --- CONFIGURATION ---
+# Using the export URL format for public sheets
+SOURCE_URL = "https://docs.google.com/spreadsheets/d/14nhO9u7zJRcOoux8I7l2IzwU7iQZNW9fRX6TCip47CE/export?format=xlsx"
+TEMPLATE_URL = "https://docs.google.com/spreadsheets/d/1uS3xmnPi0o4c_EayQtURYDSMMPRDRGSb/export?format=xlsx"
 
 # --- HUMAN READABLE MASK DEFINITIONS ---
 HUMAN_SPREADSHEET_MASKS = {
@@ -251,43 +190,14 @@ HUMAN_SPREADSHEET_MASKS = {
 INVERSE_MASK_LOOKUP = {v: k for k, v in HUMAN_SPREADSHEET_MASKS.items()}
 
 # --- HELPER FUNCTIONS ---
-def get_access_token():
-    """Get OAuth2 access token using service account"""
+def download_file(url):
+    """Download a file from a URL with error handling"""
     try:
-        # Create credentials object with proper scopes
-        credentials = service_account.Credentials.from_service_account_info(
-            SERVICE_ACCOUNT_INFO,
-            scopes=['https://www.googleapis.com/auth/drive.readonly']
-        )
-        
-        # Use a simple request object - this is the correct way
-        request = Request()
-        credentials.refresh(request)
-        
-        return credentials.token
-    except Exception as e:
-        st.error(f"Token error: {str(e)}")
-        return None
-
-def download_google_sheet_as_excel(spreadsheet_id):
-    """Download Google Sheet as Excel using Service Account"""
-    try:
-        token = get_access_token()
-        if not token:
-            return None
-            
-        # Use the export URL with the token
-        url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?format=xlsx"
-        headers = {
-            'Authorization': f'Bearer {token}'
-        }
-        
-        response = requests.get(url, headers=headers, timeout=30)
-        
+        response = requests.get(url, timeout=30)
         if response.status_code == 200:
             return io.BytesIO(response.content)
         else:
-            st.error(f"Download failed. Status: {response.status_code}")
+            st.error(f"Failed to download. Status: {response.status_code}")
             return None
     except Exception as e:
         st.error(f"Download error: {str(e)}")
@@ -484,7 +394,6 @@ def copy_and_merge_aware_injection(template_ws, target_ws, coord, data_value):
                     clone_cell_styles(template_ws[sub_coord], target_ws[sub_coord])
 
 # --- MAIN APP ---
-# Header
 st.markdown("""
 <div class="main-header">
     <h1>Report Generator</h1>
@@ -495,33 +404,14 @@ st.markdown("""
 # --- LOAD FILES ---
 @st.cache_resource
 def load_files():
-    """Load files with retry logic"""
-    max_retries = 3
-    for attempt in range(max_retries):
-        try:
-            source_data = download_google_sheet_as_excel(SOURCE_SPREADSHEET_ID)
-            template_data = download_google_sheet_as_excel(TEMPLATE_SPREADSHEET_ID)
-            if source_data is not None and template_data is not None:
-                return source_data, template_data
-            if attempt < max_retries - 1:
-                st.warning(f"Retry {attempt + 1}/{max_retries}...")
-                time.sleep(2)
-        except Exception as e:
-            if attempt < max_retries - 1:
-                st.warning(f"Retry {attempt + 1}/{max_retries} after error: {str(e)}")
-                time.sleep(2)
-            else:
-                st.error(f"All retries failed: {str(e)}")
-    return None, None
+    with st.spinner("Downloading files from Google Drive..."):
+        source_data = download_file(SOURCE_URL)
+        template_data = download_file(TEMPLATE_URL)
+        return source_data, template_data
 
-# Test the connection first
-st.info("Testing connection to Google Drive...")
+st.info("Loading files from Google Drive...")
 
-try:
-    source_data, template_data = load_files()
-except Exception as e:
-    st.error(f"Connection error: {str(e)}")
-    st.stop()
+source_data, template_data = load_files()
 
 if source_data is None or template_data is None:
     st.error("""
@@ -529,12 +419,11 @@ if source_data is None or template_data is None:
     
     **Please check the following:**
     
-    1. **Share files with the service account:**
+    1. **Make sure the files are publicly accessible:**
        - Open each file in Google Drive
        - Click "Share"
-       - Add this email: `report-generator@focused-studio-501200-f2.iam.gserviceaccount.com`
-       - Give "Viewer" permission
-       - Click "Send"
+       - Change to "Anyone with the link can view"
+       - Click "Done"
     
     2. **Verify the file IDs are correct:**
        - Source ID: `14nhO9u7zJRcOoux8I7l2IzwU7iQZNW9fRX6TCip47CE`
@@ -543,8 +432,6 @@ if source_data is None or template_data is None:
     3. **Try opening these links in your browser:**
        - Source: https://docs.google.com/spreadsheets/d/14nhO9u7zJRcOoux8I7l2IzwU7iQZNW9fRX6TCip47CE
        - Template: https://docs.google.com/spreadsheets/d/1uS3xmnPi0o4c_EayQtURYDSMMPRDRGSb
-    
-    4. **Make sure the files are publicly accessible or shared with the service account**
     """)
     st.stop()
 
@@ -752,7 +639,8 @@ if st.session_state.zip_data is not None:
         1. Download the file above
         2. Go to your Google Drive folder:
            https://drive.google.com/drive/folders/1MAo_8VYditz-BV3vGx3aX31-SLzxSAD8
-        3. Click 'New' -> 'File Upload' and select the downloaded zip        """)
+        3. Click 'New' -> 'File Upload' and select the downloaded zip
+        """)
     
     if st.button("Start Over", use_container_width=True):
         st.session_state.zip_data = None
