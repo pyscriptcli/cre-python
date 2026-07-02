@@ -20,10 +20,11 @@ st.set_page_config(
 # --- CUSTOM CSS - MINIMALIST ---
 st.markdown("""
 <style>
+    /* Import Roboto from Google */
     @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
     
     * {
-        font-family: 'Roboto', sans-serif !important;
+        font-family: 'Roboto', 'Segoe UI', sans-serif !important;
     }
     
     #MainMenu {visibility: hidden;}
@@ -39,22 +40,22 @@ st.markdown("""
     
     .main-header {
         background-color: #003366;
-        padding: 0.8rem 1.5rem;
+        padding: 0.6rem 1.2rem;
         border-radius: 4px;
-        margin-bottom: 0.8rem;
+        margin-bottom: 0.6rem;
         color: white;
     }
     .main-header h1 {
         color: white;
         font-weight: 500;
         margin: 0;
-        font-size: 1.4rem;
+        font-size: 1.2rem;
         letter-spacing: 0.5px;
     }
     .main-header p {
         color: #e6e6e6;
-        margin: 0.2rem 0 0 0;
-        font-size: 0.8rem;
+        margin: 0;
+        font-size: 0.75rem;
         font-weight: 300;
     }
     
@@ -63,11 +64,12 @@ st.markdown("""
         color: white;
         border: none;
         border-radius: 3px;
-        padding: 0.3rem 0.8rem;
+        padding: 0.25rem 0.6rem;
         font-weight: 400;
-        font-size: 0.8rem;
+        font-size: 0.75rem;
         transition: all 0.2s ease;
         width: 100%;
+        min-height: 32px;
     }
     .stButton > button:hover {
         background-color: #002244;
@@ -79,32 +81,32 @@ st.markdown("""
         color: white;
         border: none;
         border-radius: 3px;
-        padding: 0.3rem 0.8rem;
+        padding: 0.25rem 0.6rem;
         font-weight: 400;
-        font-size: 0.8rem;
+        font-size: 0.75rem;
         width: 100%;
+        min-height: 32px;
     }
     .stDownloadButton > button:hover {
         background-color: #218838;
-        box-shadow: 0 2px 6px rgba(40, 167, 69, 0.2);
     }
     
     div[data-testid="stContainer"] {
         background-color: white;
         border-radius: 4px;
-        padding: 0.8rem;
+        padding: 0.6rem;
         box-shadow: 0 1px 3px rgba(0,0,0,0.08);
         border: 1px solid #e8e8e8;
     }
     
-    .stAlert {border-radius: 4px; padding: 0.5rem;}
+    .stAlert {border-radius: 4px; padding: 0.4rem;}
     .stAlert[data-baseweb="notification"] {border-left-color: #003366;}
     
     h1, h2, h3, h4 {
         color: #003366;
         font-weight: 500;
-        font-size: 0.9rem;
-        margin: 0.3rem 0;
+        font-size: 0.85rem;
+        margin: 0 0 0.3rem 0;
     }
     
     .stCheckbox label {
@@ -113,48 +115,70 @@ st.markdown("""
         font-size: 0.8rem;
     }
     
+    .stCheckbox {
+        margin-bottom: 0.1rem;
+    }
+    
     .stProgress > div > div {background-color: #003366;}
-    hr {border-color: #003366; opacity: 0.15; margin: 0.8rem 0;}
+    hr {border-color: #003366; opacity: 0.15; margin: 0.5rem 0;}
     
     .metric-card {
         background-color: white;
         border-radius: 4px;
-        padding: 0.5rem;
+        padding: 0.4rem;
         box-shadow: 0 1px 3px rgba(0,0,0,0.08);
         border-left: 3px solid #003366;
         text-align: center;
+        margin-bottom: 0.3rem;
     }
     .metric-value {
-        font-size: 1.2rem;
+        font-size: 1.1rem;
         font-weight: 500;
         color: #003366;
+        font-family: 'Roboto', sans-serif;
     }
     .metric-label {
         color: #666;
-        font-size: 0.7rem;
+        font-size: 0.6rem;
         font-weight: 300;
         text-transform: uppercase;
         letter-spacing: 0.5px;
+        font-family: 'Roboto', sans-serif;
     }
     
-    .stSelectbox label, .stMultiSelect label {
-        font-weight: 400;
-        color: #003366;
-        font-size: 0.75rem;
+    /* Make checkbox container scrollable */
+    .checkbox-container {
+        max-height: 280px;
+        overflow-y: auto;
+        padding-right: 4px;
+    }
+    .checkbox-container::-webkit-scrollbar {
+        width: 4px;
+    }
+    .checkbox-container::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 2px;
+    }
+    .checkbox-container::-webkit-scrollbar-thumb {
+        background: #003366;
+        border-radius: 2px;
+    }
+    
+    /* Action buttons area */
+    .action-area {
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
     }
     
     .stSpinner > div {
         border-color: #003366 !important;
     }
     
-    /* Compact checkbox container */
-    .element-container {
-        margin-bottom: 0.2rem;
-    }
-    
-    /* Smaller checkboxes */
-    .st-c8 {
-        transform: scale(0.85);
+    /* Success message */
+    .stSuccess {
+        font-size: 0.8rem;
+        padding: 0.3rem;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -325,7 +349,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- LOAD DATA ---
-with st.spinner(""):
+with st.spinner("Loading..."):
     source_data, template_data = load_files()
 
 if source_data is None or template_data is None:
@@ -352,24 +376,25 @@ if not placeholders:
 # --- SESSION STATE ---
 if 'zip_data' not in st.session_state:
     st.session_state.zip_data = None
+if 'selected_tas' not in st.session_state:
+    st.session_state.selected_tas = []
 
 # --- 3-COLUMN LAYOUT ---
-col1, col2, col3 = st.columns([1, 1.5, 1])
+col1, col2, col3 = st.columns([0.8, 1.4, 0.8])
 
 # --- COLUMN 1: METRICS ---
 with col1:
     st.markdown("### Stats")
+    
     st.markdown(f"""
     <div class="metric-card">
         <div class="metric-value">{len(df)}</div>
         <div class="metric-label">Records</div>
     </div>
-    <div style="margin-top: 0.4rem;"></div>
     <div class="metric-card">
         <div class="metric-value">{len(df['TRADE AREA'].unique())}</div>
         <div class="metric-label">Trade Areas</div>
     </div>
-    <div style="margin-top: 0.4rem;"></div>
     <div class="metric-card">
         <div class="metric-value">{len(placeholders)}</div>
         <div class="metric-label">Placeholders</div>
@@ -388,40 +413,44 @@ with col2:
         if st.button("Select All", use_container_width=True):
             for ta in unique_tas:
                 st.session_state[f"ta_{ta}"] = True
+            st.session_state.selected_tas = unique_tas.copy()
             st.rerun()
     with btn_col2:
         if st.button("Clear All", use_container_width=True):
             for ta in unique_tas:
                 st.session_state[f"ta_{ta}"] = False
+            st.session_state.selected_tas = []
             st.rerun()
     
-    # Checkboxes in a compact container
-    with st.container(height=250, border=True):
-        for ta in unique_tas:
-            if f"ta_{ta}" not in st.session_state:
-                st.session_state[f"ta_{ta}"] = True
-            if st.checkbox(ta, key=f"ta_{ta}"):
-                st.session_state["selected_tas"] = st.session_state.get("selected_tas", []) + [ta]
-            else:
-                if ta in st.session_state.get("selected_tas", []):
-                    st.session_state["selected_tas"].remove(ta)
+    # Initialize session state for checkboxes
+    for ta in unique_tas:
+        if f"ta_{ta}" not in st.session_state:
+            st.session_state[f"ta_{ta}"] = True
     
-    # Get selected
-    selected_tas = [ta for ta in unique_tas if st.session_state.get(f"ta_{ta}", False)]
+    # Checkboxes in scrollable container
+    st.markdown('<div class="checkbox-container">', unsafe_allow_html=True)
+    selected_tas = []
+    for ta in unique_tas:
+        if st.checkbox(ta, key=f"ta_{ta}"):
+            selected_tas.append(ta)
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    st.session_state.selected_tas = selected_tas
 
-# --- COLUMN 3: GENERATE & DOWNLOAD ---
+# --- COLUMN 3: ACTIONS ---
 with col3:
     st.markdown("### Actions")
     
     if st.session_state.zip_data is None:
         if st.button("Generate Reports", use_container_width=True, type="primary"):
-            if not selected_tas:
+            selected = st.session_state.selected_tas
+            if not selected:
                 st.warning("Select at least one Trade Area.")
             else:
                 with st.spinner("Generating..."):
                     progress_bar = st.progress(0)
                     
-                    filtered_df = df[df["TRADE AREA"].astype(str).isin(selected_tas)]
+                    filtered_df = df[df["TRADE AREA"].astype(str).isin(selected)]
                     groups = filtered_df.groupby("TRADE AREA")
                     total_groups = len(groups)
                     zip_buffer = io.BytesIO()
@@ -475,7 +504,7 @@ with col3:
                     st.rerun()
     
     if st.session_state.zip_data is not None:
-        st.success("Ready!")
+        st.success("Ready")
         st.download_button(
             "Download (.zip)",
             data=st.session_state.zip_data,
