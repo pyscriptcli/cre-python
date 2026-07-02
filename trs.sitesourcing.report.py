@@ -9,8 +9,6 @@ import zipfile
 import requests
 from copy import copy
 import os
-import shutil
-import time
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(
@@ -48,7 +46,7 @@ st.markdown("""
     
     .block-container {
         padding-top: 0.3rem !important;
-        padding-bottom: 3rem !important;
+        padding-bottom: 3.5rem !important;
         max-width: 1200px !important;
     }
     
@@ -237,7 +235,7 @@ st.markdown("""
         bottom: 0;
         left: 0;
         right: 0;
-        height: 20px;
+        height: 15px;
         background-color: white;
         z-index: 999999;
         box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
@@ -392,6 +390,19 @@ if "TRADE AREA" not in df.columns or "SITE NAME" not in df.columns:
     st.error("Data must contain 'TRADE AREA' and 'SITE NAME' columns.")
     st.stop()
 
+# Check for TRADE AREA NO column for unique count
+trade_area_no_col = None
+for col in df.columns:
+    if "TRADE AREA NO" in col.upper() or "TRADE AREA #" in col.upper():
+        trade_area_no_col = col
+        break
+
+# Get unique trade area count
+if trade_area_no_col:
+    unique_trade_areas = len(df[trade_area_no_col].dropna().unique())
+else:
+    unique_trade_areas = len(df["TRADE AREA"].unique())
+
 template_wb = openpyxl.load_workbook(template_data)
 template_sheet = template_wb.active
 placeholders = get_placeholders(template_sheet)
@@ -407,31 +418,6 @@ if 'selected_tas' not in st.session_state:
     st.session_state.selected_tas = []
 if 'single_file' not in st.session_state:
     st.session_state.single_file = None
-if 'upload_status' not in st.session_state:
-    st.session_state.upload_status = None
-
-# --- Get unique Trade Areas by number (extract numbers from the strings) ---
-def extract_trade_area_number(ta_str):
-    """Extract numeric value from Trade Area string"""
-    try:
-        # Try to find a number in the string
-        match = re.search(r'\d+', str(ta_str))
-        if match:
-            return int(match.group())
-        # If no number found, try to convert the whole string
-        return int(float(str(ta_str)))
-    except:
-        return None
-
-# Get unique Trade Areas with their numbers
-unique_tas = sorted([str(ta) for ta in df["TRADE AREA"].dropna().unique()])
-# Count unique numbers (try to extract numbers, fallback to string count)
-ta_numbers = set()
-for ta in unique_tas:
-    num = extract_trade_area_number(ta)
-    if num is not None:
-        ta_numbers.add(num)
-unique_ta_count = len(ta_numbers) if ta_numbers else len(unique_tas)
 
 # --- 3-COLUMN LAYOUT ---
 col1, col2, col3 = st.columns([0.8, 1.4, 0.8])
@@ -446,7 +432,7 @@ with col1:
         <div class="metric-label">Records</div>
     </div>
     <div class="metric-card">
-        <div class="metric-value">{unique_ta_count}</div>
+        <div class="metric-value">{unique_trade_areas}</div>
         <div class="metric-label">Trade Areas</div>
     </div>
     <div class="metric-card">
@@ -471,41 +457,39 @@ with col1:
 with col2:
     st.markdown("### Select Trade Areas")
     
+    # Get unique trade areas for display
+    if trade_area_no_col:
+        unique_tas_display = sorted([str(ta) for ta in df[trade_area_no_col].dropna().unique()])
+    else:
+        unique_tas_display = sorted([str(ta) for ta in df["TRADE AREA"].dropna().unique()])
+    
     # Select All / Clear All buttons
     btn_col1, btn_col2 = st.columns(2)
     with btn_col1:
         if st.button("Select All", use_container_width=True):
-            for ta in unique_tas:
+            for ta in unique_tas_display:
                 st.session_state[f"ta_{ta}"] = True
-            st.session_state.selected_tas = unique_tas.copy()
+            st.session_state.selected_tas = unique_tas_display.copy()
             st.rerun()
     with btn_col2:
         if st.button("Clear All", use_container_width=True):
-            for ta in unique_tas:
+            for ta in unique_tas_display:
                 st.session_state[f"ta_{ta}"] = False
             st.session_state.selected_tas = []
             st.rerun()
     
     # Initialize session state for checkboxes - default unchecked
-    for ta in unique_tas:
+    for ta in unique_tas_display:
         if f"ta_{ta}" not in st.session_state:
             st.session_state[f"ta_{ta}"] = False
     
-    # Checkboxes in scrollable container - NO RERUN ON CLICK
+    # Checkboxes in scrollable container - NO AUTO REFRESH
     st.markdown('<div class="checkbox-container">', unsafe_allow_html=True)
-    selected_tas = []
-    for ta in unique_tas:
-        # Use a unique key and don't auto-rerun
-        checked = st.checkbox(ta, key=f"ta_{ta}", value=st.session_state[f"ta_{ta}"])
-        if checked:
-            selected_tas.append(ta)
-        # Update session state without rerun
-        if st.session_state[f"ta_{ta}"] != checked:
-            st.session_state[f"ta_{ta}"] = checked
+    for ta in unique_tas_display:
+        st.checkbox(ta, key=f"ta_{ta}")
     st.markdown('</div>', unsafe_allow_html=True)
     
-    # Update selected_tas based on current checkbox states
-    st.session_state.selected_tas = [ta for ta in unique_tas if st.session_state.get(f"ta_{ta}", False)]
+    # Get selected values when Generate is clicked - don't auto-update
 
 # --- COLUMN 3: ACTIONS ---
 with col3:
@@ -513,21 +497,31 @@ with col3:
     
     if st.session_state.zip_data is None and st.session_state.single_file is None:
         if st.button("Generate Reports", use_container_width=True, type="primary"):
-            selected = st.session_state.selected_tas
+            # Get selected values from session state
+            selected = [ta for ta in unique_tas_display if st.session_state.get(f"ta_{ta}", False)]
+            
             if not selected:
                 st.warning("Select at least one Trade Area.")
             else:
                 with st.spinner("Generating..."):
                     progress_bar = st.progress(0)
                     
-                    filtered_df = df[df["TRADE AREA"].astype(str).isin(selected)]
+                    # Filter based on selected trade areas
+                    if trade_area_no_col:
+                        filtered_df = df[df[trade_area_no_col].astype(str).isin(selected)]
+                    else:
+                        filtered_df = df[df["TRADE AREA"].astype(str).isin(selected)]
+                    
                     groups = filtered_df.groupby("TRADE AREA")
                     total_groups = len(groups)
                     
                     # If only one trade area selected, create single file
                     if len(selected) == 1:
                         trade_area = selected[0]
-                        group = filtered_df[filtered_df["TRADE AREA"].astype(str) == trade_area]
+                        if trade_area_no_col:
+                            group = filtered_df[filtered_df[trade_area_no_col].astype(str) == trade_area]
+                        else:
+                            group = filtered_df[filtered_df["TRADE AREA"].astype(str) == trade_area]
                         
                         template_data.seek(0)
                         wb = openpyxl.load_workbook(template_data)
@@ -629,8 +623,6 @@ with col3:
     # Show download buttons
     if st.session_state.single_file is not None:
         st.success("Ready")
-        
-        # Download button
         st.download_button(
             "Download (.xlsx)",
             data=st.session_state.single_file["data"],
@@ -638,16 +630,12 @@ with col3:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True
         )
-        
         if st.button("Reset", use_container_width=True):
             st.session_state.single_file = None
-            st.session_state.upload_status = None
             st.rerun()
     
     if st.session_state.zip_data is not None:
         st.success("Ready")
-        
-        # Download button
         st.download_button(
             "Download (.zip)",
             data=st.session_state.zip_data,
@@ -655,8 +643,6 @@ with col3:
             mime="application/zip",
             use_container_width=True
         )
-        
         if st.button("Reset", use_container_width=True):
             st.session_state.zip_data = None
-            st.session_state.upload_status = None
             st.rerun()
