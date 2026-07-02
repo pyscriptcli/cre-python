@@ -55,7 +55,7 @@ st.markdown("""
     }
     
     .stButton > button {
-        background-color: #003366 !important;
+        background-color: #333333 !important;
         color: white !important;
         border: none !important;
         border-radius: 3px !important;
@@ -69,15 +69,15 @@ st.markdown("""
         visibility: visible !important;
     }
     .stButton > button:hover {
-        background-color: #002244 !important;
-        box-shadow: 0 2px 6px rgba(0, 51, 102, 0.3);
+        background-color: #1a1a1a !important;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
     }
     .stButton > button:active {
-        background-color: #001a33 !important;
+        background-color: #000000 !important;
     }
     
     .stDownloadButton > button {
-        background-color: #28a745 !important;
+        background-color: #555555 !important;
         color: white !important;
         border: none !important;
         border-radius: 3px !important;
@@ -90,8 +90,8 @@ st.markdown("""
         visibility: visible !important;
     }
     .stDownloadButton > button:hover {
-        background-color: #218838 !important;
-        box-shadow: 0 2px 6px rgba(40, 167, 69, 0.3);
+        background-color: #3d3d3d !important;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
     }
     
     .stButton button p, .stButton button span {
@@ -112,16 +112,16 @@ st.markdown("""
     }
     
     h1, h2, h3, h4, h5, h6, p, label, span, div {
-        color: #003366 !important;
+        color: #1a1a1a !important;
     }
     
     .stCheckbox label {
         font-weight: 400;
-        color: #003366 !important;
+        color: #1a1a1a !important;
         font-size: 0.8rem;
     }
     .stCheckbox label:hover {
-        color: #002244 !important;
+        color: #000000 !important;
     }
     .stCheckbox {
         margin-bottom: 0.1rem;
@@ -131,11 +131,11 @@ st.markdown("""
     }
     
     .stProgress > div > div {
-        background-color: #003366 !important;
+        background-color: #333333 !important;
     }
     
     hr {
-        border-color: #003366 !important;
+        border-color: #888888 !important;
         opacity: 0.15;
         margin: 0.4rem 0;
     }
@@ -145,18 +145,18 @@ st.markdown("""
         border-radius: 4px;
         padding: 0.4rem;
         box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        border-left: 3px solid #003366;
+        border-left: 3px solid #333333;
         text-align: center;
         margin-bottom: 0.3rem;
     }
     .metric-value {
         font-size: 1.1rem;
         font-weight: 500;
-        color: #003366 !important;
+        color: #1a1a1a !important;
         font-family: 'Roboto', sans-serif;
     }
     .metric-label {
-        color: #003366 !important;
+        color: #1a1a1a !important;
         font-size: 0.6rem;
         font-weight: 400;
         text-transform: uppercase;
@@ -178,7 +178,7 @@ st.markdown("""
         border-radius: 2px;
     }
     .checkbox-container::-webkit-scrollbar-thumb {
-        background: #003366;
+        background: #333333;
         border-radius: 2px;
     }
     
@@ -187,47 +187,47 @@ st.markdown("""
         padding: 0.4rem;
     }
     .stAlert[data-baseweb="notification"] {
-        border-left-color: #003366 !important;
+        border-left-color: #333333 !important;
     }
     
     .stSuccess {
-        background-color: #d4edda !important;
-        color: #003366 !important;
+        background-color: #e8e8e8 !important;
+        color: #1a1a1a !important;
     }
     .stSuccess * {
-        color: #003366 !important;
+        color: #1a1a1a !important;
     }
     
     .stWarning {
-        background-color: #fff3cd !important;
-        color: #003366 !important;
+        background-color: #f0f0f0 !important;
+        color: #1a1a1a !important;
     }
     .stWarning * {
-        color: #003366 !important;
+        color: #1a1a1a !important;
     }
     
     .stError {
-        background-color: #f8d7da !important;
-        color: #003366 !important;
+        background-color: #f0f0f0 !important;
+        color: #1a1a1a !important;
     }
     .stError * {
-        color: #003366 !important;
+        color: #1a1a1a !important;
     }
     
     .stInfo {
-        background-color: #e8f0fe !important;
-        color: #003366 !important;
+        background-color: #f0f0f0 !important;
+        color: #1a1a1a !important;
     }
     .stInfo * {
-        color: #003366 !important;
+        color: #1a1a1a !important;
     }
     
     .stSpinner > div {
-        border-color: #003366 !important;
+        border-color: #333333 !important;
     }
     
     .stMarkdown, .stMarkdown * {
-        color: #003366 !important;
+        color: #1a1a1a !important;
     }
     
     /* Watermark masking footer overlay */
