@@ -284,9 +284,9 @@ if not st.session_state.authenticated:
     
     with r1_col2:
         with st.container():
-            st.markdown("<h3 style='text-align: center; margin-bottom: 20px;'>Secure Login</h3>", unsafe_allow_html=True)
-            password_input = st.text_input("Enter Access Token", type="password", label_visibility="collapsed")
-            login_btn = st.button("Authenticate", use_container_width=True)
+            st.markdown("<h3 style='text-align: center; margin-bottom: 20px;'>Access Required</h3>", unsafe_allow_html=True)
+            password_input = st.text_input("Enter password", type="password", label_visibility="collapsed")
+            login_btn = st.button("Login", use_container_width=True)
             
             if login_btn or password_input:
                 if check_password(password_input):
