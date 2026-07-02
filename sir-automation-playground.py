@@ -21,9 +21,20 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- CUSTOM CSS FOR APPSHEET STYLING ---
+# --- HIDE STREAMLIT HEADER ---
 st.markdown("""
 <style>
+    /* Hide Streamlit header and footer */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    
+    /* Remove padding from top */
+    .block-container {
+        padding-top: 0rem !important;
+        padding-bottom: 0rem !important;
+    }
+    
     /* AppSheet-like styling */
     .stApp {
         background-color: #f5f5f5;
@@ -35,6 +46,7 @@ st.markdown("""
         border-radius: 0px;
         margin-bottom: 2rem;
         color: white;
+        margin-top: -1rem;
     }
     
     .main-header h1 {
@@ -240,11 +252,16 @@ INVERSE_MASK_LOOKUP = {v: k for k, v in HUMAN_SPREADSHEET_MASKS.items()}
 def get_access_token():
     """Get OAuth2 access token using service account"""
     try:
+        # Create credentials object
         credentials = service_account.Credentials.from_service_account_info(
             SERVICE_ACCOUNT_INFO,
             scopes=['https://www.googleapis.com/auth/drive.readonly']
         )
-        credentials.refresh(Request())
+        
+        # Refresh the token
+        request_obj = Request()
+        credentials.refresh(request_obj)
+        
         return credentials.token
     except Exception as e:
         st.error(f"Failed to get access token: {str(e)}")
@@ -268,6 +285,8 @@ def download_google_sheet_as_excel(spreadsheet_id):
             return io.BytesIO(response.content)
         else:
             st.error(f"Failed to download spreadsheet. Status: {response.status_code}")
+            if response.status_code == 403:
+                st.error("Access forbidden. Please make sure the service account has access to this file.")
             return None
     except Exception as e:
         st.error(f"Error downloading spreadsheet: {str(e)}")
@@ -702,7 +721,7 @@ if st.session_state.zip_data is not None:
         **Save to Google Drive:**
         1. Download the file above
         2. Go to your Google Drive folder:
-        3. Click 'New' → 'File Upload' and select the downloaded zip
+        3. Click 'New' -> 'File Upload' and select the downloaded zip
         """)
     
     if st.button("Start Over", use_container_width=True):
