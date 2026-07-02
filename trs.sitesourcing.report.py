@@ -27,7 +27,7 @@ if not os.path.exists(_config_file):
     with open(_config_file, "w", encoding="utf-8") as f:
         f.write("[theme]\nbase=\"light\"\n")
 
-# --- CUSTOM CSS ---
+# --- CUSTOM CSS WITH FIXED FOOTER OVERLAY ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
@@ -44,8 +44,8 @@ st.markdown("""
     .stAppDeployButton {display: none !important;}
     div[data-testid="stStatusWidget"] {display: none !important;}
     
-    /* Completely removes the 'Hosted with Streamlit' badge and header line accent */
-    .viewerBadge_container__1QSob, .viewerBadge_link__1S16K, [data-testid="stViewerBadge"] {
+    /* Target and terminate native "Hosted with Streamlit" container classes */
+    [data-testid="stViewerBadge"], .viewerBadge_container__1QSob, .viewerBadge_link__1S16K {
         display: none !important;
         visibility: hidden !important;
     }
@@ -60,10 +60,39 @@ st.markdown("""
     
     .block-container {
         padding-top: 0.3rem !important;
-        padding-bottom: 2rem !important;
+        padding-bottom: 4rem !important;
         max-width: 1200px !important;
     }
     
+    /* Custom Footer Cover Styling */
+    .custom-footer {
+        position: fixed;
+        left: 0;
+        bottom: 0;
+        width: 100%;
+        background-color: white;
+        color: #003366;
+        text-align: center;
+        padding: 8px 0;
+        font-size: 0.8rem;
+        border-top: 1px solid #e0e0e0;
+        z-index: 999999;
+    }
+    .custom-footer p {
+        margin: 0 !important;
+        padding: 0 !important;
+        color: #003366 !important;
+    }
+    .custom-footer a {
+        display: block;
+        text-align: center;
+        color: #002244 !important;
+        text-decoration: none;
+        font-weight: 500;
+        margin-top: 2px;
+    }
+    
+    /* Core Layout Component UI Styles */
     .stButton > button {
         background-color: #003366 !important;
         color: white !important;
@@ -240,6 +269,10 @@ st.markdown("""
         color: #003366 !important;
     }
 </style>
+
+<div class='custom-footer'>
+    <p>Application Portal <a href='mailto:support@trs-reporting.internal'>Contact Support Administrator</a></p>
+</div>
 """, unsafe_allow_html=True)
 
 # --- LOGIN VERIFICATION LOGIC ---
