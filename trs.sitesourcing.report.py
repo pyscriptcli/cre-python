@@ -10,6 +10,11 @@ import requests
 from copy import copy
 import os
 import shutil
+import time
+from google.oauth2 import service_account
+from google.auth.transport.requests import Request
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseUpload
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(
@@ -26,6 +31,70 @@ if not os.path.exists(_config_file):
     os.makedirs(_config_dir, exist_ok=True)
     with open(_config_file, "w", encoding="utf-8") as f:
         f.write("[theme]\nbase=\"light\"\n")
+
+# --- GOOGLE DRIVE CONFIGURATION ---
+# Your destination folder ID
+DESTINATION_FOLDER_ID = "1MAo_8VYditz-BV3vGx3aX31-SLzxSAD8"
+
+# Service account info (same as before)
+SERVICE_ACCOUNT_INFO = {
+    "type": "service_account",
+    "project_id": "focused-studio-501200-f2",
+    "private_key_id": "d5fa49f27824d4a2bbce318f88a1e379b2c2e122",
+    "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEuwIBADANBgkqhkiG9w0BAQEFAASCBKUwggShAgEAAoIBAQDHpyC4irELswst\nGF2SsnFdFj2R7CrdJRFEwhBdKVQA6Djlojd1d7uRLPO7T6DhohFZRPDhJ44UgjGg\n2sPffOfTTIJz8tCT3Qm/EKoA1i/BX5Z0TO0EIUd5R1RjOExTIABDwoTZoSifdSjT\nxDKGSOmBZPPxGKzoJ6PzcW/gvF0OxPBgGkDg+4CMupvutqEqO9hhe/LeVcxySLsF\ngUiDXBwBRW7wIX3k3XxB1ob5srD1FXoa7DsXbkgnkH/TgybkjCXXbnC/uvaR27xf\nN0FWdcfSG5cx2P8qdSD7FRg8J+QfInaWiE/BLFf12oFYU5BuP7Nk9jVxqCxxG+0E\n154JdaVhAgMBAAECgf8ZY9lD0exCBW4rOSk6Bq3NnY5zu3Axpdnt8vmk+PFRGQP8\n8AXT6OFWZqKrjeAMnoR/5CyRKNHNk3ql1V+J6sojxo8W5iiji6PTQ7za7mIt87ug\nGEhSeVXFlQFxiZW4D7gsGQi1quRBPLA8fhVbm0CKAnSjX8GQpIazgH5h1JKUPG20\nXNTAR7C0w2C8oGv1PUNkus9Fxjw1PGme6ujBfIfZEbXPeKpsjz2QUYjlg/B+8r1c\nwSMoNsxdTKMxCG4zzaSrOpsVkeodZbdwmIkHzDikb8r0NiBeQ6Bgp2BN4phVKRD5\nk/ZQXo5s+ENrTVXL5SQwYNmF0Ae3Jo2m2z/XPUECgYEA8xv/YC0LDjRHqUo5KI23\n0lM1Y1JOqGU+/q9LZpmCPKzsud9tCQ0CouR2m30vRnLhJv4+DJmc49HpvLYh3Lff\nOfdyn384/TmMWr1FUrNupkrXI+l29BC+UYXfg8P12MYcrUy2Q/GKvj/BqEWfC/aj\n9LYo9IDeQsXvJJ3z64HLTkECgYEA0j0+uEupvq3vdigEgW5hKO/o3UcOAm1LoEVD\ndOu0IvqCatGmDDLrfk+w01X7ZIW95gYrKW/mFs3hVCqJwplRGkp0nsYg+FWDkq7F\n2QCi9WAVu0Gqfavyg9asPMeGoTNVgj2gzjJc4fILw2N6PvyOOin0HmISLwnVZtQ2\nAd96zyECgYAIfMG9qdTo+gpGbsDwGYKBZUZH4We9mUtJuPT48AML+z2If7RezIV7\nCl7ZrtUnsHsL0XR5HCPOEFYIsJMeEY1JiMoHp3ll3cx4noL9ECacx6AbMNtmSe9b\nCUF0aDL9Dm2R30u9s4EUg0VPip6y3Dl9IZ7salNYIXDn5lvNrQpcAQKBgFZ/xFJn\nLwu43JEsnc3y8B67tn90QJtXBIqIdNyiLZdGomn4n+zc9m8dso8BDVGqhRsi5pdB\n5tTzGAZdChj6o5fBkoHQ2rfR1zR+nABQdrumMMq+lbrnB/yeUncfUJD6YfAYExVD\nO1vrDlPxldZcatgbcskdaIXZ8edA4IecvxaBAoGBAOLRIcIKa5cJ3sMmmSvuMGTL\n17GLxtsXZGN0OltqSgT6pu3/uODGVH1ljqm9SrDFSmcnRZwn8a2aZoAG7brPuoT0\n5OcYYnbwDMKG0hcQbXNtbshjYPQMXb9si6gacKfcCny2Q9KSIhEz6ioEsvrmYOYz\njmfWgXnpGmDWcsgk7nKF\n-----END PRIVATE KEY-----\n",
+    "client_email": "report-generator@focused-studio-501200-f2.iam.gserviceaccount.com",
+    "client_id": "118306996332253581955",
+    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+    "token_uri": "https://oauth2.googleapis.com/token",
+    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+    "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/report-generator%40focused-studio-501200-f2.iam.gserviceaccount.com",
+    "universe_domain": "googleapis.com"
+}
+
+def get_drive_service():
+    """Get Google Drive service using service account"""
+    try:
+        credentials = service_account.Credentials.from_service_account_info(
+            SERVICE_ACCOUNT_INFO,
+            scopes=['https://www.googleapis.com/auth/drive.file']
+        )
+        return build('drive', 'v3', credentials=credentials)
+    except Exception as e:
+        st.error(f"Failed to create Drive service: {str(e)}")
+        return None
+
+def upload_to_drive(file_data, filename, folder_id):
+    """Upload file to Google Drive"""
+    try:
+        service = get_drive_service()
+        if not service:
+            return False
+        
+        # Create file metadata
+        file_metadata = {
+            'name': filename,
+            'parents': [folder_id]
+        }
+        
+        # Create media object
+        media = MediaIoBaseUpload(
+            io.BytesIO(file_data),
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            resumable=True
+        )
+        
+        # Upload file
+        file = service.files().create(
+            body=file_metadata,
+            media_body=media,
+            fields='id'
+        ).execute()
+        
+        file_id = file.get('id')
+        return file_id
+    except Exception as e:
+        st.error(f"Upload failed: {str(e)}")
+        return False
 
 # --- CUSTOM CSS ---
 st.markdown("""
@@ -47,21 +116,24 @@ st.markdown("""
     
     .block-container {
         padding-top: 0.3rem !important;
-        padding-bottom: 0.3rem !important;
+        padding-bottom: 3rem !important;
         max-width: 1200px !important;
     }
     
+    /* Button styling with visible text */
     .stButton > button {
         background-color: #003366 !important;
         color: white !important;
-        border: none;
-        border-radius: 3px;
-        padding: 0.25rem 0.6rem;
-        font-weight: 400;
-        font-size: 0.75rem;
+        border: none !important;
+        border-radius: 3px !important;
+        padding: 0.4rem 0.6rem !important;
+        font-weight: 500 !important;
+        font-size: 0.8rem !important;
         transition: all 0.2s ease;
         width: 100%;
-        min-height: 32px;
+        min-height: 36px;
+        opacity: 1 !important;
+        visibility: visible !important;
     }
     .stButton > button:hover {
         background-color: #002244 !important;
@@ -74,17 +146,29 @@ st.markdown("""
     .stDownloadButton > button {
         background-color: #28a745 !important;
         color: white !important;
-        border: none;
-        border-radius: 3px;
-        padding: 0.25rem 0.6rem;
-        font-weight: 400;
-        font-size: 0.75rem;
+        border: none !important;
+        border-radius: 3px !important;
+        padding: 0.4rem 0.6rem !important;
+        font-weight: 500 !important;
+        font-size: 0.8rem !important;
         width: 100%;
-        min-height: 32px;
+        min-height: 36px;
+        opacity: 1 !important;
+        visibility: visible !important;
     }
     .stDownloadButton > button:hover {
         background-color: #218838 !important;
         box-shadow: 0 2px 6px rgba(40, 167, 69, 0.3);
+    }
+    
+    /* Fix button text visibility */
+    .stButton button p, .stButton button span {
+        color: white !important;
+        opacity: 1 !important;
+    }
+    .stDownloadButton button p, .stDownloadButton button span {
+        color: white !important;
+        opacity: 1 !important;
     }
     
     div[data-testid="stContainer"] {
@@ -214,7 +298,30 @@ st.markdown("""
     .stMarkdown, .stMarkdown * {
         color: #003366 !important;
     }
+    
+    /* Persistent white footer overlay */
+    .footer-overlay {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 20px;
+        background-color: white;
+        z-index: 999999;
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+        border-top: 1px solid #e8e8e8;
+    }
+    
+    /* Ensure content doesn't get hidden behind footer */
+    .main {
+        padding-bottom: 30px !important;
+    }
 </style>
+""", unsafe_allow_html=True)
+
+# --- PERSISTENT FOOTER ---
+st.markdown("""
+<div class="footer-overlay"></div>
 """, unsafe_allow_html=True)
 
 # --- CONFIGURATION ---
@@ -368,6 +475,8 @@ if 'selected_tas' not in st.session_state:
     st.session_state.selected_tas = []
 if 'single_file' not in st.session_state:
     st.session_state.single_file = None
+if 'upload_status' not in st.session_state:
+    st.session_state.upload_status = None
 
 # --- 3-COLUMN LAYOUT ---
 col1, col2, col3 = st.columns([0.8, 1.4, 0.8])
@@ -558,9 +667,11 @@ with col3:
                     
                     st.rerun()
     
-    # Show download buttons
+    # Show download buttons and upload option
     if st.session_state.single_file is not None:
         st.success("Ready")
+        
+        # Download button
         st.download_button(
             "Download (.xlsx)",
             data=st.session_state.single_file["data"],
@@ -568,12 +679,32 @@ with col3:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True
         )
+        
+        # Upload to Drive button
+        if st.button("Upload to Drive", use_container_width=True):
+            with st.spinner("Uploading to Google Drive..."):
+                result = upload_to_drive(
+                    st.session_state.single_file["data"],
+                    st.session_state.single_file["name"],
+                    DESTINATION_FOLDER_ID
+                )
+                if result:
+                    st.success(f"File uploaded successfully!")
+                    st.session_state.upload_status = "success"
+                else:
+                    st.error("Upload failed.")
+                    st.session_state.upload_status = "failed"
+                st.rerun()
+        
         if st.button("Reset", use_container_width=True):
             st.session_state.single_file = None
+            st.session_state.upload_status = None
             st.rerun()
     
     if st.session_state.zip_data is not None:
         st.success("Ready")
+        
+        # Download button
         st.download_button(
             "Download (.zip)",
             data=st.session_state.zip_data,
@@ -581,6 +712,24 @@ with col3:
             mime="application/zip",
             use_container_width=True
         )
+        
+        # Upload to Drive button
+        if st.button("Upload to Drive", use_container_width=True):
+            with st.spinner("Uploading to Google Drive..."):
+                result = upload_to_drive(
+                    st.session_state.zip_data,
+                    "Reports.zip",
+                    DESTINATION_FOLDER_ID
+                )
+                if result:
+                    st.success(f"File uploaded successfully!")
+                    st.session_state.upload_status = "success"
+                else:
+                    st.error("Upload failed.")
+                    st.session_state.upload_status = "failed"
+                st.rerun()
+        
         if st.button("Reset", use_container_width=True):
             st.session_state.zip_data = None
+            st.session_state.upload_status = None
             st.rerun()
