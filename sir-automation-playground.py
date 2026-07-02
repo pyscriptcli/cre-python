@@ -18,6 +18,14 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+# --- PROGRAMMATIC LIGHT MODE LOCK ---
+_config_dir = ".streamlit"
+_config_file = os.path.join(_config_dir, "config.toml")
+if not os.path.exists(_config_file):
+    os.makedirs(_config_dir, exist_ok=True)
+    with open(_config_file, "w", encoding="utf-8") as f:
+        f.write("[theme]\nbase=\"light\"\n")
+
 # --- FORCE LIGHT MODE & IMPROVED CONTRAST ---
 st.markdown("""
 <style>
