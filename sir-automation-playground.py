@@ -11,7 +11,7 @@ import requests
 from copy import copy
 import json
 from google.oauth2 import service_account
-from google.auth.transport.requests import Request
+from google.auth.transport.requests import Request as GoogleRequest
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(
@@ -258,8 +258,8 @@ def get_access_token():
             scopes=['https://www.googleapis.com/auth/drive.readonly']
         )
         
-        # Refresh the token
-        request_obj = Request()
+        # Refresh the token - using the correct import
+        request_obj = GoogleRequest()
         credentials.refresh(request_obj)
         
         return credentials.token
@@ -287,6 +287,8 @@ def download_google_sheet_as_excel(spreadsheet_id):
             st.error(f"Failed to download spreadsheet. Status: {response.status_code}")
             if response.status_code == 403:
                 st.error("Access forbidden. Please make sure the service account has access to this file.")
+            elif response.status_code == 404:
+                st.error("File not found. Please check the file ID.")
             return None
     except Exception as e:
         st.error(f"Error downloading spreadsheet: {str(e)}")
@@ -499,26 +501,41 @@ def load_files():
         template_data = download_google_sheet_as_excel(TEMPLATE_SPREADSHEET_ID)
         return source_data, template_data
 
-source_data, template_data = load_files()
+# Test the connection first
+st.info("Testing connection to Google Drive...")
+
+try:
+    source_data, template_data = load_files()
+except Exception as e:
+    st.error(f"Connection error: {str(e)}")
+    st.stop()
 
 if source_data is None or template_data is None:
     st.error("""
-    Failed to load files from Google Drive. Please check:
+    ❌ **Failed to load files from Google Drive**
     
-    1. The service account has access to both files
-    2. The file IDs are correct
-    3. The files are shared with the service account email:
-       report-generator@focused-studio-501200-f2.iam.gserviceaccount.com
+    **Please check the following:**
     
-    To share files:
-    1. Open each file in Google Drive
-    2. Click "Share"
-    3. Add the service account email above
-    4. Give "Viewer" permission
+    1. **Share files with the service account:**
+       - Open each file in Google Drive
+       - Click "Share"
+       - Add this email: `report-generator@focused-studio-501200-f2.iam.gserviceaccount.com`
+       - Give "Viewer" permission
+       - Click "Send"
+    
+    2. **Verify the file IDs are correct:**
+       - Source ID: `14nhO9u7zJRcOoux8I7l2IzwU7iQZNW9fRX6TCip47CE`
+       - Template ID: `1uS3xmnPi0o4c_EayQtURYDSMMPRDRGSb`
+    
+    3. **Try opening these links in your browser:**
+       - Source: https://docs.google.com/spreadsheets/d/14nhO9u7zJRcOoux8I7l2IzwU7iQZNW9fRX6TCip47CE
+       - Template: https://docs.google.com/spreadsheets/d/1uS3xmnPi0o4c_EayQtURYDSMMPRDRGSb
+    
+    4. **Make sure the files are publicly accessible or shared with the service account**
     """)
     st.stop()
 
-st.success("Files loaded successfully!")
+st.success("✅ Files loaded successfully!")
 
 # --- Load and process data ---
 df = pd.read_excel(source_data)
@@ -721,6 +738,7 @@ if st.session_state.zip_data is not None:
         **Save to Google Drive:**
         1. Download the file above
         2. Go to your Google Drive folder:
+           https://drive.google.com/drive/folders/1MAo_8VYditz-BV3vGx3aX31-SLzxSAD8
         3. Click 'New' -> 'File Upload' and select the downloaded zip
         """)
     
