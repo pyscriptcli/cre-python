@@ -26,35 +26,7 @@ if not os.path.exists(_config_file):
     with open(_config_file, "w", encoding="utf-8") as f:
         f.write("[theme]\nbase=\"light\"\n")
 
-# --- FORCE LIGHT MODE & IMPROVED CONTRAST ---
-st.markdown("""
-<style>
-    /* Force light mode */
-    .stApp {
-        background-color: #f5f7fa !important;
-    }
-    .stApp > header {
-        background-color: #f5f7fa !important;
-    }
-    .stApp > div {
-        background-color: #f5f7fa !important;
-    }
-    .main > div {
-        background-color: #f5f7fa !important;
-    }
-    .block-container {
-        background-color: #f5f7fa !important;
-        padding-top: 0.3rem !important;
-        padding-bottom: 0.3rem !important;
-        max-width: 1200px !important;
-    }
-    div[data-testid="stVerticalBlock"] {
-        background-color: #f5f7fa !important;
-    }
-    div[data-testid="stHorizontalBlock"] {
-        background-color: #f5f7fa !important;
-    }
-    
+
     /* Import Roboto from Google */
     @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
     
