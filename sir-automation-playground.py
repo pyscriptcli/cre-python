@@ -6,7 +6,6 @@ from openpyxl.utils import get_column_letter, range_boundaries
 import re
 import io
 import zipfile
-import difflib
 import requests
 from copy import copy
 
@@ -90,11 +89,6 @@ st.markdown("""
         font-weight: 500;
         color: #1a1a1a;
     }
-    .stSelectbox label {
-        font-weight: 500;
-        color: #003366;
-        font-size: 0.9rem;
-    }
     .stProgress > div > div {
         background-color: #003366;
     }
@@ -107,11 +101,6 @@ st.markdown("""
         background-color: #e8f0fe;
         border-radius: 8px;
         border-left: 4px solid #003366;
-    }
-    .stWarning {
-        background-color: #fff3cd;
-        border-radius: 8px;
-        border-left: 4px solid #ffc107;
     }
     .stSuccess {
         background-color: #d4edda;
@@ -151,44 +140,36 @@ st.markdown("""
         color: #666;
         font-size: 0.9rem;
     }
+    /* Hide the "Manage app" link */
+    .stApp > header + div {
+        display: none;
+    }
 </style>
 """, unsafe_allow_html=True)
 
 # --- CONFIGURATION ---
-# Using the export URL format for public sheets
 SOURCE_URL = "https://docs.google.com/spreadsheets/d/14nhO9u7zJRcOoux8I7l2IzwU7iQZNW9fRX6TCip47CE/export?format=xlsx"
 TEMPLATE_URL = "https://docs.google.com/spreadsheets/d/1uS3xmnPi0o4c_EayQtURYDSMMPRDRGSb/export?format=xlsx"
 
-# --- HUMAN READABLE MASK DEFINITIONS ---
-HUMAN_SPREADSHEET_MASKS = {
-    "Plain text": "TEXT",
-    "Number": "NUMBER",
-    "Percentage": "PERCENT",
-    "Scientific": "SCIENTIFIC",
-    "Accounting": "ACCOUNTING",
-    "Financial": "FINANCIAL",
-    "Currency (USD)": "CURRENCY_USD",
-    "Currency (USD, Rounded)": "CURRENCY_USD_ROUND",
-    "Currency (PHP)": "CURRENCY_PHP",
-    "Currency (PHP, Rounded)": "CURRENCY_PHP_ROUND",
-    "Date (Short)": "DATE_SHORT",
-    "Time (Standard)": "TIME_STANDARD",
-    "Date Time (Full)": "DATE_TIME_FULL",
-    "Date (Month Day, Year)": "%B %d, %Y",
-    "Date (ISO)": "%Y-%m-%d",
-    "Date (Day Month Year)": "%d %b %Y",
-    "Street Segment": "STREET_SEGMENT",
-    "Barangay Segment": "BARANGAY_SEGMENT",
-    "City Segment": "CITY_SEGMENT",
-    "Region Segment": "REGION_SEGMENT",
-    "Postal Segment": "POSTAL_SEGMENT"
+# --- HARDCODED MAPPING ---
+# This defines which template placeholders map to which data columns
+PLACEHOLDER_MAPPING = {
+    "SITE NAME": {"column": "SITE NAME", "mask": "TEXT"},
+    "TRADE AREA": {"column": "TRADE AREA", "mask": "TEXT"},
+    "LEASE TYPE": {"column": "LEASE TYPE", "mask": "TEXT"},
+    "SITE ID": {"column": "SITE ID", "mask": "TEXT"},
+    "LOCATION/ADDRESS": {"column": "LOCATION/ADDRESS", "mask": "TEXT"},
+    "CITY": {"column": "CITY", "mask": "TEXT"},
+    "REGION": {"column": "REGION", "mask": "TEXT"},
+    "POSTAL": {"column": "POSTAL", "mask": "TEXT"},
+    "PARCEL AREA (SQM)": {"column": "PARCEL AREA (SQM)", "mask": "NUMBER"},
+    "FLOOR AREA (SQM)": {"column": "FLOOR AREA (SQM)", "mask": "NUMBER"},
+    "LEASE START": {"column": "LEASE START", "mask": "DATE_SHORT"},
+    "LEASE END": {"column": "LEASE END", "mask": "DATE_SHORT"},
 }
-
-INVERSE_MASK_LOOKUP = {v: k for k, v in HUMAN_SPREADSHEET_MASKS.items()}
 
 # --- HELPER FUNCTIONS ---
 def download_file(url):
-    """Download a file from a URL with error handling"""
     try:
         response = requests.get(url, timeout=30)
         if response.status_code == 200:
@@ -200,16 +181,6 @@ def download_file(url):
         st.error(f"Download error: {str(e)}")
         return None
 
-def parse_token_signature(raw_token):
-    if ":" in raw_token:
-        parts = raw_token.split(":", 1)
-        name = parts[0].strip()
-        tag_type = parts[1].strip().upper()
-        if tag_type in ["IMAGE", "PHOTO"]: return name, "IMAGE"
-        if tag_type in ["TEXT", "STRING"]: return name, "TEXT"
-        if tag_type in INVERSE_MASK_LOOKUP: return name, tag_type
-    return raw_token.strip(), "TEXT"
-
 def get_placeholders(sheet):
     placeholders = set()
     for row in sheet.iter_rows():
@@ -217,20 +188,9 @@ def get_placeholders(sheet):
             if isinstance(cell.value, str):
                 matches = re.findall(r"\{\{(.*?)\}\}", cell.value)
                 for match in matches:
-                    name, _ = parse_token_signature(match)
+                    name = match.split(":")[0].strip() if ":" in match else match.strip()
                     placeholders.add(name)
     return sorted(list(placeholders))
-
-def get_template_initial_types(sheet):
-    initial_types = {}
-    for row in sheet.iter_rows():
-        for cell in row:
-            if isinstance(cell.value, str):
-                matches = re.findall(r"\{\{(.*?)\}\}", cell.value)
-                for match in matches:
-                    clean_name, tag_type = parse_token_signature(match)
-                    initial_types[clean_name] = tag_type
-    return initial_types
 
 def sanitize_tab_name(name, existing_names):
     illegal_chars = r'[\\/*?\[\]:]'
@@ -251,66 +211,31 @@ def sanitize_tab_name(name, existing_names):
             return new_name
         counter += 1
 
-def format_with_mask(val, mask_pattern, placeholder_name):
+def format_with_mask(val, mask_pattern):
     if pd.isna(val) or str(val).strip() == "":
         return ""
     
     try:
-        num_val = float(val) if isinstance(val, (int, float, str)) and re.match(r'^-?\d+(\.\d+)?$', str(val).strip()) else None
-        
-        if mask_pattern == "NUMBER" and num_val is not None:
+        if mask_pattern == "NUMBER":
+            num_val = float(val)
             return f"{num_val:,.2f}"
-        elif mask_pattern == "SCIENTIFIC" and num_val is not None:
-            return f"{num_val:.2E}"
-        elif mask_pattern == "ACCOUNTING" and num_val is not None:
-            return f"$ ({num_val:,.2f})" if num_val < 0 else f"$ {num_val:,.2f}"
-        elif mask_pattern == "FINANCIAL" and num_val is not None:
-            return f"({num_val:,.2f})" if num_val < 0 else f"{num_val:,.2f}"
-        elif mask_pattern == "CURRENCY_USD" and num_val is not None:
-            return f"${num_val:,.2f}"
-        elif mask_pattern == "CURRENCY_USD_ROUND" and num_val is not None:
-            return f"${round(num_val):,}"
-        elif mask_pattern == "CURRENCY_PHP" and num_val is not None:
-            return f"₱{num_val:,.2f}"
-        elif mask_pattern == "CURRENCY_PHP_ROUND" and num_val is not None:
-            return f"₱{round(num_val):,}"
-        elif mask_pattern == "PERCENT" and num_val is not None:
-            factor = 1 if num_val > 1 or "%" in str(val) else 100
-            return f"{num_val * factor:.2f}%"
-            
         elif mask_pattern == "DATE_SHORT":
             return pd.to_datetime(val).strftime("%m/%d/%Y")
-        elif mask_pattern == "TIME_STANDARD":
-            return pd.to_datetime(val).strftime("%I:%M:%S %p")
         elif mask_pattern == "DATE_TIME_FULL":
             return pd.to_datetime(val).strftime("%m/%d/%Y %H:%M:%S")
-        elif mask_pattern == "%B %d, %Y":
-            return pd.to_datetime(val).strftime("%B %d, %Y")
-        elif mask_pattern == "%Y-%m-%d":
-            return pd.to_datetime(val).strftime("%Y-%m-%d")
-        elif mask_pattern == "%d %b %Y":
-            return pd.to_datetime(val).strftime("%d %b %Y")
-    except Exception:
-        pass
-        
-    if isinstance(val, str):
-        if mask_pattern == "STREET_SEGMENT":
-            p = [part.strip() for part in val.split(",")]
-            return ", ".join(p[:max(0, len(p) - 6)]) if len(p) >= 6 else val
-        elif mask_pattern == "BARANGAY_SEGMENT":
-            p = [part.strip() for part in val.split(",")]
-            return p[len(p) - 6] if len(p) >= 6 else ""
-        elif mask_pattern == "CITY_SEGMENT":
-            p = [part.strip() for part in val.split(",")]
-            return p[len(p) - 5] if len(p) >= 5 else ""
-        elif mask_pattern == "REGION_SEGMENT":
-            p = [part.strip() for part in val.split(",")]
-            return p[len(p) - 3] if len(p) >= 3 else ""
-        elif mask_pattern == "POSTAL_SEGMENT":
-            p = [part.strip() for part in val.split(",")]
-            return p[len(p) - 2] if len(p) >= 2 else ""
-            
-    return str(val)
+        elif mask_pattern == "PERCENT":
+            num_val = float(val)
+            return f"{num_val:.2f}%"
+        elif mask_pattern == "CURRENCY_USD":
+            num_val = float(val)
+            return f"${num_val:,.2f}"
+        elif mask_pattern == "CURRENCY_PHP":
+            num_val = float(val)
+            return f"₱{num_val:,.2f}"
+        else:
+            return str(val)
+    except:
+        return str(val)
 
 def clone_cell_styles(source_cell, target_cell):
     if source_cell.font:
@@ -406,29 +331,17 @@ def load_files():
         template_data = download_file(TEMPLATE_URL)
         return source_data, template_data
 
-st.info("Loading files from Google Drive...")
-
 source_data, template_data = load_files()
 
 if source_data is None or template_data is None:
     st.error("""
     ❌ **Failed to load files from Google Drive**
     
-    **Please check the following:**
-    
-    1. **Make sure the files are publicly accessible:**
-       - Open each file in Google Drive
-       - Click "Share"
-       - Change to "Anyone with the link can view"
-       - Click "Done"
-    
-    2. **Verify the file IDs are correct:**
-       - Source ID: `14nhO9u7zJRcOoux8I7l2IzwU7iQZNW9fRX6TCip47CE`
-       - Template ID: `1uS3xmnPi0o4c_EayQtURYDSMMPRDRGSb`
+    **Please check:**
+    1. Make sure the files are publicly accessible (Anyone with the link can view)
+    2. Verify the file IDs are correct
     """)
     st.stop()
-
-st.success("✅ Files loaded successfully!")
 
 # --- Load and process data ---
 df = pd.read_excel(source_data)
@@ -443,7 +356,6 @@ if "TRADE AREA" not in df.columns or "SITE NAME" not in df.columns:
 template_wb = openpyxl.load_workbook(template_data)
 template_sheet = template_wb.active
 placeholders = get_placeholders(template_sheet)
-template_types_registry = get_template_initial_types(template_sheet)
 
 if not placeholders:
     st.warning("No {{Placeholders}} found in the template.")
@@ -454,8 +366,6 @@ if 'zip_data' not in st.session_state:
     st.session_state.zip_data = None
 
 # --- MAIN INTERFACE ---
-st.markdown("### Data Mapping")
-
 # Metrics row
 col1, col2, col3 = st.columns(3)
 with col1:
@@ -482,68 +392,25 @@ with col3:
 
 st.divider()
 
-# Select All / Clear All - FIXED: using correct column count
-col1, col2 = st.columns([1, 1])
-with col1:
-    if st.button("Select All", use_container_width=True):
-        for ph in placeholders:
-            st.session_state[f"chk_{ph}"] = True
-        st.rerun()
-with col2:
-    if st.button("Clear All", use_container_width=True):
-        for ph in placeholders:
-            st.session_state[f"chk_{ph}"] = False
-        st.rerun()
-
-mapping = {}
-for ph in placeholders:
-    match = difflib.get_close_matches(ph, headers, n=1, cutoff=0.3)
-    default_index = headers.index(match[0]) if match else 0
-    
-    if ph in ["STREET", "BARANGAY", "CITY", "REGION", "POSTAL"] and "LOCATION/ADDRESS" in headers:
-        default_index = headers.index("LOCATION/ADDRESS")
-    
-    with st.container(border=True):
-        if f"chk_{ph}" not in st.session_state:
-            st.session_state[f"chk_{ph}"] = True
-        update_check = st.checkbox(f"Update {ph}", key=f"chk_{ph}")
-        
-        col_left, col_right = st.columns(2)
-        with col_left:
-            sel_col = st.selectbox("Header Reference", headers, index=default_index, key=f"map_{ph}", disabled=not update_check)
-        with col_right:
-            inferred_type = template_types_registry.get(ph, "TEXT")
-            default_mask_label = INVERSE_MASK_LOOKUP.get(inferred_type, "Plain text") if inferred_type != "IMAGE" else "Plain text"
-            mask_index = list(HUMAN_SPREADSHEET_MASKS.keys()).index(default_mask_label)
-            sel_mask = st.selectbox("Data Format", list(HUMAN_SPREADSHEET_MASKS.keys()), index=mask_index, key=f"mask_{ph}", disabled=not update_check)
-        
-        if update_check:
-            mapping[ph] = {
-                "column": sel_col,
-                "mask": HUMAN_SPREADSHEET_MASKS[sel_mask],
-                "inferred_type": inferred_type
-            }
-
-st.divider()
 st.markdown("### Select Trade Areas")
 
 unique_tas = sorted([str(ta) for ta in df["TRADE AREA"].dropna().unique()])
 
-# Select All / Clear All for Trade Areas - FIXED
+# Select All / Clear All
 col1, col2 = st.columns([1, 1])
 with col1:
-    if st.button("Select All Trade Areas", use_container_width=True):
+    if st.button("Select All", use_container_width=True):
         for ta in unique_tas:
             st.session_state[f"ta_{ta}"] = True
         st.rerun()
 with col2:
-    if st.button("Clear All Trade Areas", use_container_width=True):
+    if st.button("Clear All", use_container_width=True):
         for ta in unique_tas:
             st.session_state[f"ta_{ta}"] = False
         st.rerun()
 
 selected_tas = []
-with st.container(height=250, border=True):
+with st.container(height=200, border=True):
     for ta in unique_tas:
         if f"ta_{ta}" not in st.session_state:
             st.session_state[f"ta_{ta}"] = True
@@ -557,8 +424,6 @@ if st.session_state.zip_data is None:
     if st.button("Generate Reports", use_container_width=True, type="primary"):
         if not selected_tas:
             st.warning("Please select at least one Trade Area.")
-        elif not mapping:
-            st.warning("Please configure at least one field mapping.")
         else:
             with st.spinner("Generating reports..."):
                 progress_bar = st.progress(0)
@@ -587,17 +452,22 @@ if st.session_state.zip_data is None:
                                     if isinstance(cell.value, str) and "{{" in cell.value:
                                         new_val = cell.value
                                         has_injected = False
-                                        for ph, map_conf in mapping.items():
+                                        
+                                        # Check each placeholder in the cell
+                                        for ph in placeholders:
                                             target_regex = r"\{\{\s*" + re.escape(ph) + r"(\s*:.*?)?\}\}"
                                             if re.search(target_regex, new_val):
-                                                header = map_conf["column"]
-                                                mask_patt = map_conf["mask"]
-                                                raw_data_val = row.get(header)
-                                                
-                                                val_str = format_with_mask(raw_data_val, mask_patt, ph)
-                                                new_val = re.sub(target_regex, val_str, new_val)
-                                                if val_str.strip() != "":
-                                                    has_injected = True
+                                                # Find the mapping for this placeholder
+                                                mapping = PLACEHOLDER_MAPPING.get(ph)
+                                                if mapping:
+                                                    header = mapping["column"]
+                                                    mask_patt = mapping["mask"]
+                                                    raw_data_val = row.get(header) if header in row else None
+                                                    
+                                                    val_str = format_with_mask(raw_data_val, mask_patt)
+                                                    new_val = re.sub(target_regex, val_str, new_val)
+                                                    if val_str.strip() != "":
+                                                        has_injected = True
                                         
                                         if has_injected and new_val != "":
                                             copy_and_merge_aware_injection(base_sheet, new_sheet, cell.coordinate, new_val.strip())
