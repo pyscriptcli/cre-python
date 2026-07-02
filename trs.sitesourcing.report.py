@@ -39,7 +39,6 @@ st.markdown("""
     footer {visibility: hidden;}
     header {visibility: hidden;}
     
-    /* Remove title area completely */
     .main-header {
         display: none !important;
     }
@@ -50,7 +49,6 @@ st.markdown("""
         max-width: 1200px !important;
     }
     
-    /* Button styling with visible text */
     .stButton > button {
         background-color: #003366 !important;
         color: white !important;
@@ -91,7 +89,6 @@ st.markdown("""
         box-shadow: 0 2px 6px rgba(40, 167, 69, 0.3);
     }
     
-    /* Fix button text visibility */
     .stButton button p, .stButton button span {
         color: white !important;
         opacity: 1 !important;
@@ -109,7 +106,6 @@ st.markdown("""
         border: 1px solid #e0e0e0;
     }
     
-    /* All text in #003366 */
     h1, h2, h3, h4, h5, h6, p, label, span, div {
         color: #003366 !important;
     }
@@ -229,7 +225,6 @@ st.markdown("""
         color: #003366 !important;
     }
     
-    /* Persistent white footer overlay - ALWAYS ON TOP */
     .footer-overlay {
         position: fixed !important;
         bottom: 0 !important;
@@ -243,12 +238,10 @@ st.markdown("""
         pointer-events: none !important;
     }
     
-    /* Ensure content doesn't get hidden behind footer */
     .main {
         padding-bottom: 30px !important;
     }
     
-    /* Also ensure Streamlit's own elements don't overlap */
     .stApp {
         padding-bottom: 15px !important;
     }
@@ -259,7 +252,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- PERSISTENT FOOTER - ALWAYS ON TOP ---
+# --- PERSISTENT FOOTER ---
 st.markdown("""
 <div class="footer-overlay"></div>
 """, unsafe_allow_html=True)
@@ -407,25 +400,23 @@ for col in df.columns:
         trade_area_no_col = col
         break
 
-# Get unique trade area count from TRADE AREA NO
+# Get unique trade area count from TRADE AREA NO (for stats)
 if trade_area_no_col:
-    unique_trade_areas = len(df[trade_area_no_col].dropna().unique())
+    unique_trade_areas_count = len(df[trade_area_no_col].dropna().unique())
 else:
-    unique_trade_areas = len(df["TRADE AREA"].unique())
+    unique_trade_areas_count = len(df["TRADE AREA"].unique())
 
-# Create a mapping of TRADE AREA NO to TRADE AREA name for display
-trade_area_mapping = {}
+# Get ALL unique TRADE AREA names for checkboxes (not connected to TRADE AREA NO)
+all_trade_areas = sorted(df["TRADE AREA"].dropna().unique())
+
+# Create a mapping of TRADE AREA NO to TRADE AREA name for filtering when generating
+trade_area_no_to_name = {}
 if trade_area_no_col:
-    # Get unique combinations of TRADE AREA NO and TRADE AREA
     unique_combos = df[[trade_area_no_col, "TRADE AREA"]].drop_duplicates()
     for _, row in unique_combos.iterrows():
         key = str(row[trade_area_no_col])
         value = str(row["TRADE AREA"])
-        trade_area_mapping[key] = value
-else:
-    # If no TRADE AREA NO column, use TRADE AREA as both key and value
-    for ta in df["TRADE AREA"].dropna().unique():
-        trade_area_mapping[str(ta)] = str(ta)
+        trade_area_no_to_name[key] = value
 
 template_wb = openpyxl.load_workbook(template_data)
 template_sheet = template_wb.active
@@ -456,7 +447,7 @@ with col1:
         <div class="metric-label">Records</div>
     </div>
     <div class="metric-card">
-        <div class="metric-value">{unique_trade_areas}</div>
+        <div class="metric-value">{unique_trade_areas_count}</div>
         <div class="metric-label">Trade Areas</div>
     </div>
     <div class="metric-card">
@@ -468,45 +459,38 @@ with col1:
     # Refresh button under Placeholders
     st.markdown("---")
     if st.button("Refresh Data", use_container_width=True):
-        # Clear all caches
         st.cache_data.clear()
         st.cache_resource.clear()
-        # Remove the config file to force reload
         if os.path.exists(_config_file):
             os.remove(_config_file)
-        # Rerun the app
         st.rerun()
 
 # --- COLUMN 2: TRADE AREA SELECTION ---
 with col2:
     st.markdown("### Select Trade Areas")
     
-    # Get sorted list of trade area keys (TRADE AREA NO or TRADE AREA)
-    trade_area_keys = sorted(trade_area_mapping.keys(), key=lambda x: int(x) if x.isdigit() else x)
-    
     # Select All / Clear All buttons
     btn_col1, btn_col2 = st.columns(2)
     with btn_col1:
         if st.button("Select All", use_container_width=True):
-            for key in trade_area_keys:
-                st.session_state[f"ta_{key}"] = True
+            for ta in all_trade_areas:
+                st.session_state[f"ta_{ta}"] = True
             st.rerun()
     with btn_col2:
         if st.button("Clear All", use_container_width=True):
-            for key in trade_area_keys:
-                st.session_state[f"ta_{key}"] = False
+            for ta in all_trade_areas:
+                st.session_state[f"ta_{ta}"] = False
             st.rerun()
     
     # Initialize session state for checkboxes - default unchecked
-    for key in trade_area_keys:
-        if f"ta_{key}" not in st.session_state:
-            st.session_state[f"ta_{key}"] = False
+    for ta in all_trade_areas:
+        if f"ta_{ta}" not in st.session_state:
+            st.session_state[f"ta_{ta}"] = False
     
-    # Checkboxes in scrollable container - display TRADE AREA name
+    # Checkboxes in scrollable container - display ALL TRADE AREA names
     st.markdown('<div class="checkbox-container">', unsafe_allow_html=True)
-    for key in trade_area_keys:
-        display_name = trade_area_mapping[key]
-        st.checkbox(display_name, key=f"ta_{key}")
+    for ta in all_trade_areas:
+        st.checkbox(ta, key=f"ta_{ta}")
     st.markdown('</div>', unsafe_allow_html=True)
 
 # --- COLUMN 3: ACTIONS ---
@@ -515,31 +499,25 @@ with col3:
     
     if st.session_state.zip_data is None and st.session_state.single_file is None:
         if st.button("Generate Reports", use_container_width=True, type="primary"):
-            # Get selected keys from session state
-            selected_keys = [key for key in trade_area_keys if st.session_state.get(f"ta_{key}", False)]
+            # Get selected trade area names from session state
+            selected_trade_areas = [ta for ta in all_trade_areas if st.session_state.get(f"ta_{ta}", False)]
             
-            if not selected_keys:
+            if not selected_trade_areas:
                 st.warning("Select at least one Trade Area.")
             else:
                 with st.spinner("Generating..."):
                     progress_bar = st.progress(0)
                     
-                    # Filter based on selected trade area keys
-                    if trade_area_no_col:
-                        filtered_df = df[df[trade_area_no_col].astype(str).isin(selected_keys)]
-                    else:
-                        filtered_df = df[df["TRADE AREA"].astype(str).isin(selected_keys)]
+                    # Filter based on selected trade area names
+                    filtered_df = df[df["TRADE AREA"].isin(selected_trade_areas)]
                     
                     groups = filtered_df.groupby("TRADE AREA")
                     total_groups = len(groups)
                     
                     # If only one trade area selected, create single file
-                    if len(selected_keys) == 1:
-                        selected_key = selected_keys[0]
-                        if trade_area_no_col:
-                            group = filtered_df[filtered_df[trade_area_no_col].astype(str) == selected_key]
-                        else:
-                            group = filtered_df[filtered_df["TRADE AREA"].astype(str) == selected_key]
+                    if len(selected_trade_areas) == 1:
+                        selected_ta = selected_trade_areas[0]
+                        group = filtered_df[filtered_df["TRADE AREA"] == selected_ta]
                         
                         template_data.seek(0)
                         wb = openpyxl.load_workbook(template_data)
@@ -561,7 +539,6 @@ with col3:
                                         for ph in placeholders:
                                             target_regex = r"\{\{\s*" + re.escape(ph) + r"(\s*:.*?)?\}\}"
                                             if re.search(target_regex, new_val):
-                                                # Get the value from the row
                                                 raw_data_val = row.get(ph.upper(), "")
                                                 if pd.isna(raw_data_val) or raw_data_val is None:
                                                     raw_data_val = ""
@@ -579,7 +556,7 @@ with col3:
                         wb.remove(base_sheet)
                         wb_buffer = io.BytesIO()
                         wb.save(wb_buffer)
-                        safe_filename = str(selected_key).replace("/", "-").replace("\\", "-")
+                        safe_filename = str(selected_ta).replace("/", "-").replace("\\", "-")
                         
                         st.session_state.single_file = {
                             "data": wb_buffer.getvalue(),
@@ -612,7 +589,6 @@ with col3:
                                                 for ph in placeholders:
                                                     target_regex = r"\{\{\s*" + re.escape(ph) + r"(\s*:.*?)?\}\}"
                                                     if re.search(target_regex, new_val):
-                                                        # Get the value from the row
                                                         raw_data_val = row.get(ph.upper(), "")
                                                         if pd.isna(raw_data_val) or raw_data_val is None:
                                                             raw_data_val = ""
