@@ -38,23 +38,10 @@ st.markdown("""
     
     /* Strict Hiding of Streamlit Footers, Menus, Headers, and Options Button */
     #MainMenu {visibility: hidden !important;}
-    
-    /* Target the specific Streamlit footer */
-    footer {
-        visibility: hidden !important;
-        height: 0 !important;
-        padding: 0 !important;
-        overflow: hidden !important;
-    }
-    
+    footer {visibility: hidden !important; height: 0 !important; padding: 0 !important; overflow: hidden !important;}
     header {visibility: hidden !important;}
     button[title="View source"] {display: none !important;}
-    
-    /* Find the watermark element and cover it */
-    .stAppDeployButton {
-        display: none !important;
-    }
-    
+    .stAppDeployButton {display: none !important;}
     div[data-testid="stStatusWidget"] {display: none !important;}
     
     .main-header {
@@ -243,15 +230,29 @@ st.markdown("""
         color: #003366 !important;
     }
     
-    /* Create a mask overlay */
+    /* Watermark masking footer overlay */
+    .footer-overlay {
+        position: fixed !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        height: 35px !important;
+        background-color: white !important;
+        z-index: 9999999 !important;
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.05) !important;
+        border-top: 1px solid #e8e8e8 !important;
+        pointer-events: none !important;
+    }
+    
+    /* CSS Overlay Mask - targets bottom-right watermark specifically */
     .watermark-mask {
         position: fixed !important;
         bottom: 0 !important;
         right: 0 !important;
-        width: 200px !important;
-        height: 50px !important;
+        width: 220px !important;
+        height: 60px !important;
         background: white !important;
-        z-index: 999999 !important;
+        z-index: 99999999 !important;
         pointer-events: none !important;
     }
     
@@ -267,7 +268,11 @@ st.markdown("""
         padding-bottom: 35px !important;
     }
 </style>
+""", unsafe_allow_html=True)
 
+# --- PERSISTENT FOOTER OVERLAY & WATERMARK MASK ---
+st.markdown("""
+<div class="footer-overlay"></div>
 <div class="watermark-mask"></div>
 """, unsafe_allow_html=True)
 
