@@ -9,6 +9,7 @@ import zipfile
 import requests
 from copy import copy
 import os
+import shutil
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(
@@ -29,7 +30,6 @@ if not os.path.exists(_config_file):
 # --- CUSTOM CSS ---
 st.markdown("""
 <style>
-    /* Import Roboto from Google */
     @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
     
     * {
@@ -40,28 +40,17 @@ st.markdown("""
     footer {visibility: hidden;}
     header {visibility: hidden;}
     
-    /* Smaller header */
+    /* Remove title area completely */
     .main-header {
-        background-color: #003366 !important;
-        padding: 0.3rem 1.2rem !important;
-        border-radius: 4px;
-        margin-bottom: 0.4rem !important;
-    }
-    .main-header h1 {
-        color: white !important;
-        font-weight: 500;
-        margin: 0;
-        font-size: 0.95rem !important;
-        letter-spacing: 0.3px;
-    }
-    .main-header p {
-        color: #cce0f5 !important;
-        margin: 0;
-        font-size: 0.65rem !important;
-        font-weight: 300;
+        display: none !important;
     }
     
-    /* Button styling with better contrast */
+    .block-container {
+        padding-top: 0.3rem !important;
+        padding-bottom: 0.3rem !important;
+        max-width: 1200px !important;
+    }
+    
     .stButton > button {
         background-color: #003366 !important;
         color: white !important;
@@ -98,7 +87,6 @@ st.markdown("""
         box-shadow: 0 2px 6px rgba(40, 167, 69, 0.3);
     }
     
-    /* Containers with better contrast */
     div[data-testid="stContainer"] {
         background-color: white !important;
         border-radius: 4px;
@@ -107,7 +95,6 @@ st.markdown("""
         border: 1px solid #e0e0e0;
     }
     
-    /* Headers with better contrast */
     h1, h2, h3, h4 {
         color: #003366 !important;
         font-weight: 500;
@@ -115,7 +102,6 @@ st.markdown("""
         margin: 0 0 0.3rem 0;
     }
     
-    /* Checkboxes with better contrast */
     .stCheckbox label {
         font-weight: 400;
         color: #1a1a1a !important;
@@ -131,19 +117,16 @@ st.markdown("""
         background-color: white !important;
     }
     
-    /* Progress bar */
     .stProgress > div > div {
         background-color: #003366 !important;
     }
     
-    /* Divider */
     hr {
         border-color: #003366 !important;
         opacity: 0.15;
         margin: 0.4rem 0;
     }
     
-    /* Metric cards with better contrast */
     .metric-card {
         background-color: white !important;
         border-radius: 4px;
@@ -168,7 +151,6 @@ st.markdown("""
         font-family: 'Roboto', sans-serif;
     }
     
-    /* Scrollable checkbox container */
     .checkbox-container {
         max-height: 280px;
         overflow-y: auto;
@@ -187,7 +169,6 @@ st.markdown("""
         border-radius: 2px;
     }
     
-    /* Alert boxes with better contrast */
     .stAlert {
         border-radius: 4px;
         padding: 0.4rem;
@@ -228,34 +209,12 @@ st.markdown("""
         color: #004085 !important;
     }
     
-    /* Spinner */
     .stSpinner > div {
         border-color: #003366 !important;
     }
     
-    /* All text with good contrast */
     .stMarkdown, .stMarkdown * {
         color: #1a1a1a !important;
-    }
-    
-    /* Select boxes */
-    .stSelectbox > div > div {
-        background-color: white !important;
-    }
-    .stSelectbox label {
-        color: #003366 !important;
-        font-weight: 400;
-    }
-    
-    /* Force white backgrounds for all inputs */
-    .stSelectbox > div > div > div {
-        background-color: white !important;
-    }
-    .stMultiSelect > div > div {
-        background-color: white !important;
-    }
-    .stTextInput > div > div > input {
-        background-color: white !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -263,22 +222,6 @@ st.markdown("""
 # --- CONFIGURATION ---
 SOURCE_URL = "https://docs.google.com/spreadsheets/d/14nhO9u7zJRcOoux8I7l2IzwU7iQZNW9fRX6TCip47CE/export?format=xlsx"
 TEMPLATE_URL = "https://docs.google.com/spreadsheets/d/1uS3xmnPi0o4c_EayQtURYDSMMPRDRGSb/export?format=xlsx"
-
-# --- HARDCODED MAPPING ---
-PLACEHOLDER_MAPPING = {
-    "SITE NAME": {"column": "SITE NAME", "mask": "TEXT"},
-    "TRADE AREA": {"column": "TRADE AREA", "mask": "TEXT"},
-    "LEASE TYPE": {"column": "LEASE TYPE", "mask": "TEXT"},
-    "SITE ID": {"column": "SITE ID", "mask": "TEXT"},
-    "LOCATION/ADDRESS": {"column": "LOCATION/ADDRESS", "mask": "TEXT"},
-    "CITY": {"column": "CITY", "mask": "TEXT"},
-    "REGION": {"column": "REGION", "mask": "TEXT"},
-    "POSTAL": {"column": "POSTAL", "mask": "TEXT"},
-    "PARCEL AREA (SQM)": {"column": "PARCEL AREA (SQM)", "mask": "NUMBER"},
-    "FLOOR AREA (SQM)": {"column": "FLOOR AREA (SQM)", "mask": "NUMBER"},
-    "LEASE START": {"column": "LEASE START", "mask": "DATE_SHORT"},
-    "LEASE END": {"column": "LEASE END", "mask": "DATE_SHORT"},
-}
 
 # --- HELPER FUNCTIONS ---
 def download_file(url):
@@ -317,27 +260,6 @@ def sanitize_tab_name(name, existing_names):
             existing_names.add(new_name)
             return new_name
         counter += 1
-
-def format_with_mask(val, mask_pattern):
-    if pd.isna(val) or str(val).strip() == "":
-        return ""
-    try:
-        if mask_pattern == "NUMBER":
-            return f"{float(val):,.2f}"
-        elif mask_pattern == "DATE_SHORT":
-            return pd.to_datetime(val).strftime("%m/%d/%Y")
-        elif mask_pattern == "DATE_TIME_FULL":
-            return pd.to_datetime(val).strftime("%m/%d/%Y %H:%M:%S")
-        elif mask_pattern == "PERCENT":
-            return f"{float(val):.2f}%"
-        elif mask_pattern == "CURRENCY_USD":
-            return f"${float(val):,.2f}"
-        elif mask_pattern == "CURRENCY_PHP":
-            return f"₱{float(val):,.2f}"
-        else:
-            return str(val)
-    except:
-        return str(val)
 
 def clone_cell_styles(source_cell, target_cell):
     if source_cell.font:
@@ -411,27 +333,10 @@ def copy_and_merge_aware_injection(template_ws, target_ws, coord, data_value):
                     clone_cell_styles(template_ws[sub_coord], target_ws[sub_coord])
 
 # --- LOAD FILES ---
-# Remove cache to always get latest files
 def load_files():
     source_data = download_file(SOURCE_URL)
     template_data = download_file(TEMPLATE_URL)
     return source_data, template_data
-
-# --- HEADER ---
-st.markdown("""
-<div class="main-header">
-    <h1>trs.sitesourcing report</h1>
-    <p>Generate trade area reports</p>
-</div>
-""", unsafe_allow_html=True)
-
-# --- AUTO-REFRESH BUTTON ---
-col_refresh, col_spacer = st.columns([1, 5])
-with col_refresh:
-    if st.button("Refresh Data", use_container_width=True):
-        # Clear the cache and reload
-        st.cache_data.clear()
-        st.rerun()
 
 # --- LOAD DATA ---
 with st.spinner("Loading..."):
@@ -463,6 +368,8 @@ if 'zip_data' not in st.session_state:
     st.session_state.zip_data = None
 if 'selected_tas' not in st.session_state:
     st.session_state.selected_tas = []
+if 'single_file' not in st.session_state:
+    st.session_state.single_file = None
 
 # --- 3-COLUMN LAYOUT ---
 col1, col2, col3 = st.columns([0.8, 1.4, 0.8])
@@ -507,10 +414,10 @@ with col2:
             st.session_state.selected_tas = []
             st.rerun()
     
-    # Initialize session state for checkboxes
+    # Initialize session state for checkboxes - default unchecked
     for ta in unique_tas:
         if f"ta_{ta}" not in st.session_state:
-            st.session_state[f"ta_{ta}"] = True
+            st.session_state[f"ta_{ta}"] = False
     
     # Checkboxes in scrollable container
     st.markdown('<div class="checkbox-container">', unsafe_allow_html=True)
@@ -526,7 +433,20 @@ with col2:
 with col3:
     st.markdown("### Actions")
     
-    if st.session_state.zip_data is None:
+    # Refresh button at top of actions
+    if st.button("Refresh Data", use_container_width=True):
+        # Clear all caches
+        st.cache_data.clear()
+        st.cache_resource.clear()
+        # Remove the config file to force reload
+        if os.path.exists(_config_file):
+            os.remove(_config_file)
+        # Rerun the app
+        st.rerun()
+    
+    st.divider()
+    
+    if st.session_state.zip_data is None and st.session_state.single_file is None:
         if st.button("Generate Reports", use_container_width=True, type="primary"):
             selected = st.session_state.selected_tas
             if not selected:
@@ -538,55 +458,122 @@ with col3:
                     filtered_df = df[df["TRADE AREA"].astype(str).isin(selected)]
                     groups = filtered_df.groupby("TRADE AREA")
                     total_groups = len(groups)
-                    zip_buffer = io.BytesIO()
                     
-                    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-                        for i, (trade_area, group) in enumerate(groups):
-                            template_data.seek(0)
-                            wb = openpyxl.load_workbook(template_data)
-                            base_sheet = wb.active
-                            base_sheet.title = "TEMPLATE_TO_DELETE"
-                            existing_tabs = set()
+                    # If only one trade area selected, create single file
+                    if len(selected) == 1:
+                        trade_area = selected[0]
+                        group = filtered_df[filtered_df["TRADE AREA"].astype(str) == trade_area]
+                        
+                        template_data.seek(0)
+                        wb = openpyxl.load_workbook(template_data)
+                        base_sheet = wb.active
+                        base_sheet.title = "TEMPLATE_TO_DELETE"
+                        existing_tabs = set()
+                        
+                        for _, row in group.iterrows():
+                            site_name = row.get("SITE NAME", "Unknown")
+                            safe_tab_name = sanitize_tab_name(site_name, existing_tabs)
+                            new_sheet = wb.copy_worksheet(base_sheet)
+                            new_sheet.title = safe_tab_name
                             
-                            for _, row in group.iterrows():
-                                site_name = row.get("SITE NAME", "Unknown")
-                                safe_tab_name = sanitize_tab_name(site_name, existing_tabs)
-                                new_sheet = wb.copy_worksheet(base_sheet)
-                                new_sheet.title = safe_tab_name
+                            for row_cells in new_sheet.iter_rows():
+                                for cell in row_cells:
+                                    if isinstance(cell.value, str) and "{{" in cell.value:
+                                        new_val = cell.value
+                                        has_injected = False
+                                        for ph in placeholders:
+                                            target_regex = r"\{\{\s*" + re.escape(ph) + r"(\s*:.*?)?\}\}"
+                                            if re.search(target_regex, new_val):
+                                                # Get the value from the row
+                                                raw_data_val = row.get(ph.upper(), "")
+                                                if pd.isna(raw_data_val) or raw_data_val is None:
+                                                    raw_data_val = ""
+                                                val_str = str(raw_data_val)
+                                                new_val = re.sub(target_regex, val_str, new_val)
+                                                if val_str.strip() != "":
+                                                    has_injected = True
+                                        if has_injected and new_val != "":
+                                            copy_and_merge_aware_injection(base_sheet, new_sheet, cell.coordinate, new_val.strip())
+                                        elif new_val == "":
+                                            cell.value = ""
+                                        else:
+                                            cell.value = new_val.strip() if new_val else ""
+                        
+                        wb.remove(base_sheet)
+                        wb_buffer = io.BytesIO()
+                        wb.save(wb_buffer)
+                        safe_filename = str(trade_area).replace("/", "-").replace("\\", "-")
+                        
+                        st.session_state.single_file = {
+                            "data": wb_buffer.getvalue(),
+                            "name": f"{safe_filename}.xlsx"
+                        }
+                        progress_bar.progress(1.0)
+                    
+                    else:
+                        # Multiple trade areas - create zip
+                        zip_buffer = io.BytesIO()
+                        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                            for i, (trade_area, group) in enumerate(groups):
+                                template_data.seek(0)
+                                wb = openpyxl.load_workbook(template_data)
+                                base_sheet = wb.active
+                                base_sheet.title = "TEMPLATE_TO_DELETE"
+                                existing_tabs = set()
                                 
-                                for row_cells in new_sheet.iter_rows():
-                                    for cell in row_cells:
-                                        if isinstance(cell.value, str) and "{{" in cell.value:
-                                            new_val = cell.value
-                                            has_injected = False
-                                            for ph in placeholders:
-                                                target_regex = r"\{\{\s*" + re.escape(ph) + r"(\s*:.*?)?\}\}"
-                                                if re.search(target_regex, new_val):
-                                                    mapping = PLACEHOLDER_MAPPING.get(ph)
-                                                    if mapping:
-                                                        header = mapping["column"]
-                                                        mask_patt = mapping["mask"]
-                                                        raw_data_val = row.get(header) if header in row else None
-                                                        val_str = format_with_mask(raw_data_val, mask_patt)
+                                for _, row in group.iterrows():
+                                    site_name = row.get("SITE NAME", "Unknown")
+                                    safe_tab_name = sanitize_tab_name(site_name, existing_tabs)
+                                    new_sheet = wb.copy_worksheet(base_sheet)
+                                    new_sheet.title = safe_tab_name
+                                    
+                                    for row_cells in new_sheet.iter_rows():
+                                        for cell in row_cells:
+                                            if isinstance(cell.value, str) and "{{" in cell.value:
+                                                new_val = cell.value
+                                                has_injected = False
+                                                for ph in placeholders:
+                                                    target_regex = r"\{\{\s*" + re.escape(ph) + r"(\s*:.*?)?\}\}"
+                                                    if re.search(target_regex, new_val):
+                                                        # Get the value from the row
+                                                        raw_data_val = row.get(ph.upper(), "")
+                                                        if pd.isna(raw_data_val) or raw_data_val is None:
+                                                            raw_data_val = ""
+                                                        val_str = str(raw_data_val)
                                                         new_val = re.sub(target_regex, val_str, new_val)
                                                         if val_str.strip() != "":
                                                             has_injected = True
-                                            if has_injected and new_val != "":
-                                                copy_and_merge_aware_injection(base_sheet, new_sheet, cell.coordinate, new_val.strip())
-                                            elif new_val == "":
-                                                cell.value = ""
-                                            else:
-                                                cell.value = new_val.strip() if new_val else ""
-                            
-                            wb.remove(base_sheet)
-                            wb_buffer = io.BytesIO()
-                            wb.save(wb_buffer)
-                            safe_filename = str(trade_area).replace("/", "-").replace("\\", "-")
-                            zip_file.writestr(f"{safe_filename}.xlsx", wb_buffer.getvalue())
-                            progress_bar.progress((i + 1) / total_groups)
+                                                if has_injected and new_val != "":
+                                                    copy_and_merge_aware_injection(base_sheet, new_sheet, cell.coordinate, new_val.strip())
+                                                elif new_val == "":
+                                                    cell.value = ""
+                                                else:
+                                                    cell.value = new_val.strip() if new_val else ""
+                                
+                                wb.remove(base_sheet)
+                                wb_buffer = io.BytesIO()
+                                wb.save(wb_buffer)
+                                safe_filename = str(trade_area).replace("/", "-").replace("\\", "-")
+                                zip_file.writestr(f"{safe_filename}.xlsx", wb_buffer.getvalue())
+                                progress_bar.progress((i + 1) / total_groups)
+                        
+                        st.session_state.zip_data = zip_buffer.getvalue()
                     
-                    st.session_state.zip_data = zip_buffer.getvalue()
                     st.rerun()
+    
+    # Show download buttons
+    if st.session_state.single_file is not None:
+        st.success("Ready")
+        st.download_button(
+            "Download (.xlsx)",
+            data=st.session_state.single_file["data"],
+            file_name=st.session_state.single_file["name"],
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True
+        )
+        if st.button("Reset", use_container_width=True):
+            st.session_state.single_file = None
+            st.rerun()
     
     if st.session_state.zip_data is not None:
         st.success("Ready")
