@@ -8,7 +8,7 @@ import io
 import zipfile
 import requests
 from copy import copy
-import time
+import os
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(
@@ -26,7 +26,9 @@ if not os.path.exists(_config_file):
     with open(_config_file, "w", encoding="utf-8") as f:
         f.write("[theme]\nbase=\"light\"\n")
 
-
+# --- CUSTOM CSS ---
+st.markdown("""
+<style>
     /* Import Roboto from Google */
     @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
     
