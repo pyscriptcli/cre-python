@@ -8,6 +8,7 @@ import io
 import zipfile
 import requests
 from copy import copy
+import time
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(
@@ -17,49 +18,33 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- FORCE LIGHT MODE ---
+# --- FORCE LIGHT MODE & IMPROVED CONTRAST ---
 st.markdown("""
 <style>
     /* Force light mode */
     .stApp {
-        background-color: #ffffff !important;
+        background-color: #f5f7fa !important;
     }
     .stApp > header {
-        background-color: #ffffff !important;
+        background-color: #f5f7fa !important;
     }
     .stApp > div {
-        background-color: #ffffff !important;
+        background-color: #f5f7fa !important;
     }
     .main > div {
-        background-color: #ffffff !important;
+        background-color: #f5f7fa !important;
     }
     .block-container {
-        background-color: #ffffff !important;
+        background-color: #f5f7fa !important;
+        padding-top: 0.3rem !important;
+        padding-bottom: 0.3rem !important;
+        max-width: 1200px !important;
     }
     div[data-testid="stVerticalBlock"] {
-        background-color: #ffffff !important;
+        background-color: #f5f7fa !important;
     }
     div[data-testid="stHorizontalBlock"] {
-        background-color: #ffffff !important;
-    }
-    
-    /* Override any dark mode elements */
-    .stButton > button {
-        background-color: #003366 !important;
-        color: white !important;
-    }
-    .stDownloadButton > button {
-        background-color: #28a745 !important;
-        color: white !important;
-    }
-    .stAlert {
-        background-color: #f8f9fa !important;
-    }
-    .stSelectbox > div {
-        background-color: white !important;
-    }
-    .stMultiSelect > div {
-        background-color: white !important;
+        background-color: #f5f7fa !important;
     }
     
     /* Import Roboto from Google */
@@ -67,40 +52,37 @@ st.markdown("""
     
     * {
         font-family: 'Roboto', 'Segoe UI', sans-serif !important;
-        color: #1a1a1a !important;
     }
     
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
     
-    .block-container {
-        padding-top: 0.5rem !important;
-        padding-bottom: 0.5rem !important;
-        max-width: 1200px !important;
-    }
-    
+    /* Smaller header */
     .main-header {
         background-color: #003366 !important;
-        padding: 0.6rem 1.2rem;
+        padding: 0.3rem 1.2rem !important;
         border-radius: 4px;
-        margin-bottom: 0.6rem;
+        margin-bottom: 0.4rem !important;
     }
     .main-header h1 {
         color: white !important;
         font-weight: 500;
         margin: 0;
-        font-size: 1.2rem;
-        letter-spacing: 0.5px;
+        font-size: 0.95rem !important;
+        letter-spacing: 0.3px;
     }
     .main-header p {
-        color: #e6e6e6 !important;
+        color: #cce0f5 !important;
         margin: 0;
-        font-size: 0.75rem;
+        font-size: 0.65rem !important;
         font-weight: 300;
     }
     
+    /* Button styling with better contrast */
     .stButton > button {
+        background-color: #003366 !important;
+        color: white !important;
         border: none;
         border-radius: 3px;
         padding: 0.25rem 0.6rem;
@@ -109,14 +91,18 @@ st.markdown("""
         transition: all 0.2s ease;
         width: 100%;
         min-height: 32px;
-        color: white !important;
     }
     .stButton > button:hover {
         background-color: #002244 !important;
-        box-shadow: 0 2px 6px rgba(0, 51, 102, 0.2);
+        box-shadow: 0 2px 6px rgba(0, 51, 102, 0.3);
+    }
+    .stButton > button:active {
+        background-color: #001a33 !important;
     }
     
     .stDownloadButton > button {
+        background-color: #28a745 !important;
+        color: white !important;
         border: none;
         border-radius: 3px;
         padding: 0.25rem 0.6rem;
@@ -124,28 +110,22 @@ st.markdown("""
         font-size: 0.75rem;
         width: 100%;
         min-height: 32px;
-        color: white !important;
     }
     .stDownloadButton > button:hover {
         background-color: #218838 !important;
-        box-shadow: 0 2px 6px rgba(40, 167, 69, 0.2);
+        box-shadow: 0 2px 6px rgba(40, 167, 69, 0.3);
     }
     
+    /* Containers with better contrast */
     div[data-testid="stContainer"] {
         background-color: white !important;
         border-radius: 4px;
         padding: 0.6rem;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-        border: 1px solid #e8e8e8;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        border: 1px solid #e0e0e0;
     }
     
-    .stAlert {
-        border-radius: 4px;
-        padding: 0.4rem;
-        background-color: #f8f9fa !important;
-    }
-    .stAlert[data-baseweb="notification"] {border-left-color: #003366 !important;}
-    
+    /* Headers with better contrast */
     h1, h2, h3, h4 {
         color: #003366 !important;
         font-weight: 500;
@@ -153,24 +133,40 @@ st.markdown("""
         margin: 0 0 0.3rem 0;
     }
     
+    /* Checkboxes with better contrast */
     .stCheckbox label {
         font-weight: 400;
         color: #1a1a1a !important;
         font-size: 0.8rem;
     }
-    
+    .stCheckbox label:hover {
+        color: #003366 !important;
+    }
     .stCheckbox {
         margin-bottom: 0.1rem;
     }
+    .stCheckbox > div {
+        background-color: white !important;
+    }
     
-    .stProgress > div > div {background-color: #003366 !important;}
-    hr {border-color: #003366 !important; opacity: 0.15; margin: 0.5rem 0;}
+    /* Progress bar */
+    .stProgress > div > div {
+        background-color: #003366 !important;
+    }
     
+    /* Divider */
+    hr {
+        border-color: #003366 !important;
+        opacity: 0.15;
+        margin: 0.4rem 0;
+    }
+    
+    /* Metric cards with better contrast */
     .metric-card {
         background-color: white !important;
         border-radius: 4px;
         padding: 0.4rem;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         border-left: 3px solid #003366;
         text-align: center;
         margin-bottom: 0.3rem;
@@ -182,15 +178,15 @@ st.markdown("""
         font-family: 'Roboto', sans-serif;
     }
     .metric-label {
-        color: #666 !important;
+        color: #555 !important;
         font-size: 0.6rem;
-        font-weight: 300;
+        font-weight: 400;
         text-transform: uppercase;
         letter-spacing: 0.5px;
         font-family: 'Roboto', sans-serif;
     }
     
-    /* Make checkbox container scrollable */
+    /* Scrollable checkbox container */
     .checkbox-container {
         max-height: 280px;
         overflow-y: auto;
@@ -209,13 +205,16 @@ st.markdown("""
         border-radius: 2px;
     }
     
-    .stSpinner > div {
-        border-color: #003366 !important;
+    /* Alert boxes with better contrast */
+    .stAlert {
+        border-radius: 4px;
+        padding: 0.4rem;
+    }
+    .stAlert[data-baseweb="notification"] {
+        border-left-color: #003366 !important;
     }
     
     .stSuccess {
-        font-size: 0.8rem;
-        padding: 0.3rem;
         background-color: #d4edda !important;
         color: #155724 !important;
     }
@@ -247,8 +246,27 @@ st.markdown("""
         color: #004085 !important;
     }
     
-    /* Force white backgrounds for all inputs */
+    /* Spinner */
+    .stSpinner > div {
+        border-color: #003366 !important;
+    }
+    
+    /* All text with good contrast */
+    .stMarkdown, .stMarkdown * {
+        color: #1a1a1a !important;
+    }
+    
+    /* Select boxes */
     .stSelectbox > div > div {
+        background-color: white !important;
+    }
+    .stSelectbox label {
+        color: #003366 !important;
+        font-weight: 400;
+    }
+    
+    /* Force white backgrounds for all inputs */
+    .stSelectbox > div > div > div {
         background-color: white !important;
     }
     .stMultiSelect > div > div {
@@ -256,11 +274,6 @@ st.markdown("""
     }
     .stTextInput > div > div > input {
         background-color: white !important;
-    }
-    
-    /* Ensure all text is visible */
-    .stMarkdown, .stMarkdown * {
-        color: #1a1a1a !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -416,7 +429,7 @@ def copy_and_merge_aware_injection(template_ws, target_ws, coord, data_value):
                     clone_cell_styles(template_ws[sub_coord], target_ws[sub_coord])
 
 # --- LOAD FILES ---
-@st.cache_resource
+# Remove cache to always get latest files
 def load_files():
     source_data = download_file(SOURCE_URL)
     template_data = download_file(TEMPLATE_URL)
@@ -429,6 +442,14 @@ st.markdown("""
     <p>Generate trade area reports</p>
 </div>
 """, unsafe_allow_html=True)
+
+# --- AUTO-REFRESH BUTTON ---
+col_refresh, col_spacer = st.columns([1, 5])
+with col_refresh:
+    if st.button("Refresh Data", use_container_width=True):
+        # Clear the cache and reload
+        st.cache_data.clear()
+        st.rerun()
 
 # --- LOAD DATA ---
 with st.spinner("Loading..."):
