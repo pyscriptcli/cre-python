@@ -12,7 +12,7 @@ import os
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(
-    page_title="trs.sitesourcing report",
+    page_title="trs.sitesourcing.report",
     page_icon="",
     layout="wide",
     initial_sidebar_state="collapsed"
