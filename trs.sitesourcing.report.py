@@ -229,27 +229,37 @@ st.markdown("""
         color: #003366 !important;
     }
     
-    /* Persistent white footer overlay */
+    /* Persistent white footer overlay - ALWAYS ON TOP */
     .footer-overlay {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        height: 15px;
-        background-color: white;
-        z-index: 999999;
-        box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
-        border-top: 1px solid #e8e8e8;
+        position: fixed !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        height: 15px !important;
+        background-color: white !important;
+        z-index: 9999999 !important;
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.05) !important;
+        border-top: 1px solid #e8e8e8 !important;
+        pointer-events: none !important;
     }
     
     /* Ensure content doesn't get hidden behind footer */
     .main {
         padding-bottom: 30px !important;
     }
+    
+    /* Also ensure Streamlit's own elements don't overlap */
+    .stApp {
+        padding-bottom: 15px !important;
+    }
+    
+    .stAppViewContainer {
+        padding-bottom: 15px !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# --- PERSISTENT FOOTER ---
+# --- PERSISTENT FOOTER - ALWAYS ON TOP ---
 st.markdown("""
 <div class="footer-overlay"></div>
 """, unsafe_allow_html=True)
@@ -397,11 +407,25 @@ for col in df.columns:
         trade_area_no_col = col
         break
 
-# Get unique trade area count
+# Get unique trade area count from TRADE AREA NO
 if trade_area_no_col:
     unique_trade_areas = len(df[trade_area_no_col].dropna().unique())
 else:
     unique_trade_areas = len(df["TRADE AREA"].unique())
+
+# Create a mapping of TRADE AREA NO to TRADE AREA name for display
+trade_area_mapping = {}
+if trade_area_no_col:
+    # Get unique combinations of TRADE AREA NO and TRADE AREA
+    unique_combos = df[[trade_area_no_col, "TRADE AREA"]].drop_duplicates()
+    for _, row in unique_combos.iterrows():
+        key = str(row[trade_area_no_col])
+        value = str(row["TRADE AREA"])
+        trade_area_mapping[key] = value
+else:
+    # If no TRADE AREA NO column, use TRADE AREA as both key and value
+    for ta in df["TRADE AREA"].dropna().unique():
+        trade_area_mapping[str(ta)] = str(ta)
 
 template_wb = openpyxl.load_workbook(template_data)
 template_sheet = template_wb.active
@@ -457,39 +481,33 @@ with col1:
 with col2:
     st.markdown("### Select Trade Areas")
     
-    # Get unique trade areas for display
-    if trade_area_no_col:
-        unique_tas_display = sorted([str(ta) for ta in df[trade_area_no_col].dropna().unique()])
-    else:
-        unique_tas_display = sorted([str(ta) for ta in df["TRADE AREA"].dropna().unique()])
+    # Get sorted list of trade area keys (TRADE AREA NO or TRADE AREA)
+    trade_area_keys = sorted(trade_area_mapping.keys(), key=lambda x: int(x) if x.isdigit() else x)
     
     # Select All / Clear All buttons
     btn_col1, btn_col2 = st.columns(2)
     with btn_col1:
         if st.button("Select All", use_container_width=True):
-            for ta in unique_tas_display:
-                st.session_state[f"ta_{ta}"] = True
-            st.session_state.selected_tas = unique_tas_display.copy()
+            for key in trade_area_keys:
+                st.session_state[f"ta_{key}"] = True
             st.rerun()
     with btn_col2:
         if st.button("Clear All", use_container_width=True):
-            for ta in unique_tas_display:
-                st.session_state[f"ta_{ta}"] = False
-            st.session_state.selected_tas = []
+            for key in trade_area_keys:
+                st.session_state[f"ta_{key}"] = False
             st.rerun()
     
     # Initialize session state for checkboxes - default unchecked
-    for ta in unique_tas_display:
-        if f"ta_{ta}" not in st.session_state:
-            st.session_state[f"ta_{ta}"] = False
+    for key in trade_area_keys:
+        if f"ta_{key}" not in st.session_state:
+            st.session_state[f"ta_{key}"] = False
     
-    # Checkboxes in scrollable container - NO AUTO REFRESH
+    # Checkboxes in scrollable container - display TRADE AREA name
     st.markdown('<div class="checkbox-container">', unsafe_allow_html=True)
-    for ta in unique_tas_display:
-        st.checkbox(ta, key=f"ta_{ta}")
+    for key in trade_area_keys:
+        display_name = trade_area_mapping[key]
+        st.checkbox(display_name, key=f"ta_{key}")
     st.markdown('</div>', unsafe_allow_html=True)
-    
-    # Get selected values when Generate is clicked - don't auto-update
 
 # --- COLUMN 3: ACTIONS ---
 with col3:
@@ -497,31 +515,31 @@ with col3:
     
     if st.session_state.zip_data is None and st.session_state.single_file is None:
         if st.button("Generate Reports", use_container_width=True, type="primary"):
-            # Get selected values from session state
-            selected = [ta for ta in unique_tas_display if st.session_state.get(f"ta_{ta}", False)]
+            # Get selected keys from session state
+            selected_keys = [key for key in trade_area_keys if st.session_state.get(f"ta_{key}", False)]
             
-            if not selected:
+            if not selected_keys:
                 st.warning("Select at least one Trade Area.")
             else:
                 with st.spinner("Generating..."):
                     progress_bar = st.progress(0)
                     
-                    # Filter based on selected trade areas
+                    # Filter based on selected trade area keys
                     if trade_area_no_col:
-                        filtered_df = df[df[trade_area_no_col].astype(str).isin(selected)]
+                        filtered_df = df[df[trade_area_no_col].astype(str).isin(selected_keys)]
                     else:
-                        filtered_df = df[df["TRADE AREA"].astype(str).isin(selected)]
+                        filtered_df = df[df["TRADE AREA"].astype(str).isin(selected_keys)]
                     
                     groups = filtered_df.groupby("TRADE AREA")
                     total_groups = len(groups)
                     
                     # If only one trade area selected, create single file
-                    if len(selected) == 1:
-                        trade_area = selected[0]
+                    if len(selected_keys) == 1:
+                        selected_key = selected_keys[0]
                         if trade_area_no_col:
-                            group = filtered_df[filtered_df[trade_area_no_col].astype(str) == trade_area]
+                            group = filtered_df[filtered_df[trade_area_no_col].astype(str) == selected_key]
                         else:
-                            group = filtered_df[filtered_df["TRADE AREA"].astype(str) == trade_area]
+                            group = filtered_df[filtered_df["TRADE AREA"].astype(str) == selected_key]
                         
                         template_data.seek(0)
                         wb = openpyxl.load_workbook(template_data)
@@ -561,7 +579,7 @@ with col3:
                         wb.remove(base_sheet)
                         wb_buffer = io.BytesIO()
                         wb.save(wb_buffer)
-                        safe_filename = str(trade_area).replace("/", "-").replace("\\", "-")
+                        safe_filename = str(selected_key).replace("/", "-").replace("\\", "-")
                         
                         st.session_state.single_file = {
                             "data": wb_buffer.getvalue(),
