@@ -11,9 +11,8 @@ import requests
 from copy import copy
 
 # --- CONFIGURATION ---
-# These are the correct download URLs for your public files
-SOURCE_URL = "https://docs.google.com/uc?export=download&id=14nhO9u7zJRcOoux8I7l2IzwU7iQZNW9fRX6TCip47CE"
-TEMPLATE_URL = "https://docs.google.com/uc?export=download&id=1uS3xmnPi0o4c_EayQtURYDSMMPRDRGSb"
+SOURCE_URL = "https://docs.google.com/spreadsheets/d/14nhO9u7zJRcOoux8I7l2IzwU7iQZNW9fRX6TCip47CE/export?format=xlsx"
+TEMPLATE_URL = "https://docs.google.com/spreadsheets/d/1uS3xmnPi0o4c_EayQtURYDSMMPRDRGSb/export?format=xlsx"
 
 # --- HUMAN READABLE MASK DEFINITIONS ---
 HUMAN_SPREADSHEET_MASKS = {
