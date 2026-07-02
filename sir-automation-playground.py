@@ -10,11 +10,187 @@ import difflib
 import requests
 from copy import copy
 import json
-from oauth2client.service_account import ServiceAccountCredentials
-import gspread
+from google.oauth2 import service_account
+from google.auth.transport.requests import Request
+
+# --- PAGE CONFIGURATION ---
+st.set_page_config(
+    page_title="Report Generator",
+    page_icon="📊",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
+
+# --- CUSTOM CSS FOR APPSHEET STYLING ---
+st.markdown("""
+<style>
+    /* AppSheet-like styling */
+    .stApp {
+        background-color: #f5f5f5;
+    }
+    
+    .main-header {
+        background-color: #003366;
+        padding: 1.5rem;
+        border-radius: 0px;
+        margin-bottom: 2rem;
+        color: white;
+    }
+    
+    .main-header h1 {
+        color: white;
+        font-weight: 600;
+        margin: 0;
+        font-size: 2rem;
+    }
+    
+    .main-header p {
+        color: #e6e6e6;
+        margin: 0.5rem 0 0 0;
+        font-size: 1rem;
+    }
+    
+    .stButton > button {
+        background-color: #003366;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        padding: 0.5rem 1rem;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+    
+    .stButton > button:hover {
+        background-color: #002244;
+        color: white;
+        box-shadow: 0 2px 8px rgba(0, 51, 102, 0.3);
+    }
+    
+    .stButton > button:active {
+        background-color: #001a33;
+    }
+    
+    .stButton > button[data-baseweb="button"] {
+        background-color: #003366;
+    }
+    
+    /* Card-like containers */
+    div[data-testid="stContainer"] {
+        background-color: white;
+        border-radius: 8px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        border: 1px solid #e0e0e0;
+    }
+    
+    /* Success messages */
+    .stAlert {
+        border-radius: 8px;
+        border-left: 4px solid #003366;
+    }
+    
+    .stAlert[data-baseweb="notification"] {
+        background-color: #e8f0fe;
+        border-left-color: #003366;
+    }
+    
+    /* Headers */
+    h1, h2, h3, h4 {
+        color: #003366;
+        font-weight: 600;
+    }
+    
+    /* Checkbox labels */
+    .stCheckbox label {
+        font-weight: 500;
+        color: #1a1a1a;
+    }
+    
+    /* Select boxes */
+    .stSelectbox label {
+        font-weight: 500;
+        color: #003366;
+        font-size: 0.9rem;
+    }
+    
+    /* Progress bar */
+    .stProgress > div > div {
+        background-color: #003366;
+    }
+    
+    /* Divider */
+    hr {
+        border-color: #003366;
+        opacity: 0.2;
+        margin: 2rem 0;
+    }
+    
+    /* Info boxes */
+    .stInfo {
+        background-color: #e8f0fe;
+        border-radius: 8px;
+        border-left: 4px solid #003366;
+    }
+    
+    /* Warning boxes */
+    .stWarning {
+        background-color: #fff3cd;
+        border-radius: 8px;
+        border-left: 4px solid #ffc107;
+    }
+    
+    /* Success boxes */
+    .stSuccess {
+        background-color: #d4edda;
+        border-radius: 8px;
+        border-left: 4px solid #28a745;
+    }
+    
+    /* Error boxes */
+    .stError {
+        background-color: #f8d7da;
+        border-radius: 8px;
+        border-left: 4px solid #dc3545;
+    }
+    
+    /* Download button */
+    .stDownloadButton > button {
+        background-color: #28a745;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        padding: 0.5rem 1rem;
+        font-weight: 500;
+    }
+    
+    .stDownloadButton > button:hover {
+        background-color: #218838;
+        box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+    }
+    
+    /* Custom metric cards */
+    .metric-card {
+        background-color: white;
+        border-radius: 8px;
+        padding: 1rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        border-left: 4px solid #003366;
+    }
+    
+    .metric-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #003366;
+    }
+    
+    .metric-label {
+        color: #666;
+        font-size: 0.9rem;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 # --- SERVICE ACCOUNT CONFIGURATION ---
-# Your service account credentials
 SERVICE_ACCOUNT_INFO = {
     "type": "service_account",
     "project_id": "focused-studio-501200-f2",
@@ -32,44 +208,6 @@ SERVICE_ACCOUNT_INFO = {
 # Your file IDs
 SOURCE_SPREADSHEET_ID = "14nhO9u7zJRcOoux8I7l2IzwU7iQZNW9fRX6TCip47CE"
 TEMPLATE_SPREADSHEET_ID = "1uS3xmnPi0o4c_EayQtURYDSMMPRDRGSb"
-
-def get_access_token():
-    """Get OAuth2 access token using service account"""
-    try:
-        scope = ['https://spreadsheets.google.com/feeds',
-                'https://www.googleapis.com/auth/drive.readonly']
-        creds = ServiceAccountCredentials.from_json_keyfile_dict(
-            SERVICE_ACCOUNT_INFO, scope
-        )
-        creds.refresh(requests.Request())
-        return creds.access_token
-    except Exception as e:
-        st.error(f"Failed to get access token: {str(e)}")
-        return None
-
-def download_google_sheet_as_excel(spreadsheet_id):
-    """Download Google Sheet as Excel using Service Account"""
-    try:
-        token = get_access_token()
-        if not token:
-            return None
-            
-        url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?format=xlsx"
-        headers = {
-            'Authorization': f'Bearer {token}'
-        }
-        
-        response = requests.get(url, headers=headers, timeout=30)
-        
-        if response.status_code == 200:
-            return io.BytesIO(response.content)
-        else:
-            st.error(f"Failed to download spreadsheet. Status: {response.status_code}")
-            st.error(f"Response: {response.text[:200]}")
-            return None
-    except Exception as e:
-        st.error(f"Error downloading spreadsheet: {str(e)}")
-        return None
 
 # --- HUMAN READABLE MASK DEFINITIONS ---
 HUMAN_SPREADSHEET_MASKS = {
@@ -99,6 +237,42 @@ HUMAN_SPREADSHEET_MASKS = {
 INVERSE_MASK_LOOKUP = {v: k for k, v in HUMAN_SPREADSHEET_MASKS.items()}
 
 # --- HELPER FUNCTIONS ---
+def get_access_token():
+    """Get OAuth2 access token using service account"""
+    try:
+        credentials = service_account.Credentials.from_service_account_info(
+            SERVICE_ACCOUNT_INFO,
+            scopes=['https://www.googleapis.com/auth/drive.readonly']
+        )
+        credentials.refresh(Request())
+        return credentials.token
+    except Exception as e:
+        st.error(f"Failed to get access token: {str(e)}")
+        return None
+
+def download_google_sheet_as_excel(spreadsheet_id):
+    """Download Google Sheet as Excel using Service Account"""
+    try:
+        token = get_access_token()
+        if not token:
+            return None
+            
+        url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?format=xlsx"
+        headers = {
+            'Authorization': f'Bearer {token}'
+        }
+        
+        response = requests.get(url, headers=headers, timeout=30)
+        
+        if response.status_code == 200:
+            return io.BytesIO(response.content)
+        else:
+            st.error(f"Failed to download spreadsheet. Status: {response.status_code}")
+            return None
+    except Exception as e:
+        st.error(f"Error downloading spreadsheet: {str(e)}")
+        return None
+
 def parse_token_signature(raw_token):
     if ":" in raw_token:
         parts = raw_token.split(":", 1)
@@ -290,13 +464,15 @@ def copy_and_merge_aware_injection(template_ws, target_ws, coord, data_value):
                     clone_cell_styles(template_ws[sub_coord], target_ws[sub_coord])
 
 # --- MAIN APP ---
-st.set_page_config(page_title="Report Generator", layout="wide")
-st.markdown("## Report Generator")
-st.markdown("---")
+# Header
+st.markdown("""
+<div class="main-header">
+    <h1>Report Generator</h1>
+    <p>Generate trade area reports from your data</p>
+</div>
+""", unsafe_allow_html=True)
 
 # --- LOAD FILES ---
-st.markdown("### Loading Files from Google Drive...")
-
 @st.cache_resource
 def load_files():
     with st.spinner("Connecting to Google Drive..."):
@@ -350,6 +526,32 @@ if 'zip_data' not in st.session_state:
 
 # --- MAIN INTERFACE ---
 st.markdown("### Data Mapping")
+
+# Metrics row
+col1, col2, col3 = st.columns(3)
+with col1:
+    st.markdown(f"""
+    <div class="metric-card">
+        <div class="metric-value">{len(df)}</div>
+        <div class="metric-label">Total Records</div>
+    </div>
+    """, unsafe_allow_html=True)
+with col2:
+    st.markdown(f"""
+    <div class="metric-card">
+        <div class="metric-value">{len(df['TRADE AREA'].unique())}</div>
+        <div class="metric-label">Trade Areas</div>
+    </div>
+    """, unsafe_allow_html=True)
+with col3:
+    st.markdown(f"""
+    <div class="metric-card">
+        <div class="metric-value">{len(placeholders)}</div>
+        <div class="metric-label">Placeholders Found</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+st.divider()
 
 # Select All / Clear All
 col_sel_all, col_clr_all = st.columns([1, 1, 3])
@@ -434,7 +636,6 @@ if st.session_state.zip_data is None:
                 
                 with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
                     for i, (trade_area, group) in enumerate(groups):
-                        # Reload template for each group
                         template_data.seek(0)
                         wb = openpyxl.load_workbook(template_data)
                         base_sheet = wb.active
@@ -497,12 +698,13 @@ if st.session_state.zip_data is not None:
         )
     
     with col2:
-        st.info("Save to Google Drive:")
-        st.caption("1. Download the file above")
-        st.caption("2. Go to your Google Drive folder:")
-        st.caption("https://drive.google.com/drive/folders/1MAo_8VYditz-BV3vGx3aX31-SLzxSAD8")
-        st.caption("3. Click 'New' -> 'File Upload' and select the downloaded zip")
+        st.info("""
+        **Save to Google Drive:**
+        1. Download the file above
+        2. Go to your Google Drive folder:
+        3. Click 'New' → 'File Upload' and select the downloaded zip
+        """)
     
-    if st.button("Start Over"):
+    if st.button("Start Over", use_container_width=True):
         st.session_state.zip_data = None
         st.rerun()
