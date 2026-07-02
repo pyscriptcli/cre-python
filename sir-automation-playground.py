@@ -37,24 +37,24 @@ def check_password():
     if "authenticated" in st.session_state and st.session_state.authenticated:
         return True
     
-    # Show login form with centered styling
+    # Show small, centered login form
     st.markdown("""
-    <div style="display: flex; justify-content: center; align-items: center; min-height: 60vh;">
+    <div style="display: flex; justify-content: center; align-items: center; min-height: 70vh; padding: 1rem;">
         <div style="
-            max-width: 400px; 
+            max-width: 340px; 
             width: 100%;
-            padding: 2rem; 
+            padding: 1.5rem 1.8rem; 
             background-color: white; 
-            border-radius: 8px; 
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
-            border: 1px solid #e0e0e0;
+            border-radius: 6px; 
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08); 
+            border: 1px solid #e8e8e8;
         ">
-            <h2 style="text-align: center; color: #003366; margin-bottom: 1rem;">Access Required</h2>
-            <p style="text-align: center; color: #555; margin-bottom: 1.5rem;">Please enter the access password to continue.</p>
+            <h2 style="text-align: center; color: #003366; margin-bottom: 0.3rem; font-size: 1.1rem; font-weight: 500;">Access Required</h2>
+            <p style="text-align: center; color: #888; margin-bottom: 1.2rem; font-size: 0.75rem;">Enter password to continue</p>
     """, unsafe_allow_html=True)
     
     with st.form("password_form"):
-        password = st.text_input("Password", type="password", placeholder="Enter access password", key="password_input")
+        password = st.text_input("Password", type="password", placeholder="Enter password", key="password_input", label_visibility="collapsed")
         submitted = st.form_submit_button("Submit", use_container_width=True)
         
         if submitted:
@@ -65,9 +65,9 @@ def check_password():
                     st.session_state.authenticated = True
                     st.rerun()
                 else:
-                    st.error("Invalid password. Please try again.")
+                    st.error("Invalid password")
             else:
-                st.warning("Please enter a password.")
+                st.warning("Please enter password")
     
     st.markdown("""
         </div>
@@ -215,7 +215,8 @@ st.markdown("""
     
     .stAlert {
         border-radius: 4px;
-        padding: 0.4rem;
+        padding: 0.3rem;
+        font-size: 0.8rem;
     }
     .stAlert[data-baseweb="notification"] {
         border-left-color: #003366 !important;
@@ -259,6 +260,28 @@ st.markdown("""
     
     .stMarkdown, .stMarkdown * {
         color: #1a1a1a !important;
+    }
+    
+    /* Password form specific styling */
+    .stTextInput > div > div > input {
+        padding: 0.4rem 0.6rem !important;
+        font-size: 0.8rem !important;
+        border-radius: 3px !important;
+        border: 1px solid #d0d0d0 !important;
+    }
+    .stTextInput > div > div > input:focus {
+        border-color: #003366 !important;
+        box-shadow: 0 0 0 1px #003366 !important;
+    }
+    
+    .stForm {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    
+    /* Make error messages compact */
+    .stAlert > div {
+        padding: 0.3rem 0.6rem !important;
     }
 </style>
 """, unsafe_allow_html=True)
