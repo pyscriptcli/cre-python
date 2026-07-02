@@ -255,21 +255,6 @@ st.markdown("""
     .stAppViewContainer {
         padding-bottom: 35px !important;
     }
-    
-    /* Hide the dummy username/password fields */
-    .dummy-login-fields {
-        position: absolute !important;
-        height: 0 !important;
-        width: 0 !important;
-        overflow: hidden !important;
-        clip: rect(1px, 1px, 1px, 1px) !important;
-        white-space: nowrap !important;
-        border: 0 !important;
-        padding: 0 !important;
-        margin: 0 !important;
-        opacity: 0 !important;
-        pointer-events: none !important;
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -300,86 +285,6 @@ if not st.session_state.authenticated:
     with r1_col2:
         with st.container():
             st.markdown("<h3 style='text-align: center; margin-bottom: 20px;'>Access Required</h3>", unsafe_allow_html=True)
-            
-            # Add dummy username and password fields to trick browser
-            st.markdown("""
-            <div class="dummy-login-fields">
-                <!-- These dummy fields will be saved by the browser instead of the real password -->
-                <form autocomplete="off">
-                    <input type="text" name="username" value="dummy_user" autocomplete="username" />
-                    <input type="password" name="password" value="dummy_password_123" autocomplete="current-password" />
-                </form>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # Also add visible dummy fields that are hidden with CSS
-            st.markdown("""
-            <style>
-                .dummy-visible {
-                    position: absolute !important;
-                    height: 1px !important;
-                    width: 1px !important;
-                    overflow: hidden !important;
-                    clip: rect(1px, 1px, 1px, 1px) !important;
-                    white-space: nowrap !important;
-                    border: 0 !important;
-                    padding: 0 !important;
-                    margin: 0 !important;
-                    opacity: 0.01 !important;
-                    pointer-events: none !important;
-                    z-index: -1 !important;
-                }
-            </style>
-            <div class="dummy-visible">
-                <input type="text" id="dummy_user" value="fake_user" autocomplete="username" />
-                <input type="password" id="dummy_pass" value="fake_password_xyz" autocomplete="current-password" />
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # Add JavaScript to ensure the real password field doesn't trigger save
-            st.markdown("""
-            <script>
-                // Function to set dummy fields as the ones to save
-                function setupDummyFields() {
-                    // Find all password inputs
-                    const passwordInputs = document.querySelectorAll('input[type="password"]');
-                    
-                    // The last password input is usually the real one (Streamlit's)
-                    if (passwordInputs.length > 0) {
-                        const realPassword = passwordInputs[passwordInputs.length - 1];
-                        
-                        // Remove any identifying attributes that trigger password save
-                        realPassword.removeAttribute('name');
-                        realPassword.setAttribute('autocomplete', 'off');
-                        
-                        // Add a dummy password input right before it
-                        const dummyPassword = document.createElement('input');
-                        dummyPassword.type = 'password';
-                        dummyPassword.value = 'dummy_save_this_password';
-                        dummyPassword.style.display = 'none';
-                        dummyPassword.setAttribute('autocomplete', 'current-password');
-                        dummyPassword.setAttribute('name', 'password');
-                        realPassword.parentNode.insertBefore(dummyPassword, realPassword);
-                        
-                        // Also add a dummy username
-                        const dummyUsername = document.createElement('input');
-                        dummyUsername.type = 'text';
-                        dummyUsername.value = 'dummy_save_this_user';
-                        dummyUsername.style.display = 'none';
-                        dummyUsername.setAttribute('autocomplete', 'username');
-                        dummyUsername.setAttribute('name', 'username');
-                        realPassword.parentNode.insertBefore(dummyUsername, realPassword);
-                    }
-                }
-                
-                // Run the setup
-                setupDummyFields();
-                setTimeout(setupDummyFields, 100);
-                setTimeout(setupDummyFields, 300);
-                setTimeout(setupDummyFields, 500);
-            </script>
-            """, unsafe_allow_html=True)
-            
             password_input = st.text_input("Enter password:", type="password", label_visibility="collapsed")
             login_btn = st.button("Login", use_container_width=True)
             
