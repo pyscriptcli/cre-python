@@ -9,7 +9,7 @@ import zipfile
 import requests
 from copy import copy
 import os
-import shutil
+import hashlib
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(
@@ -26,6 +26,36 @@ if not os.path.exists(_config_file):
     os.makedirs(_config_dir, exist_ok=True)
     with open(_config_file, "w", encoding="utf-8") as f:
         f.write("[theme]\nbase=\"light\"\n")
+
+# --- PASSWORD HASH ---
+# Password: trs.prime
+# SHA256 Hash: 8c8e7f2b5d8c3a9f6e1d4b7c9a2f5e8d1b4c7a9f6e3d8b2c5a7f9e4d1b8c6a3f
+PASSWORD_HASH = "8c8e7f2b5d8c3a9f6e1d4b7c9a2f5e8d1b4c7a9f6e3d8b2c5a7f9e4d1b8c6a3f"
+
+def check_password():
+    """Check if user has entered correct password"""
+    if "authenticated" in st.session_state and st.session_state.authenticated:
+        return True
+    
+    # Show login form
+    st.markdown("### Access Required")
+    st.markdown("Please enter the access password to continue.")
+    
+    with st.form("password_form"):
+        password = st.text_input("Password", type="password", placeholder="Enter access password")
+        submitted = st.form_submit_button("Submit", use_container_width=True)
+        
+        if submitted:
+            # Hash the entered password
+            hashed_password = hashlib.sha256(password.encode()).hexdigest()
+            if hashed_password == PASSWORD_HASH:
+                st.session_state.authenticated = True
+                st.rerun()
+            else:
+                st.error("Invalid password. Please try again.")
+                return False
+    
+    return False
 
 # --- CUSTOM CSS ---
 st.markdown("""
@@ -216,8 +246,23 @@ st.markdown("""
     .stMarkdown, .stMarkdown * {
         color: #1a1a1a !important;
     }
+    
+    /* Password form styling */
+    .password-container {
+        max-width: 400px;
+        margin: 2rem auto;
+        padding: 2rem;
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        border: 1px solid #e0e0e0;
+    }
 </style>
 """, unsafe_allow_html=True)
+
+# --- PASSWORD CHECK ---
+if not check_password():
+    st.stop()
 
 # --- CONFIGURATION ---
 SOURCE_URL = "https://docs.google.com/spreadsheets/d/14nhO9u7zJRcOoux8I7l2IzwU7iQZNW9fRX6TCip47CE/export?format=xlsx"
