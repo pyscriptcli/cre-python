@@ -36,13 +36,23 @@ st.markdown("""
         font-family: 'Roboto', 'Segoe UI', sans-serif !important;
     }
     
-    /* Strict Hiding of Streamlit Footers, Menus, Headers, and Options Button */
+    /* Strict Hiding of Streamlit Footers, Menus, Headers, and Watermarks */
     #MainMenu {visibility: hidden !important;}
     footer {visibility: hidden !important;}
     header {visibility: hidden !important;}
     button[title="View source"] {display: none !important;}
     .stAppDeployButton {display: none !important;}
     div[data-testid="stStatusWidget"] {display: none !important;}
+    
+    /* Completely removes the 'Hosted with Streamlit' badge and header line accent */
+    .viewerBadge_container__1QSob, .viewerBadge_link__1S16K, [data-testid="stViewerBadge"] {
+        display: none !important;
+        visibility: hidden !important;
+    }
+    div[data-testid="stDecoration"] {
+        display: none !important;
+        visibility: hidden !important;
+    }
     
     .main-header {
         display: none !important;
