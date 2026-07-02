@@ -27,7 +27,7 @@ if not os.path.exists(_config_file):
     with open(_config_file, "w", encoding="utf-8") as f:
         f.write("[theme]\nbase=\"light\"\n")
 
-# --- CUSTOM CSS WITH EXPANDED HIDDEN OVERLAYS ---
+# --- CUSTOM CSS WITH WATERPROOF WATERMARK OVERLAY ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
@@ -36,17 +36,14 @@ st.markdown("""
         font-family: 'Roboto', 'Segoe UI', sans-serif !important;
     }
     
-    /* Strict Hiding of Streamlit Footers, Menus, Headers, and Options Button */
+    /* Hide Streamlit chrome */
     #MainMenu {visibility: hidden !important;}
-    footer {visibility: hidden !important; height: 0 !important; padding: 0 !important; overflow: hidden !important;}
+    footer {visibility: hidden !important; height: 0 !important; padding: 0 !important; margin: 0 !important; overflow: hidden !important;}
     header {visibility: hidden !important;}
     button[title="View source"] {display: none !important;}
     .stAppDeployButton {display: none !important;}
     div[data-testid="stStatusWidget"] {display: none !important;}
-    
-    .main-header {
-        display: none !important;
-    }
+    .main-header {display: none !important;}
     
     .block-container {
         padding-top: 0.3rem !important;
@@ -230,50 +227,54 @@ st.markdown("""
         color: #003366 !important;
     }
     
-    /* Watermark masking footer overlay */
+    /* ============================================
+       WATERMARK KILLER OVERLAY - ALWAYS ON TOP
+       ============================================ */
+    
+    /* Full-width bottom bar overlay */
     .footer-overlay {
         position: fixed !important;
         bottom: 0 !important;
         left: 0 !important;
         right: 0 !important;
-        height: 35px !important;
+        height: 40px !important;
         background-color: white !important;
-        z-index: 9999999 !important;
+        z-index: 2147483647 !important;  /* MAX z-index */
         box-shadow: 0 -2px 10px rgba(0,0,0,0.05) !important;
         border-top: 1px solid #e8e8e8 !important;
         pointer-events: none !important;
     }
     
-    /* CSS Overlay Mask - targets bottom-right watermark specifically */
-    .watermark-mask {
+    /* Bottom-right corner patch - extra thick coverage */
+    .watermark-killer {
         position: fixed !important;
         bottom: 0 !important;
         right: 0 !important;
-        width: 220px !important;
-        height: 60px !important;
-        background: white !important;
-        z-index: 99999999 !important;
+        width: 300px !important;
+        height: 50px !important;
+        background-color: white !important;
+        z-index: 2147483647 !important;  /* MAX z-index */
         pointer-events: none !important;
+        /* No border, no shadow - pure solid white block */
     }
     
+    /* Ensure app containers don't create new stacking contexts above us */
+    .stApp {
+        padding-bottom: 40px !important;
+    }
+    .stAppViewContainer {
+        padding-bottom: 40px !important;
+    }
     .main {
         padding-bottom: 45px !important;
-    }
-    
-    .stApp {
-        padding-bottom: 35px !important;
-    }
-    
-    .stAppViewContainer {
-        padding-bottom: 35px !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# --- PERSISTENT FOOTER OVERLAY & WATERMARK MASK ---
+# --- PERSISTENT OVERLAYS - INJECTED AS RAW HTML ---
 st.markdown("""
-<div class="footer-overlay"></div>
-<div class="watermark-mask"></div>
+<div style="position: fixed; bottom: 0; left: 0; right: 0; height: 40px; background-color: white; z-index: 2147483647; pointer-events: none;"></div>
+<div style="position: fixed; bottom: 0; right: 0; width: 300px; height: 50px; background-color: white; z-index: 2147483647; pointer-events: none;"></div>
 """, unsafe_allow_html=True)
 
 # --- LOGIN VERIFICATION LOGIC ---
@@ -288,11 +289,9 @@ def check_password(password):
 
 # --- 3x3 LOGIN GRID LAYOUT ---
 if not st.session_state.authenticated:
-    # Vertical grid row padding
     st.write("##")
     st.write("##")
     
-    # 3 horizontal blocks (Left Margin, Center Panel, Right Margin)
     r1_col1, r1_col2, r1_col3 = st.columns([1, 1.2, 1])
     
     with r1_col2:
@@ -445,23 +444,19 @@ if "TRADE AREA" not in df.columns or "SITE NAME" not in df.columns:
     st.error("Data must contain 'TRADE AREA' and 'SITE NAME' columns.")
     st.stop()
 
-# Check for TRADE AREA NO column for unique count
 trade_area_no_col = None
 for col in df.columns:
     if "TRADE AREA NO" in col.upper() or "TRADE AREA #" in col.upper():
         trade_area_no_col = col
         break
 
-# Get unique trade area count from TRADE AREA NO (for stats)
 if trade_area_no_col:
     unique_trade_areas_count = len(df[trade_area_no_col].dropna().unique())
 else:
     unique_trade_areas_count = len(df["TRADE AREA"].unique())
 
-# Get ALL unique TRADE AREA names for checkboxes (not connected to TRADE AREA NO)
 all_trade_areas = sorted(df["TRADE AREA"].dropna().unique())
 
-# Create a mapping of TRADE AREA NO to TRADE AREA name for filtering when generating
 trade_area_no_to_name = {}
 if trade_area_no_col:
     unique_combos = df[[trade_area_no_col, "TRADE AREA"]].drop_duplicates()
@@ -508,7 +503,6 @@ with col1:
     </div>
     """, unsafe_allow_html=True)
     
-    # Refresh button under Placeholders
     st.markdown("---")
     if st.button("Refresh Data", use_container_width=True):
         st.cache_data.clear()
@@ -521,7 +515,6 @@ with col1:
 with col2:
     st.markdown("### Select Trade Areas")
     
-    # Select All / Clear All buttons
     btn_col1, btn_col2 = st.columns(2)
     with btn_col1:
         if st.button("Select All", use_container_width=True):
@@ -534,12 +527,10 @@ with col2:
                 st.session_state[f"ta_{ta}"] = False
             st.rerun()
     
-    # Initialize session state for checkboxes - default unchecked
     for ta in all_trade_areas:
         if f"ta_{ta}" not in st.session_state:
             st.session_state[f"ta_{ta}"] = False
     
-    # Checkboxes in scrollable container - display ALL TRADE AREA names
     st.markdown('<div class="checkbox-container">', unsafe_allow_html=True)
     for ta in all_trade_areas:
         st.checkbox(ta, key=f"ta_{ta}")
@@ -551,7 +542,6 @@ with col3:
     
     if st.session_state.zip_data is None and st.session_state.single_file is None:
         if st.button("Generate Reports", use_container_width=True, type="primary"):
-            # Get selected trade area names from session state
             selected_trade_areas = [ta for ta in all_trade_areas if st.session_state.get(f"ta_{ta}", False)]
             
             if not selected_trade_areas:
@@ -560,13 +550,10 @@ with col3:
                 with st.spinner("Generating..."):
                     progress_bar = st.progress(0)
                     
-                    # Filter based on selected trade area names
                     filtered_df = df[df["TRADE AREA"].isin(selected_trade_areas)]
-                    
                     groups = filtered_df.groupby("TRADE AREA")
                     total_groups = len(groups)
                     
-                    # If only one trade area selected, create single file
                     if len(selected_trade_areas) == 1:
                         selected_ta = selected_trade_areas[0]
                         group = filtered_df[filtered_df["TRADE AREA"] == selected_ta]
@@ -617,7 +604,6 @@ with col3:
                         progress_bar.progress(1.0)
                     
                     else:
-                        # Multiple trade areas - create zip
                         zip_buffer = io.BytesIO()
                         with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
                             for i, (trade_area, group) in enumerate(groups):
@@ -666,7 +652,6 @@ with col3:
                     
                     st.rerun()
     
-    # Show download buttons
     if st.session_state.single_file is not None:
         st.success("Ready")
         st.download_button(
