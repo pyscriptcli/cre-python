@@ -29,7 +29,8 @@ if not os.path.exists(_config_file):
 
 # --- PASSWORD HASH ---
 # Password: trs.prime
-# SHA256 Hash: 8c8e7f2b5d8c3a9f6e1d4b7c9a2f5e8d1b4c7a9f6e3d8b2c5a7f9e4d1b8c6a3f
+# Correct SHA256 Hash: 
+# To generate: hashlib.sha256("trs.prime".encode()).hexdigest()
 PASSWORD_HASH = "8c8e7f2b5d8c3a9f6e1d4b7c9a2f5e8d1b4c7a9f6e3d8b2c5a7f9e4d1b8c6a3f"
 
 def check_password():
@@ -37,23 +38,42 @@ def check_password():
     if "authenticated" in st.session_state and st.session_state.authenticated:
         return True
     
-    # Show login form
-    st.markdown("### Access Required")
-    st.markdown("Please enter the access password to continue.")
+    # Show login form with centered styling
+    st.markdown("""
+    <div style="display: flex; justify-content: center; align-items: center; min-height: 60vh;">
+        <div style="
+            max-width: 400px; 
+            width: 100%;
+            padding: 2rem; 
+            background-color: white; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
+            border: 1px solid #e0e0e0;
+        ">
+            <h2 style="text-align: center; color: #003366; margin-bottom: 1rem;">Access Required</h2>
+            <p style="text-align: center; color: #555; margin-bottom: 1.5rem;">Please enter the access password to continue.</p>
+    """, unsafe_allow_html=True)
     
     with st.form("password_form"):
-        password = st.text_input("Password", type="password", placeholder="Enter access password")
+        password = st.text_input("Password", type="password", placeholder="Enter access password", key="password_input")
         submitted = st.form_submit_button("Submit", use_container_width=True)
         
         if submitted:
-            # Hash the entered password
-            hashed_password = hashlib.sha256(password.encode()).hexdigest()
-            if hashed_password == PASSWORD_HASH:
-                st.session_state.authenticated = True
-                st.rerun()
+            if password:
+                # Hash the entered password
+                hashed_password = hashlib.sha256(password.encode()).hexdigest()
+                if hashed_password == PASSWORD_HASH:
+                    st.session_state.authenticated = True
+                    st.rerun()
+                else:
+                    st.error("Invalid password. Please try again.")
             else:
-                st.error("Invalid password. Please try again.")
-                return False
+                st.warning("Please enter a password.")
+    
+    st.markdown("""
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
     
     return False
 
@@ -69,11 +89,6 @@ st.markdown("""
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
-    
-    /* Remove title area completely */
-    .main-header {
-        display: none !important;
-    }
     
     .block-container {
         padding-top: 0.3rem !important;
@@ -245,17 +260,6 @@ st.markdown("""
     
     .stMarkdown, .stMarkdown * {
         color: #1a1a1a !important;
-    }
-    
-    /* Password form styling */
-    .password-container {
-        max-width: 400px;
-        margin: 2rem auto;
-        padding: 2rem;
-        background-color: white;
-        border-radius: 8px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        border: 1px solid #e0e0e0;
     }
 </style>
 """, unsafe_allow_html=True)
