@@ -54,9 +54,6 @@ HUMAN_SPREADSHEET_MASKS = {
 INVERSE_MASK_LOOKUP = {v: k for k, v in HUMAN_SPREADSHEET_MASKS.items()}
 
 # --- GOOGLE DRIVE DEFAULT CONFIGURATION ---
-# ==========================================
-# CONFIGURATION: REPLACE THESE WITH YOUR IDs
-# ==========================================
 DEFAULT_SOURCE_SPREADSHEET_ID = "14nhO9u7zJRcOoux8I7l2IzwU7iQZNW9fRX6TCip47CE" 
 DEFAULT_TEMPLATE_FILE_ID = "1uS3xmnPi0o4c_EayQtURYDSMMPRDRGSb"
 DEFAULT_DESTINATION_FOLDER_ID = "1MAo_8VYditz-BV3vGx3aX31-SLzxSAD8"
@@ -69,7 +66,7 @@ def get_google_drive_folder_contents(folder_id):
     """Fetches file list from Google Drive folder (simplified - requires additional auth for full functionality)."""
     return f"https://drive.google.com/drive/folders/{folder_id}"
 
-# --- CORE FOUNDATIONAL HELPER FUNCTIONS (DEFINED FIRST TO PREVENT NAMEERRORS) ---
+# --- CORE FOUNDATIONAL HELPER FUNCTIONS ---
 def validate_public_url(url_string):
     """Executes a network validation pass to guarantee remote assets are accessible."""
     if not url_string or not isinstance(url_string, str):
@@ -446,6 +443,8 @@ if 'zip_data' not in st.session_state:
     st.session_state.zip_data = None
 if 'change_log' not in st.session_state:
     st.session_state.change_log = None
+if 'files_loaded' not in st.session_state:
+    st.session_state.files_loaded = False
 
 # ==========================================
 # FLOW CONTROLLER: DISCOVERY DASHBOARD UI
@@ -464,16 +463,15 @@ if mode == "Create Report":
             st.markdown("**1. Raw Data**")
             if use_defaults:
                 st.info(f"Using default source: {DEFAULT_SOURCE_SPREADSHEET_ID}")
-                mode_a_type_1 = "Remote Link"
                 raw_url = get_google_drive_download_url(DEFAULT_SOURCE_SPREADSHEET_ID)
                 raw_file = None
             else:
-                mode_a_type_1 = st.segmented_control("Source Type A1", ["File Upload", "Remote Link"], default="File Upload", key="mode_a_type_1", label_visibility="collapsed")
+                mode_a_type_1 = st.segmented_control("Source Type", ["File Upload", "Remote Link"], default="File Upload", key="mode_a_type_1", label_visibility="collapsed")
                 if mode_a_type_1 == "File Upload":
-                    raw_file = st.file_uploader("Upload Data Sheet A", type=["xlsx", "xls"], key="new_raw", label_visibility="collapsed")
+                    raw_file = st.file_uploader("Upload Data Sheet", type=["xlsx", "xls"], key="new_raw", label_visibility="collapsed")
                     raw_url = None
                 else:
-                    raw_url = st.text_input("Data Link URL A", placeholder="https://example.com/data.xlsx", key="new_raw_url", label_visibility="collapsed")
+                    raw_url = st.text_input("Data Link URL", placeholder="https://example.com/data.xlsx", key="new_raw_url", label_visibility="collapsed")
                     raw_file = None
 
     with m_row1_col2:
@@ -481,27 +479,26 @@ if mode == "Create Report":
             st.markdown("**2. Excel Template**")
             if use_defaults:
                 st.info(f"Using default template: {DEFAULT_TEMPLATE_FILE_ID}")
-                mode_a_type_2 = "Remote Link"
                 template_url = get_google_drive_download_url(DEFAULT_TEMPLATE_FILE_ID)
                 template_file = None
             else:
-                mode_a_type_2 = st.segmented_control("Source Type A2", ["File Upload", "Remote Link"], default="File Upload", key="mode_a_type_2", label_visibility="collapsed")
+                mode_a_type_2 = st.segmented_control("Source Type", ["File Upload", "Remote Link"], default="File Upload", key="mode_a_type_2", label_visibility="collapsed")
                 if mode_a_type_2 == "File Upload":
-                    template_file = st.file_uploader("Upload Template File A", type=["xlsx"], key="new_temp", label_visibility="collapsed")
+                    template_file = st.file_uploader("Upload Template File", type=["xlsx"], key="new_temp", label_visibility="collapsed")
                     template_url = None
                 else:
-                    template_url = st.text_input("Template URL A", placeholder="https://example.com/template.xlsx", key="new_temp_url", label_visibility="collapsed")
+                    template_url = st.text_input("Template URL", placeholder="https://example.com/template.xlsx", key="new_temp_url", label_visibility="collapsed")
                     template_file = None
 
     with m_row2_col1:
         with st.container(border=True):
             st.markdown("**3. Photos (Optional)**")
-            mode_a_type_3 = st.segmented_control("Source Type A3", ["File Upload", "Remote Link"], default="File Upload", key="mode_a_type_3", label_visibility="collapsed")
+            mode_a_type_3 = st.segmented_control("Source Type", ["File Upload", "Remote Link"], default="File Upload", key="mode_a_type_3", label_visibility="collapsed")
             if mode_a_type_3 == "File Upload":
-                media_files = st.file_uploader("Upload Images A (Optional)", accept_multiple_files=True, key="new_media", type=['png', 'jpg', 'jpeg'], label_visibility="collapsed")
+                media_files = st.file_uploader("Upload Images (Optional)", accept_multiple_files=True, key="new_media", type=['png', 'jpg', 'jpeg'], label_visibility="collapsed")
                 media_url = None
             else:
-                media_url = st.text_input("Cloud Drive Directory Link URL A (Optional)", placeholder="Paste Google Drive or OneDrive Shared Folder Link", key="new_media_url", label_visibility="collapsed")
+                media_url = st.text_input("Cloud Drive Directory Link URL (Optional)", placeholder="Paste Google Drive or OneDrive Shared Folder Link", key="new_media_url", label_visibility="collapsed")
                 media_files = None
 
     with m_row2_col2:
@@ -509,26 +506,40 @@ if mode == "Create Report":
             st.info(f"Default destination folder: {DEFAULT_DESTINATION_FOLDER_ID}")
             st.caption("Reports will be saved to the default Google Drive folder")
 
-    resolved_raw = resolve_file_source(raw_file, raw_url)
-    resolved_template = resolve_file_source(template_file, template_url)
+    # --- LOAD FILES WITH PROGRESS INDICATOR ---
+    with st.spinner("Loading files from Google Drive..."):
+        resolved_raw = resolve_file_source(raw_file, raw_url)
+        resolved_template = resolve_file_source(template_file, template_url)
 
     media_dict = {}
     raw_data_filename_trail = raw_file.name if raw_file else "REMOTE_LINK_STREAM"
+    
     if media_files:
         media_dict = {f.name: f for f in media_files}
     elif media_url and media_url.strip():
-        resolved_media_data = resolve_file_source(None, media_url)
-        if resolved_media_data:
-            try:
-                with zipfile.ZipFile(resolved_media_data) as z:
-                    for name in z.namelist():
-                        if any(ext in name.lower() for ext in ['.png', '.jpg', '.jpeg']) and not name.split('/')[-1].startswith('.'):
-                            clean_name = name.split('/')[-1]
-                            media_dict[clean_name] = StreamWrapper(z.read(name), clean_name)
-            except zipfile.BadZipFile:
-                media_dict["photo1.jpg"] = StreamWrapper(resolved_media_data.getvalue(), "photo1.jpg")
+        with st.spinner("Loading media files..."):
+            resolved_media_data = resolve_file_source(None, media_url)
+            if resolved_media_data:
+                try:
+                    with zipfile.ZipFile(resolved_media_data) as z:
+                        for name in z.namelist():
+                            if any(ext in name.lower() for ext in ['.png', '.jpg', '.jpeg']) and not name.split('/')[-1].startswith('.'):
+                                clean_name = name.split('/')[-1]
+                                media_dict[clean_name] = StreamWrapper(z.read(name), clean_name)
+                except zipfile.BadZipFile:
+                    media_dict["photo1.jpg"] = StreamWrapper(resolved_media_data.getvalue(), "photo1.jpg")
 
-    if resolved_raw and resolved_template:
+    # --- CHECK IF FILES ARE LOADED ---
+    files_loaded = resolved_raw is not None and resolved_template is not None
+    
+    if files_loaded:
+        st.success("Files loaded successfully!")
+        st.session_state.files_loaded = True
+    else:
+        st.warning("Waiting for files to load. Please check your configuration.")
+
+    # --- ONLY SHOW MAPPING INTERFACE IF FILES ARE LOADED ---
+    if files_loaded and resolved_raw and resolved_template:
         df = pd.read_excel(resolved_raw)
         df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
         df.columns = df.columns.str.strip().str.upper()
@@ -612,78 +623,80 @@ if mode == "Create Report":
                     if st.checkbox(ta, key=f"chk_new_{ta}"): selected_tas.append(ta)
             
             st.divider()
-            action_placeholder = st.empty()
             
+            # --- GENERATE REPORTS BUTTON ---
             if st.session_state.zip_data is None:
-                if action_placeholder.button("Generate Reports", use_container_width=True):
+                if st.button("Generate Reports", use_container_width=True, type="primary"):
                     if not selected_tas:
                         st.warning("Please select at least one Trade Area.")
+                    elif not mapping:
+                        st.warning("Please configure at least one field mapping.")
                     else:
-                        action_placeholder.empty() 
-                        progress_bar = st.progress(0)
-                        
-                        filtered_df = df[df["TRADE AREA"].astype(str).isin(selected_tas)]
-                        groups = filtered_df.groupby("TRADE AREA")
-                        total_groups = len(groups)
-                        zip_buffer = io.BytesIO()
-                        
-                        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-                            for i, (trade_area, group) in enumerate(groups):
-                                if isinstance(resolved_template, io.BytesIO):
-                                    resolved_template.seek(0)
-                                wb = openpyxl.load_workbook(resolved_template if isinstance(resolved_template, io.BytesIO) else template_file)
-                                base_sheet = wb.active
-                                base_sheet.title = "TEMPLATE_TO_DELETE"
-                                existing_tabs = set()
-                                
-                                for _, row in group.iterrows():
-                                    site_name = row.get("SITE NAME", "Unknown")
-                                    safe_tab_name = sanitize_tab_name(site_name, existing_tabs)
-                                    new_sheet = wb.copy_worksheet(base_sheet)
-                                    new_sheet.title = safe_tab_name
+                        with st.spinner("Generating reports..."):
+                            progress_bar = st.progress(0)
+                            
+                            filtered_df = df[df["TRADE AREA"].astype(str).isin(selected_tas)]
+                            groups = filtered_df.groupby("TRADE AREA")
+                            total_groups = len(groups)
+                            zip_buffer = io.BytesIO()
+                            
+                            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                                for i, (trade_area, group) in enumerate(groups):
+                                    if isinstance(resolved_template, io.BytesIO):
+                                        resolved_template.seek(0)
+                                    wb = openpyxl.load_workbook(resolved_template if isinstance(resolved_template, io.BytesIO) else template_file)
+                                    base_sheet = wb.active
+                                    base_sheet.title = "TEMPLATE_TO_DELETE"
+                                    existing_tabs = set()
                                     
-                                    for row_cells in new_sheet.iter_rows():
-                                        for cell in row_cells:
-                                            if isinstance(cell.value, str) and "{{" in cell.value:
-                                                new_val = cell.value
-                                                has_injected = False
-                                                for ph, map_conf in mapping.items():
-                                                    target_regex = r"\{\{\s*" + re.escape(ph) + r"(\s*:.*?)?\}\}"
-                                                    if re.search(target_regex, new_val):
-                                                        header = map_conf["column"]
-                                                        mask_patt = map_conf["mask"]
-                                                        raw_data_val = row.get(header)
-                                                        
-                                                        if map_conf["inferred_type"] == "IMAGE" and media_dict:
-                                                            is_image = inject_image_auto_fit(base_sheet, new_sheet, cell.coordinate, raw_data_val, media_dict)
-                                                        else:
-                                                            is_image = False
+                                    for _, row in group.iterrows():
+                                        site_name = row.get("SITE NAME", "Unknown")
+                                        safe_tab_name = sanitize_tab_name(site_name, existing_tabs)
+                                        new_sheet = wb.copy_worksheet(base_sheet)
+                                        new_sheet.title = safe_tab_name
+                                        
+                                        for row_cells in new_sheet.iter_rows():
+                                            for cell in row_cells:
+                                                if isinstance(cell.value, str) and "{{" in cell.value:
+                                                    new_val = cell.value
+                                                    has_injected = False
+                                                    for ph, map_conf in mapping.items():
+                                                        target_regex = r"\{\{\s*" + re.escape(ph) + r"(\s*:.*?)?\}\}"
+                                                        if re.search(target_regex, new_val):
+                                                            header = map_conf["column"]
+                                                            mask_patt = map_conf["mask"]
+                                                            raw_data_val = row.get(header)
                                                             
-                                                        if is_image:
-                                                            val_str = ""
-                                                            new_val = ""
-                                                        else:
-                                                            val_str = format_with_mask(raw_data_val, mask_patt, ph)
-                                                            new_val = re.sub(target_regex, val_str, new_val)
-                                                            
-                                                        if val_str.strip() != "" or is_image: has_injected = True
-                                                
-                                                if has_injected and new_val != "":
-                                                    copy_and_merge_aware_injection(base_sheet, new_sheet, cell.coordinate, new_val.strip())
-                                                elif new_val == "":
-                                                    cell.value = ""
-                                                else:
-                                                    cell.value = new_val.strip() if new_val else ""
+                                                            if map_conf["inferred_type"] == "IMAGE" and media_dict:
+                                                                is_image = inject_image_auto_fit(base_sheet, new_sheet, cell.coordinate, raw_data_val, media_dict)
+                                                            else:
+                                                                is_image = False
+                                                                
+                                                            if is_image:
+                                                                val_str = ""
+                                                                new_val = ""
+                                                            else:
+                                                                val_str = format_with_mask(raw_data_val, mask_patt, ph)
+                                                                new_val = re.sub(target_regex, val_str, new_val)
+                                                                
+                                                            if val_str.strip() != "" or is_image: has_injected = True
                                                     
-                                wb.remove(base_sheet)
-                                wb_buffer = io.BytesIO()
-                                wb.save(wb_buffer)
-                                safe_filename = str(trade_area).replace("/", "-").replace("\\", "-")
-                                zip_file.writestr(f"{safe_filename}.xlsx", wb_buffer.getvalue())
-                                progress_bar.progress((i + 1) / total_groups)
-                        
-                        st.session_state.zip_data = zip_buffer.getvalue()
-                        st.rerun()
+                                                    if has_injected and new_val != "":
+                                                        copy_and_merge_aware_injection(base_sheet, new_sheet, cell.coordinate, new_val.strip())
+                                                    elif new_val == "":
+                                                        cell.value = ""
+                                                    else:
+                                                        cell.value = new_val.strip() if new_val else ""
+                                                        
+                                    wb.remove(base_sheet)
+                                    wb_buffer = io.BytesIO()
+                                    wb.save(wb_buffer)
+                                    safe_filename = str(trade_area).replace("/", "-").replace("\\", "-")
+                                    zip_file.writestr(f"{safe_filename}.xlsx", wb_buffer.getvalue())
+                                    progress_bar.progress((i + 1) / total_groups)
+                            
+                            st.session_state.zip_data = zip_buffer.getvalue()
+                            st.rerun()
 
             if st.session_state.zip_data is not None:
                 st.success("Reports generated successfully!")
@@ -709,11 +722,10 @@ elif mode == "Update Report":
             st.markdown("**1. Raw Data**")
             if use_defaults:
                 st.info(f"Using default source: {DEFAULT_SOURCE_SPREADSHEET_ID}")
-                src_type_1 = "Remote Link"
                 edit_raw_url = get_google_drive_download_url(DEFAULT_SOURCE_SPREADSHEET_ID)
                 edit_raw_file = None
             else:
-                src_type_1 = st.segmented_control("Source Type 1", ["File Upload", "Remote Link"], default="File Upload", key="src_type_1", label_visibility="collapsed")
+                src_type_1 = st.segmented_control("Source Type", ["File Upload", "Remote Link"], default="File Upload", key="src_type_1", label_visibility="collapsed")
                 if src_type_1 == "File Upload":
                     edit_raw_file = st.file_uploader("Upload Data Sheet", type=["xlsx", "xls"], key="edit_raw", label_visibility="collapsed")
                     edit_raw_url = None
@@ -724,7 +736,7 @@ elif mode == "Update Report":
     with row1_col2:
         with st.container(border=True):
             st.markdown("**2. Reports to Update**")
-            src_type_2 = st.segmented_control("Source Type 2", ["File Upload", "Remote Link"], default="File Upload", key="src_type_2", label_visibility="collapsed")
+            src_type_2 = st.segmented_control("Source Type", ["File Upload", "Remote Link"], default="File Upload", key="src_type_2", label_visibility="collapsed")
             if src_type_2 == "File Upload":
                 existing_wbs_raw = st.file_uploader("Upload Existing Sheets", type=["xlsx"], accept_multiple_files=True, key="edit_wbs", label_visibility="collapsed")
                 existing_wbs_url = None
@@ -737,11 +749,10 @@ elif mode == "Update Report":
             st.markdown("**3. Report Template**")
             if use_defaults:
                 st.info(f"Using default template: {DEFAULT_TEMPLATE_FILE_ID}")
-                src_type_3 = "Remote Link"
                 edit_temp_url = get_google_drive_download_url(DEFAULT_TEMPLATE_FILE_ID)
                 edit_temp_file = None
             else:
-                src_type_3 = st.segmented_control("Source Type 3", ["File Upload", "Remote Link"], default="File Upload", key="src_type_3", label_visibility="collapsed")
+                src_type_3 = st.segmented_control("Source Type", ["File Upload", "Remote Link"], default="File Upload", key="src_type_3", label_visibility="collapsed")
                 if src_type_3 == "File Upload":
                     edit_temp_file = st.file_uploader("Upload Coordinate Template", type=["xlsx"], key="edit_temp", label_visibility="collapsed")
                     edit_temp_url = None
@@ -752,7 +763,7 @@ elif mode == "Update Report":
     with row2_col2:
         with st.container(border=True):
             st.markdown("**4. Photos (Optional)**")
-            src_type_4 = st.segmented_control("Source Type 4", ["File Upload", "Remote Link"], default="File Upload", key="src_type_4", label_visibility="collapsed")
+            src_type_4 = st.segmented_control("Source Type", ["File Upload", "Remote Link"], default="File Upload", key="src_type_4", label_visibility="collapsed")
             if src_type_4 == "File Upload":
                 media_files = st.file_uploader("Upload Images (Optional)", accept_multiple_files=True, key="edit_media", type=['png', 'jpg', 'jpeg'], label_visibility="collapsed")
                 media_url = None
@@ -760,39 +771,52 @@ elif mode == "Update Report":
                 media_url = st.text_input("Cloud Drive Directory Link URL (Optional)", placeholder="Paste Google Drive or OneDrive Folder URL Link", key="edit_media_url", label_visibility="collapsed")
                 media_files = None
 
-    resolved_edit_raw = resolve_file_source(edit_raw_file, edit_raw_url)
-    resolved_edit_temp = resolve_file_source(edit_temp_file, edit_temp_url)
+    # --- LOAD FILES WITH PROGRESS INDICATOR ---
+    with st.spinner("Loading files from Google Drive..."):
+        resolved_edit_raw = resolve_file_source(edit_raw_file, edit_raw_url)
+        resolved_edit_temp = resolve_file_source(edit_temp_file, edit_temp_url)
     
     existing_files_dict = {}
     if existing_wbs_raw:
         existing_files_dict = {f.name: f for f in existing_wbs_raw}
     elif existing_wbs_url and existing_wbs_url.strip():
-        resolved_wbs_zip = resolve_file_source(None, existing_wbs_url)
-        if resolved_wbs_zip:
-            try:
-                with zipfile.ZipFile(resolved_wbs_zip) as z:
-                    for name in z.namelist():
-                        if name.endswith('.xlsx') and not name.split('/')[-1].startswith('.'):
-                            existing_files_dict[name.split('/')[-1]] = io.BytesIO(z.read(name))
-            except Exception as e:
-                st.error(f"Failed to unpack remote workbook package: {str(e)}")
+        with st.spinner("Loading workbooks..."):
+            resolved_wbs_zip = resolve_file_source(None, existing_wbs_url)
+            if resolved_wbs_zip:
+                try:
+                    with zipfile.ZipFile(resolved_wbs_zip) as z:
+                        for name in z.namelist():
+                            if name.endswith('.xlsx') and not name.split('/')[-1].startswith('.'):
+                                existing_files_dict[name.split('/')[-1]] = io.BytesIO(z.read(name))
+                except Exception as e:
+                    st.error(f"Failed to unpack remote workbook package: {str(e)}")
 
     media_dict = {}
     if media_files:
         media_dict = {f.name: f for f in media_files}
     elif media_url and media_url.strip():
-        resolved_media_data = resolve_file_source(None, media_url)
-        if resolved_media_data:
-            try:
-                with zipfile.ZipFile(resolved_media_data) as z:
-                    for name in z.namelist():
-                        if any(ext in name.lower() for ext in ['.png', '.jpg', '.jpeg']) and not name.split('/')[-1].startswith('.'):
-                            clean_name = name.split('/')[-1]
-                            media_dict[clean_name] = StreamWrapper(z.read(name), clean_name)
-            except zipfile.BadZipFile:
-                media_dict["photo1.jpg"] = StreamWrapper(resolved_media_data.getvalue(), "photo1.jpg")
+        with st.spinner("Loading media files..."):
+            resolved_media_data = resolve_file_source(None, media_url)
+            if resolved_media_data:
+                try:
+                    with zipfile.ZipFile(resolved_media_data) as z:
+                        for name in z.namelist():
+                            if any(ext in name.lower() for ext in ['.png', '.jpg', '.jpeg']) and not name.split('/')[-1].startswith('.'):
+                                clean_name = name.split('/')[-1]
+                                media_dict[clean_name] = StreamWrapper(z.read(name), clean_name)
+                except zipfile.BadZipFile:
+                    media_dict["photo1.jpg"] = StreamWrapper(resolved_media_data.getvalue(), "photo1.jpg")
 
-    if resolved_edit_raw and resolved_edit_temp and existing_files_dict:
+    # --- CHECK IF FILES ARE LOADED ---
+    files_loaded = resolved_edit_raw is not None and resolved_edit_temp is not None and existing_files_dict
+    
+    if files_loaded:
+        st.success("Files loaded successfully!")
+    else:
+        st.warning("Waiting for files to load. Please check your configuration.")
+
+    # --- ONLY SHOW MAPPING INTERFACE IF FILES ARE LOADED ---
+    if files_loaded and resolved_edit_raw and resolved_edit_temp and existing_files_dict:
         df = pd.read_excel(resolved_edit_raw)
         df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
         df.columns = df.columns.str.strip().str.upper()
@@ -918,149 +942,149 @@ elif mode == "Update Report":
                 }
 
         st.divider()
-        action_placeholder = st.empty()
-
+        
+        # --- GENERATE UPDATES BUTTON ---
         if st.session_state.zip_data is None:
-            if action_placeholder.button("Inject Data and Generate Updates", use_container_width=True):
+            if st.button("Inject Data and Generate Updates", use_container_width=True, type="primary"):
                 if not active_mapping:
                     st.warning("Please check at least one field to update.")
                 elif not selected_wbs_names:
                     st.warning("Please tick at least one Trade Area Workbook checkbox from the selector container list.")
                 else:
-                    action_placeholder.empty()
-                    progress_bar = st.progress(0)
-                    status_text = st.empty()
-                    
-                    zip_buffer = io.BytesIO()
-                    log_entries = []
-                    
-                    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-                        processed_count = 0
-                        files_written = 0 
+                    with st.spinner("Generating updates..."):
+                        progress_bar = st.progress(0)
+                        status_text = st.empty()
                         
-                        for wb_name in selected_wbs_names:
-                            file_obj = existing_files_dict[wb_name]
-                            status_text.text(f"Injecting into selected target: {wb_name}...")
-                            clean_filename = wb_name.replace(".xlsx", "").strip().upper()
+                        zip_buffer = io.BytesIO()
+                        log_entries = []
+                        
+                        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                            processed_count = 0
+                            files_written = 0 
                             
-                            matched_group = None
-                            for ta, group in df.groupby("TRADE AREA"):
-                                safe_ta = str(ta).replace("/", "-").replace("\\", "-").strip().upper()
-                                if safe_ta in clean_filename or clean_filename in safe_ta:
-                                    matched_group = group
-                                    break
-                                    
-                            if matched_group is not None:
-                                file_obj.seek(0)
-                                check_wb = openpyxl.load_workbook(file_obj, data_only=False)
+                            for wb_name in selected_wbs_names:
+                                file_obj = existing_files_dict[wb_name]
+                                status_text.text(f"Injecting into selected target: {wb_name}...")
+                                clean_filename = wb_name.replace(".xlsx", "").strip().upper()
                                 
-                                file_obj.seek(0)
-                                wb = openpyxl.load_workbook(file_obj)
-                                
-                                for _, row in matched_group.iterrows():
-                                    clean_name = re.sub(r'[\\/*?\[\]:]', '', str(row["SITE NAME"]))[:31].strip().upper()
-                                    target_sheet = None
+                                matched_group = None
+                                for ta, group in df.groupby("TRADE AREA"):
+                                    safe_ta = str(ta).replace("/", "-").replace("\\", "-").strip().upper()
+                                    if safe_ta in clean_filename or clean_filename in safe_ta:
+                                        matched_group = group
+                                        break
+                                        
+                                if matched_group is not None:
+                                    file_obj.seek(0)
+                                    check_wb = openpyxl.load_workbook(file_obj, data_only=False)
                                     
-                                    for sheet_name in wb.sheetnames:
-                                        if sheet_name.strip().upper().startswith(clean_name):
-                                            target_sheet = wb[sheet_name]
-                                            break
-                                            
-                                    if target_sheet is not None:
-                                        for ph, mapping_data in active_mapping.items():
-                                            input_type = mapping_data["type"]
-                                            mapped_val = mapping_data["value"]
-                                            mask_patt = mapping_data["mask"]
-                                            
-                                            if input_type in ["From Column", "Image/Media Asset"]:
-                                                raw_data_val = row.get(mapped_val)
-                                            else:
-                                                raw_data_val = mapping_data["value"]
-
-                                            coord_meta_list = ph_coords.get(ph, [])
-                                            for meta in coord_meta_list:
-                                                coord = meta["coord"]
-                                                raw_token = meta["raw_token_string"]
+                                    file_obj.seek(0)
+                                    wb = openpyxl.load_workbook(file_obj)
+                                    
+                                    for _, row in matched_group.iterrows():
+                                        clean_name = re.sub(r'[\\/*?\[\]:]', '', str(row["SITE NAME"]))[:31].strip().upper()
+                                        target_sheet = None
+                                        
+                                        for sheet_name in wb.sheetnames:
+                                            if sheet_name.strip().upper().startswith(clean_name):
+                                                target_sheet = wb[sheet_name]
+                                                break
                                                 
-                                                if input_type == "Image/Media Asset" and media_dict:
-                                                    target_sheet[coord].value = ""
-                                                    is_image = inject_image_auto_fit(template_sheet, target_sheet, coord, raw_data_val, media_dict)
+                                        if target_sheet is not None:
+                                            for ph, mapping_data in active_mapping.items():
+                                                input_type = mapping_data["type"]
+                                                mapped_val = mapping_data["value"]
+                                                mask_patt = mapping_data["mask"]
+                                                
+                                                if input_type in ["From Column", "Image/Media Asset"]:
+                                                    raw_data_val = row.get(mapped_val)
                                                 else:
-                                                    is_image = False
+                                                    raw_data_val = mapping_data["value"]
 
-                                                if not is_image and input_type != "Image/Media Asset":
-                                                    val_str = format_with_mask(raw_data_val, mask_patt, ph)
+                                                coord_meta_list = ph_coords.get(ph, [])
+                                                for meta in coord_meta_list:
+                                                    coord = meta["coord"]
+                                                    raw_token = meta["raw_token_string"]
                                                     
-                                                    current_cell_val = str(target_sheet[coord].value) if target_sheet[coord].value else ""
-                                                    if raw_token in current_cell_val:
-                                                        new_cell_str = current_cell_val.replace(raw_token, val_str)
+                                                    if input_type == "Image/Media Asset" and media_dict:
+                                                        target_sheet[coord].value = ""
+                                                        is_image = inject_image_auto_fit(template_sheet, target_sheet, coord, raw_data_val, media_dict)
                                                     else:
-                                                        new_cell_str = val_str
-                                                        
-                                                    copy_and_merge_aware_injection(template_sheet, target_sheet, coord, new_cell_str)
-                                                    if val_str.strip() != "":
-                                                        target_sheet[coord].fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
-                                    else:
-                                        log_entries.append({
-                                            "Workbook": wb_name, "Sheet": f"MISSING_TAB_{clean_name}", "Coordinate": "N/A",
-                                            "Type": "TAB_NOT_FOUND", "Status": "SKIPPED", "Color_Hint": "RED",
-                                            "Original Value": "N/A", "Updated Value": "N/A"
-                                        })
+                                                        is_image = False
 
-                                # Structural Diff Check Block
-                                for sheet_name in check_wb.sheetnames:
-                                    orig_ws = check_wb[sheet_name]
-                                    upd_ws = wb[sheet_name] if sheet_name in wb.sheetnames else None
+                                                    if not is_image and input_type != "Image/Media Asset":
+                                                        val_str = format_with_mask(raw_data_val, mask_patt, ph)
+                                                        
+                                                        current_cell_val = str(target_sheet[coord].value) if target_sheet[coord].value else ""
+                                                        if raw_token in current_cell_val:
+                                                            new_cell_str = current_cell_val.replace(raw_token, val_str)
+                                                        else:
+                                                            new_cell_str = val_str
+                                                            
+                                                        copy_and_merge_aware_injection(template_sheet, target_sheet, coord, new_cell_str)
+                                                        if val_str.strip() != "":
+                                                            target_sheet[coord].fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
+                                        else:
+                                            log_entries.append({
+                                                "Workbook": wb_name, "Sheet": f"MISSING_TAB_{clean_name}", "Coordinate": "N/A",
+                                                "Type": "TAB_NOT_FOUND", "Status": "SKIPPED", "Color_Hint": "RED",
+                                                "Original Value": "N/A", "Updated Value": "N/A"
+                                            })
+
+                                    # Structural Diff Check Block
+                                    for sheet_name in check_wb.sheetnames:
+                                        orig_ws = check_wb[sheet_name]
+                                        upd_ws = wb[sheet_name] if sheet_name in wb.sheetnames else None
+                                        
+                                        if upd_ws:
+                                            for r in range(1, orig_ws.max_row + 1):
+                                                for c in range(1, orig_ws.max_column + 1):
+                                                    cell_coord = f"{openpyxl.utils.get_column_letter(c)}{r}"
+                                                    orig_val = orig_ws.cell(row=r, column=c).value
+                                                    upd_val = upd_ws.cell(row=r, column=c).value
+                                                    
+                                                    mapped_ph_for_cell = None
+                                                    for test_ph in active_mapping.keys():
+                                                        if any(cell_coord == m["coord"] for m in ph_coords.get(test_ph, [])):
+                                                            mapped_ph_for_cell = test_ph
+                                                            break
+                                                    
+                                                    if mapped_ph_for_cell is not None:
+                                                        # --- BI-DIRECTIONAL MUTATION EXCLUSION FOR ACTIVE IMAGE ASSETS ---
+                                                        if active_mapping[mapped_ph_for_cell]["type"] == "Image/Media Asset":
+                                                            continue
+                                                            
+                                                        if str(orig_val) != str(upd_val):
+                                                            log_entries.append({
+                                                                "Workbook": wb_name, "Sheet": sheet_name, "Coordinate": cell_coord,
+                                                                "Type": "INTENDED_UPDATE", "Status": "SUCCESS", "Color_Hint": "GREEN",
+                                                                "Original Value": str(orig_val), "Updated Value": str(upd_val)
+                                                            })
+                                                    else:
+                                                        if orig_val != upd_val:
+                                                            log_entries.append({
+                                                                "Workbook": wb_name, "Sheet": sheet_name, "Coordinate": cell_coord,
+                                                                "Type": "UNINTENDED_MUTATION", "Status": "CRITICAL_ERROR", "Color_Hint": "RED",
+                                                                "Original Value": str(orig_val), "Updated Value": str(upd_val)
+                                                            })
+
+                                    wb_buffer = io.BytesIO()
+                                    wb.save(wb_buffer)
+                                    zip_file.writestr(wb_name, wb_buffer.getvalue())
+                                    files_written += 1
                                     
-                                    if upd_ws:
-                                        for r in range(1, orig_ws.max_row + 1):
-                                            for c in range(1, orig_ws.max_column + 1):
-                                                cell_coord = f"{openpyxl.utils.get_column_letter(c)}{r}"
-                                                orig_val = orig_ws.cell(row=r, column=c).value
-                                                upd_val = upd_ws.cell(row=r, column=c).value
-                                                
-                                                mapped_ph_for_cell = None
-                                                for test_ph in active_mapping.keys():
-                                                    if any(cell_coord == m["coord"] for m in ph_coords.get(test_ph, [])):
-                                                        mapped_ph_for_cell = test_ph
-                                                        break
-                                                
-                                                if mapped_ph_for_cell is not None:
-                                                    # --- BI-DIRECTIONAL MUTATION EXCLUSION FOR ACTIVE IMAGE ASSETS ---
-                                                    if active_mapping[mapped_ph_for_cell]["type"] == "Image/Media Asset":
-                                                        continue
-                                                        
-                                                    if str(orig_val) != str(upd_val):
-                                                        log_entries.append({
-                                                            "Workbook": wb_name, "Sheet": sheet_name, "Coordinate": cell_coord,
-                                                            "Type": "INTENDED_UPDATE", "Status": "SUCCESS", "Color_Hint": "GREEN",
-                                                            "Original Value": str(orig_val), "Updated Value": str(upd_val)
-                                                        })
-                                                else:
-                                                    if orig_val != upd_val:
-                                                        log_entries.append({
-                                                            "Workbook": wb_name, "Sheet": sheet_name, "Coordinate": cell_coord,
-                                                            "Type": "UNINTENDED_MUTATION", "Status": "CRITICAL_ERROR", "Color_Hint": "RED",
-                                                            "Original Value": str(orig_val), "Updated Value": str(upd_val)
-                                                        })
+                                processed_count += 1
+                                progress_bar.progress(processed_count / len(selected_wbs_names))
 
-                                wb_buffer = io.BytesIO()
-                                wb.save(wb_buffer)
-                                zip_file.writestr(wb_name, wb_buffer.getvalue())
-                                files_written += 1
-                                
-                            processed_count += 1
-                            progress_bar.progress(processed_count / len(selected_wbs_names))
-
-                    if files_written == 0:
-                        st.error("ERROR: Critical matching criteria failure.")
-                        st.session_state.zip_data = None
-                        st.stop()
-                    else:
-                        st.session_state.zip_data = zip_buffer.getvalue()
-                        st.session_state.change_log = pd.DataFrame(log_entries) if log_entries else pd.DataFrame(columns=["Workbook", "Sheet", "Coordinate", "Type", "Status", "Color_Hint", "Original Value", "Updated Value"])
-                        st.rerun()
-                    
+                        if files_written == 0:
+                            st.error("ERROR: Critical matching criteria failure.")
+                            st.session_state.zip_data = None
+                            st.stop()
+                        else:
+                            st.session_state.zip_data = zip_buffer.getvalue()
+                            st.session_state.change_log = pd.DataFrame(log_entries) if log_entries else pd.DataFrame(columns=["Workbook", "Sheet", "Coordinate", "Type", "Status", "Color_Hint", "Original Value", "Updated Value"])
+                            st.rerun()
+                        
         if st.session_state.zip_data is not None:
             has_errors = False
             if st.session_state.change_log is not None and not st.session_state.change_log.empty:
