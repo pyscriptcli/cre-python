@@ -27,7 +27,7 @@ if not os.path.exists(_config_file):
     with open(_config_file, "w", encoding="utf-8") as f:
         f.write("[theme]\nbase=\"light\"\n")
 
-# --- CUSTOM CSS WITH WATERPROOF WATERMARK OVERLAY ---
+# --- CUSTOM CSS ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
@@ -227,38 +227,30 @@ st.markdown("""
         color: #003366 !important;
     }
     
-    /* ============================================
-       WATERMARK KILLER OVERLAY - ALWAYS ON TOP
-       ============================================ */
-    
-    /* Full-width bottom bar overlay */
-    .footer-overlay {
+    /* Solid white bottom bar to cover footer watermark */
+    .footer-bar {
         position: fixed !important;
         bottom: 0 !important;
         left: 0 !important;
         right: 0 !important;
         height: 40px !important;
-        background-color: white !important;
-        z-index: 2147483647 !important;  /* MAX z-index */
-        box-shadow: 0 -2px 10px rgba(0,0,0,0.05) !important;
-        border-top: 1px solid #e8e8e8 !important;
+        background-color: #ffffff !important;
+        z-index: 2147483647 !important;
         pointer-events: none !important;
     }
     
-    /* Bottom-right corner patch - extra thick coverage */
-    .watermark-killer {
+    /* Extra thick bottom-right corner patch */
+    .corner-patch {
         position: fixed !important;
         bottom: 0 !important;
         right: 0 !important;
-        width: 300px !important;
-        height: 50px !important;
-        background-color: white !important;
-        z-index: 2147483647 !important;  /* MAX z-index */
+        width: 350px !important;
+        height: 60px !important;
+        background-color: #ffffff !important;
+        z-index: 2147483647 !important;
         pointer-events: none !important;
-        /* No border, no shadow - pure solid white block */
     }
     
-    /* Ensure app containers don't create new stacking contexts above us */
     .stApp {
         padding-bottom: 40px !important;
     }
@@ -271,10 +263,10 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- PERSISTENT OVERLAYS - INJECTED AS RAW HTML ---
+# --- SOLID WHITE OVERLAY ELEMENTS (PHYSICAL COVER) ---
 st.markdown("""
-<div style="position: fixed; bottom: 0; left: 0; right: 0; height: 40px; background-color: white; z-index: 2147483647; pointer-events: none;"></div>
-<div style="position: fixed; bottom: 0; right: 0; width: 300px; height: 50px; background-color: white; z-index: 2147483647; pointer-events: none;"></div>
+<div class="footer-bar"></div>
+<div class="corner-patch"></div>
 """, unsafe_allow_html=True)
 
 # --- LOGIN VERIFICATION LOGIC ---
