@@ -11,7 +11,9 @@ import requests
 from copy import copy
 import json
 from google.oauth2 import service_account
-from google.auth.transport.requests import Request as GoogleRequest
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
+import time
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(
@@ -252,19 +254,19 @@ INVERSE_MASK_LOOKUP = {v: k for k, v in HUMAN_SPREADSHEET_MASKS.items()}
 def get_access_token():
     """Get OAuth2 access token using service account"""
     try:
-        # Create credentials object
+        # Create credentials object with proper scopes
         credentials = service_account.Credentials.from_service_account_info(
             SERVICE_ACCOUNT_INFO,
             scopes=['https://www.googleapis.com/auth/drive.readonly']
         )
         
-        # Refresh the token - using the correct import
-        request_obj = GoogleRequest()
-        credentials.refresh(request_obj)
+        # Use a simple request object - this is the correct way
+        request = Request()
+        credentials.refresh(request)
         
         return credentials.token
     except Exception as e:
-        st.error(f"Failed to get access token: {str(e)}")
+        st.error(f"Token error: {str(e)}")
         return None
 
 def download_google_sheet_as_excel(spreadsheet_id):
@@ -274,6 +276,7 @@ def download_google_sheet_as_excel(spreadsheet_id):
         if not token:
             return None
             
+        # Use the export URL with the token
         url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?format=xlsx"
         headers = {
             'Authorization': f'Bearer {token}'
@@ -284,14 +287,10 @@ def download_google_sheet_as_excel(spreadsheet_id):
         if response.status_code == 200:
             return io.BytesIO(response.content)
         else:
-            st.error(f"Failed to download spreadsheet. Status: {response.status_code}")
-            if response.status_code == 403:
-                st.error("Access forbidden. Please make sure the service account has access to this file.")
-            elif response.status_code == 404:
-                st.error("File not found. Please check the file ID.")
+            st.error(f"Download failed. Status: {response.status_code}")
             return None
     except Exception as e:
-        st.error(f"Error downloading spreadsheet: {str(e)}")
+        st.error(f"Download error: {str(e)}")
         return None
 
 def parse_token_signature(raw_token):
@@ -496,10 +495,24 @@ st.markdown("""
 # --- LOAD FILES ---
 @st.cache_resource
 def load_files():
-    with st.spinner("Connecting to Google Drive..."):
-        source_data = download_google_sheet_as_excel(SOURCE_SPREADSHEET_ID)
-        template_data = download_google_sheet_as_excel(TEMPLATE_SPREADSHEET_ID)
-        return source_data, template_data
+    """Load files with retry logic"""
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            source_data = download_google_sheet_as_excel(SOURCE_SPREADSHEET_ID)
+            template_data = download_google_sheet_as_excel(TEMPLATE_SPREADSHEET_ID)
+            if source_data is not None and template_data is not None:
+                return source_data, template_data
+            if attempt < max_retries - 1:
+                st.warning(f"Retry {attempt + 1}/{max_retries}...")
+                time.sleep(2)
+        except Exception as e:
+            if attempt < max_retries - 1:
+                st.warning(f"Retry {attempt + 1}/{max_retries} after error: {str(e)}")
+                time.sleep(2)
+            else:
+                st.error(f"All retries failed: {str(e)}")
+    return None, None
 
 # Test the connection first
 st.info("Testing connection to Google Drive...")
@@ -739,8 +752,7 @@ if st.session_state.zip_data is not None:
         1. Download the file above
         2. Go to your Google Drive folder:
            https://drive.google.com/drive/folders/1MAo_8VYditz-BV3vGx3aX31-SLzxSAD8
-        3. Click 'New' -> 'File Upload' and select the downloaded zip
-        """)
+        3. Click 'New' -> 'File Upload' and select the downloaded zip        """)
     
     if st.button("Start Over", use_container_width=True):
         st.session_state.zip_data = None
