@@ -27,11 +27,10 @@ if not os.path.exists(_config_file):
     with open(_config_file, "w", encoding="utf-8") as f:
         f.write("[theme]\nbase=\"light\"\n")
 
-# --- PASSWORD HASH ---
+# --- PASSWORD HASH (MD5) ---
 # Password: trs.prime
-# Correct SHA256 Hash: 
-# To generate: hashlib.sha256("trs.prime".encode()).hexdigest()
-PASSWORD_HASH = "8c8e7f2b5d8c3a9f6e1d4b7c9a2f5e8d1b4c7a9f6e3d8b2c5a7f9e4d1b8c6a3f"
+# MD5 Hash: 6e7dfba0b39da481db37c3263c61cac6
+PASSWORD_HASH = "6e7dfba0b39da481db37c3263c61cac6"
 
 def check_password():
     """Check if user has entered correct password"""
@@ -60,8 +59,8 @@ def check_password():
         
         if submitted:
             if password:
-                # Hash the entered password
-                hashed_password = hashlib.sha256(password.encode()).hexdigest()
+                # Hash the entered password using MD5
+                hashed_password = hashlib.md5(password.encode()).hexdigest()
                 if hashed_password == PASSWORD_HASH:
                     st.session_state.authenticated = True
                     st.rerun()
