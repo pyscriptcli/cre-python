@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import openpyxl
 from openpyxl.styles import Alignment, PatternFill, Font, Border, Side
-from openpyxl.utils import get_column_letter
+from openpyxl.utils import get_column_letter, range_boundaries
 import re
 import io
 import zipfile
@@ -66,9 +66,6 @@ st.markdown("""
     }
     .stButton > button:active {
         background-color: #001a33;
-    }
-    .stButton > button[data-baseweb="button"] {
-        background-color: #003366;
     }
     div[data-testid="stContainer"] {
         background-color: white;
@@ -428,10 +425,6 @@ if source_data is None or template_data is None:
     2. **Verify the file IDs are correct:**
        - Source ID: `14nhO9u7zJRcOoux8I7l2IzwU7iQZNW9fRX6TCip47CE`
        - Template ID: `1uS3xmnPi0o4c_EayQtURYDSMMPRDRGSb`
-    
-    3. **Try opening these links in your browser:**
-       - Source: https://docs.google.com/spreadsheets/d/14nhO9u7zJRcOoux8I7l2IzwU7iQZNW9fRX6TCip47CE
-       - Template: https://docs.google.com/spreadsheets/d/1uS3xmnPi0o4c_EayQtURYDSMMPRDRGSb
     """)
     st.stop()
 
@@ -489,16 +482,18 @@ with col3:
 
 st.divider()
 
-# Select All / Clear All
-col_sel_all, col_clr_all = st.columns([1, 1, 3])
-if col_sel_all.button("Select All", use_container_width=True):
-    for ph in placeholders:
-        st.session_state[f"chk_{ph}"] = True
-    st.rerun()
-if col_clr_all.button("Clear All", use_container_width=True):
-    for ph in placeholders:
-        st.session_state[f"chk_{ph}"] = False
-    st.rerun()
+# Select All / Clear All - FIXED: using correct column count
+col1, col2 = st.columns([1, 1])
+with col1:
+    if st.button("Select All", use_container_width=True):
+        for ph in placeholders:
+            st.session_state[f"chk_{ph}"] = True
+        st.rerun()
+with col2:
+    if st.button("Clear All", use_container_width=True):
+        for ph in placeholders:
+            st.session_state[f"chk_{ph}"] = False
+        st.rerun()
 
 mapping = {}
 for ph in placeholders:
@@ -513,10 +508,10 @@ for ph in placeholders:
             st.session_state[f"chk_{ph}"] = True
         update_check = st.checkbox(f"Update {ph}", key=f"chk_{ph}")
         
-        col1, col2 = st.columns(2)
-        with col1:
+        col_left, col_right = st.columns(2)
+        with col_left:
             sel_col = st.selectbox("Header Reference", headers, index=default_index, key=f"map_{ph}", disabled=not update_check)
-        with col2:
+        with col_right:
             inferred_type = template_types_registry.get(ph, "TEXT")
             default_mask_label = INVERSE_MASK_LOOKUP.get(inferred_type, "Plain text") if inferred_type != "IMAGE" else "Plain text"
             mask_index = list(HUMAN_SPREADSHEET_MASKS.keys()).index(default_mask_label)
@@ -534,15 +529,18 @@ st.markdown("### Select Trade Areas")
 
 unique_tas = sorted([str(ta) for ta in df["TRADE AREA"].dropna().unique()])
 
-col_sel, col_clr = st.columns([1, 1, 3])
-if col_sel.button("Select All Trade Areas", use_container_width=True):
-    for ta in unique_tas:
-        st.session_state[f"ta_{ta}"] = True
-    st.rerun()
-if col_clr.button("Clear All Trade Areas", use_container_width=True):
-    for ta in unique_tas:
-        st.session_state[f"ta_{ta}"] = False
-    st.rerun()
+# Select All / Clear All for Trade Areas - FIXED
+col1, col2 = st.columns([1, 1])
+with col1:
+    if st.button("Select All Trade Areas", use_container_width=True):
+        for ta in unique_tas:
+            st.session_state[f"ta_{ta}"] = True
+        st.rerun()
+with col2:
+    if st.button("Clear All Trade Areas", use_container_width=True):
+        for ta in unique_tas:
+            st.session_state[f"ta_{ta}"] = False
+        st.rerun()
 
 selected_tas = []
 with st.container(height=250, border=True):
