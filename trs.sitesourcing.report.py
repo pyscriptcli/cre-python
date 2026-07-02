@@ -27,7 +27,7 @@ if not os.path.exists(_config_file):
     with open(_config_file, "w", encoding="utf-8") as f:
         f.write("[theme]\nbase=\"light\"\n")
 
-# --- CUSTOM CSS WITH EXPANDED HIDDEN OVERLAYS ---
+# --- CUSTOM CSS ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
@@ -50,7 +50,7 @@ st.markdown("""
     
     .block-container {
         padding-top: 0.3rem !important;
-        padding-bottom: 3.5rem !important;
+        padding-bottom: 2rem !important;
         max-width: 1200px !important;
     }
     
@@ -229,38 +229,7 @@ st.markdown("""
     .stMarkdown, .stMarkdown * {
         color: #003366 !important;
     }
-    
-    /* Watermark masking footer overlay */
-    .footer-overlay {
-        position: fixed !important;
-        bottom: 0 !important;
-        left: 0 !important;
-        right: 0 !important;
-        height: 35px !important;
-        background-color: white !important;
-        z-index: 9999999 !important;
-        box-shadow: 0 -2px 10px rgba(0,0,0,0.05) !important;
-        border-top: 1px solid #e8e8e8 !important;
-        pointer-events: none !important;
-    }
-    
-    .main {
-        padding-bottom: 45px !important;
-    }
-    
-    .stApp {
-        padding-bottom: 35px !important;
-    }
-    
-    .stAppViewContainer {
-        padding-bottom: 35px !important;
-    }
 </style>
-""", unsafe_allow_html=True)
-
-# --- PERSISTENT FOOTER OVERLAY ---
-st.markdown("""
-<div class="footer-overlay"></div>
 """, unsafe_allow_html=True)
 
 # --- LOGIN VERIFICATION LOGIC ---
@@ -275,18 +244,16 @@ def check_password(password):
 
 # --- 3x3 LOGIN GRID LAYOUT ---
 if not st.session_state.authenticated:
-    # Vertical grid row padding
     st.write("##")
     st.write("##")
     
-    # 3 horizontal blocks (Left Margin, Center Panel, Right Margin)
     r1_col1, r1_col2, r1_col3 = st.columns([1, 1.2, 1])
     
     with r1_col2:
         with st.container():
-            st.markdown("<h3 style='text-align: center; margin-bottom: 20px;'>Access Required</h3>", unsafe_allow_html=True)
-            password_input = st.text_input("Enter password", type="password", label_visibility="collapsed")
-            login_btn = st.button("Login", use_container_width=True)
+            st.markdown("<h3 style='text-align: center; margin-bottom: 20px;'>Secure Login</h3>", unsafe_allow_html=True)
+            password_input = st.text_input("Enter Access Token", type="password", label_visibility="collapsed")
+            login_btn = st.button("Authenticate", use_container_width=True)
             
             if login_btn or password_input:
                 if check_password(password_input):
