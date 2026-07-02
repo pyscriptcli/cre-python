@@ -27,113 +27,7 @@ if not os.path.exists(_config_file):
     with open(_config_file, "w", encoding="utf-8") as f:
         f.write("[theme]\nbase=\"light\"\n")
 
-# --- PASSWORD HASH (MD5) ---
-# Password: trs.prime
-# MD5 Hash: 6e7dfba0b39da481db37c3263c61cac6
-PASSWORD_HASH = "6e7dfba0b39da481db37c3263c61cac6"
-
-def check_password():
-    """Check if user has entered correct password"""
-    if "authenticated" in st.session_state and st.session_state.authenticated:
-        return True
-    
-    # Show small, centered login form
-    st.markdown("""
-    <div style="display: flex; justify-content: center; align-items: center; min-height: 70vh; padding: 1rem;">
-        <div style="
-            max-width: 320px; 
-            width: 100%;
-            padding: 1.5rem 1.5rem; 
-            background-color: white; 
-            border-radius: 6px; 
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08); 
-            border: 1px solid #e8e8e8;
-        ">
-            <h2 style="text-align: center; color: #003366; margin-bottom: 0.2rem; font-size: 1rem; font-weight: 500;">Access Required</h2>
-            <p style="text-align: center; color: #888; margin-bottom: 1rem; font-size: 0.7rem;">Enter password to continue</p>
-    """, unsafe_allow_html=True)
-    
-    with st.form("password_form"):
-        # Custom styled password field
-        password = st.text_input(
-            "Password", 
-            type="password", 
-            placeholder="Enter password", 
-            key="password_input", 
-            label_visibility="collapsed"
-        )
-        
-        # Custom styled submit button
-        submitted = st.form_submit_button("Submit", use_container_width=True)
-        
-        if submitted:
-            if password:
-                # Hash the entered password using MD5
-                hashed_password = hashlib.md5(password.encode()).hexdigest()
-                if hashed_password == PASSWORD_HASH:
-                    st.session_state.authenticated = True
-                    st.rerun()
-                else:
-                    st.error("Invalid password")
-            else:
-                st.warning("Please enter password")
-    
-    st.markdown("""
-        </div>
-    </div>
-    <style>
-        /* Force form elements to match container width */
-        .stForm {
-            width: 100% !important;
-        }
-        .stTextInput > div {
-            width: 100% !important;
-        }
-        .stTextInput > div > div {
-            width: 100% !important;
-        }
-        .stTextInput > div > div > input {
-            width: 100% !important;
-            padding: 0.4rem 0.6rem !important;
-            font-size: 0.8rem !important;
-            border-radius: 3px !important;
-            border: 1px solid #d0d0d0 !important;
-            box-sizing: border-box !important;
-        }
-        .stTextInput > div > div > input:focus {
-            border-color: #003366 !important;
-            box-shadow: 0 0 0 1px #003366 !important;
-        }
-        .stButton > button {
-            width: 100% !important;
-            padding: 0.4rem 0.6rem !important;
-            font-size: 0.8rem !important;
-            border-radius: 3px !important;
-            background-color: #003366 !important;
-            color: white !important;
-            border: none !important;
-        }
-        .stButton > button:hover {
-            background-color: #002244 !important;
-            box-shadow: 0 2px 6px rgba(0, 51, 102, 0.3);
-        }
-        .stAlert {
-            border-radius: 4px;
-            padding: 0.3rem;
-            font-size: 0.75rem;
-        }
-        .stAlert > div {
-            padding: 0.3rem 0.6rem !important;
-        }
-        .stForm > div {
-            gap: 0.5rem !important;
-        }
-    </style>
-    """, unsafe_allow_html=True)
-    
-    return False
-
-# --- CUSTOM CSS ---
+# --- CUSTOM CSS WITH EXPANDED HIDDEN OVERLAYS ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
@@ -142,27 +36,91 @@ st.markdown("""
         font-family: 'Roboto', 'Segoe UI', sans-serif !important;
     }
     
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
+    /* Strict Hiding of Streamlit Footers, Menus, Headers, and Options Button */
+    #MainMenu {visibility: hidden !important;}
+    footer {visibility: hidden !important;}
+    header {visibility: hidden !important;}
+    button[title="View source"] {display: none !important;}
+    .stAppDeployButton {display: none !important;}
+    div[data-testid="stStatusWidget"] {display: none !important;}
+    
+    /* --- WATERMARK MASK OVERLAY --- */
+    /* This mask completely covers the "Hosted with Streamlit" watermark */
+    .watermark-mask {
+        position: fixed !important;
+        bottom: 0 !important;
+        right: 0 !important;
+        width: 250px !important;
+        height: 60px !important;
+        background: white !important;
+        z-index: 999999 !important;
+        pointer-events: none !important;
+    }
+    
+    /* Additional mask for any lingering watermark parts */
+    .watermark-mask-extended {
+        position: fixed !important;
+        bottom: 0 !important;
+        right: 0 !important;
+        width: 300px !important;
+        height: 80px !important;
+        background: white !important;
+        z-index: 999998 !important;
+        pointer-events: none !important;
+        opacity: 1 !important;
+    }
+    
+    /* Also target the specific Streamlit footer with extra aggressive hiding */
+    footer {
+        visibility: hidden !important;
+        height: 0 !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        overflow: hidden !important;
+        min-height: 0 !important;
+        max-height: 0 !important;
+        opacity: 0 !important;
+        display: none !important;
+    }
+    
+    /* Hide the deploy button container */
+    .stAppDeployButton {
+        display: none !important;
+        visibility: hidden !important;
+        height: 0 !important;
+        width: 0 !important;
+        opacity: 0 !important;
+        overflow: hidden !important;
+    }
+    
+    /* Hide any potential text containing "Hosted with" */
+    [class*="Hosted"], [class*="hosted"], [class*="streamlit"] {
+        display: none !important;
+    }
+    
+    .main-header {
+        display: none !important;
+    }
     
     .block-container {
         padding-top: 0.3rem !important;
-        padding-bottom: 0.3rem !important;
+        padding-bottom: 3.5rem !important;
         max-width: 1200px !important;
     }
     
     .stButton > button {
         background-color: #003366 !important;
         color: white !important;
-        border: none;
-        border-radius: 3px;
-        padding: 0.25rem 0.6rem;
-        font-weight: 400;
-        font-size: 0.75rem;
+        border: none !important;
+        border-radius: 3px !important;
+        padding: 0.4rem 0.6rem !important;
+        font-weight: 500 !important;
+        font-size: 0.8rem !important;
         transition: all 0.2s ease;
         width: 100%;
-        min-height: 32px;
+        min-height: 36px;
+        opacity: 1 !important;
+        visibility: visible !important;
     }
     .stButton > button:hover {
         background-color: #002244 !important;
@@ -175,17 +133,28 @@ st.markdown("""
     .stDownloadButton > button {
         background-color: #28a745 !important;
         color: white !important;
-        border: none;
-        border-radius: 3px;
-        padding: 0.25rem 0.6rem;
-        font-weight: 400;
-        font-size: 0.75rem;
+        border: none !important;
+        border-radius: 3px !important;
+        padding: 0.4rem 0.6rem !important;
+        font-weight: 500 !important;
+        font-size: 0.8rem !important;
         width: 100%;
-        min-height: 32px;
+        min-height: 36px;
+        opacity: 1 !important;
+        visibility: visible !important;
     }
     .stDownloadButton > button:hover {
         background-color: #218838 !important;
         box-shadow: 0 2px 6px rgba(40, 167, 69, 0.3);
+    }
+    
+    .stButton button p, .stButton button span {
+        color: white !important;
+        opacity: 1 !important;
+    }
+    .stDownloadButton button p, .stDownloadButton button span {
+        color: white !important;
+        opacity: 1 !important;
     }
     
     div[data-testid="stContainer"] {
@@ -196,20 +165,17 @@ st.markdown("""
         border: 1px solid #e0e0e0;
     }
     
-    h1, h2, h3, h4 {
+    h1, h2, h3, h4, h5, h6, p, label, span, div {
         color: #003366 !important;
-        font-weight: 500;
-        font-size: 0.85rem;
-        margin: 0 0 0.3rem 0;
     }
     
     .stCheckbox label {
         font-weight: 400;
-        color: #1a1a1a !important;
+        color: #003366 !important;
         font-size: 0.8rem;
     }
     .stCheckbox label:hover {
-        color: #003366 !important;
+        color: #002244 !important;
     }
     .stCheckbox {
         margin-bottom: 0.1rem;
@@ -244,7 +210,7 @@ st.markdown("""
         font-family: 'Roboto', sans-serif;
     }
     .metric-label {
-        color: #555 !important;
+        color: #003366 !important;
         font-size: 0.6rem;
         font-weight: 400;
         text-transform: uppercase;
@@ -272,8 +238,7 @@ st.markdown("""
     
     .stAlert {
         border-radius: 4px;
-        padding: 0.3rem;
-        font-size: 0.75rem;
+        padding: 0.4rem;
     }
     .stAlert[data-baseweb="notification"] {
         border-left-color: #003366 !important;
@@ -281,34 +246,34 @@ st.markdown("""
     
     .stSuccess {
         background-color: #d4edda !important;
-        color: #155724 !important;
+        color: #003366 !important;
     }
     .stSuccess * {
-        color: #155724 !important;
+        color: #003366 !important;
     }
     
     .stWarning {
         background-color: #fff3cd !important;
-        color: #856404 !important;
+        color: #003366 !important;
     }
     .stWarning * {
-        color: #856404 !important;
+        color: #003366 !important;
     }
     
     .stError {
         background-color: #f8d7da !important;
-        color: #721c24 !important;
+        color: #003366 !important;
     }
     .stError * {
-        color: #721c24 !important;
+        color: #003366 !important;
     }
     
     .stInfo {
         background-color: #e8f0fe !important;
-        color: #004085 !important;
+        color: #003366 !important;
     }
     .stInfo * {
-        color: #004085 !important;
+        color: #003366 !important;
     }
     
     .stSpinner > div {
@@ -316,13 +281,97 @@ st.markdown("""
     }
     
     .stMarkdown, .stMarkdown * {
-        color: #1a1a1a !important;
+        color: #003366 !important;
+    }
+    
+    /* Watermark masking footer overlay - original */
+    .footer-overlay {
+        position: fixed !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        height: 35px !important;
+        background-color: white !important;
+        z-index: 9999999 !important;
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.05) !important;
+        border-top: 1px solid #e8e8e8 !important;
+        pointer-events: none !important;
+    }
+    
+    .main {
+        padding-bottom: 45px !important;
+    }
+    
+    .stApp {
+        padding-bottom: 35px !important;
+    }
+    
+    .stAppViewContainer {
+        padding-bottom: 35px !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# --- PASSWORD CHECK ---
-if not check_password():
+# --- PERSISTENT FOOTER OVERLAY WITH WATERMARK MASK ---
+st.markdown("""
+<div class="footer-overlay"></div>
+<!-- Watermark mask overlay - covers the "Hosted with Streamlit" text -->
+<div class="watermark-mask"></div>
+<div class="watermark-mask-extended"></div>
+""", unsafe_allow_html=True)
+
+# --- LOGIN VERIFICATION LOGIC ---
+TARGET_HASH = "6e7dfba0b39da481db37c3263c61cac6"
+
+if 'authenticated' not in st.session_state:
+    st.session_state.authenticated = False
+
+def check_password(password):
+    hashed = hashlib.md5(password.encode('utf-8')).hexdigest()
+    return hashed == TARGET_HASH
+
+# --- 3x3 LOGIN GRID LAYOUT ---
+if not st.session_state.authenticated:
+    # Vertical grid row padding
+    st.write("##")
+    st.write("##")
+    
+    # 3 horizontal blocks (Left Margin, Center Panel, Right Margin)
+    r1_col1, r1_col2, r1_col3 = st.columns([1, 1.2, 1])
+    
+    with r1_col2:
+        with st.container():
+            st.markdown("<h3 style='text-align: center; margin-bottom: 20px;'>Access Required</h3>", unsafe_allow_html=True)
+            
+            # Add JavaScript to disable password autocomplete/save
+            st.markdown("""
+            <script>
+                // Function to disable password autocomplete
+                function disablePasswordAutocomplete() {
+                    const passwordInputs = document.querySelectorAll('input[type="password"]');
+                    passwordInputs.forEach(input => {
+                        input.setAttribute('autocomplete', 'new-password');
+                        input.setAttribute('autocomplete', 'off');
+                        input.removeAttribute('name');
+                    });
+                }
+                
+                disablePasswordAutocomplete();
+                setTimeout(disablePasswordAutocomplete, 100);
+                setTimeout(disablePasswordAutocomplete, 300);
+                setTimeout(disablePasswordAutocomplete, 500);
+            </script>
+            """, unsafe_allow_html=True)
+            
+            password_input = st.text_input("Enter password:", type="password", label_visibility="collapsed")
+            login_btn = st.button("Login", use_container_width=True)
+            
+            if login_btn or password_input:
+                if check_password(password_input):
+                    st.session_state.authenticated = True
+                    st.rerun()
+                else:
+                    st.error("Invalid token string provided.")
     st.stop()
 
 # --- CONFIGURATION ---
@@ -461,6 +510,31 @@ if "TRADE AREA" not in df.columns or "SITE NAME" not in df.columns:
     st.error("Data must contain 'TRADE AREA' and 'SITE NAME' columns.")
     st.stop()
 
+# Check for TRADE AREA NO column for unique count
+trade_area_no_col = None
+for col in df.columns:
+    if "TRADE AREA NO" in col.upper() or "TRADE AREA #" in col.upper():
+        trade_area_no_col = col
+        break
+
+# Get unique trade area count from TRADE AREA NO (for stats)
+if trade_area_no_col:
+    unique_trade_areas_count = len(df[trade_area_no_col].dropna().unique())
+else:
+    unique_trade_areas_count = len(df["TRADE AREA"].unique())
+
+# Get ALL unique TRADE AREA names for checkboxes (not connected to TRADE AREA NO)
+all_trade_areas = sorted(df["TRADE AREA"].dropna().unique())
+
+# Create a mapping of TRADE AREA NO to TRADE AREA name for filtering when generating
+trade_area_no_to_name = {}
+if trade_area_no_col:
+    unique_combos = df[[trade_area_no_col, "TRADE AREA"]].drop_duplicates()
+    for _, row in unique_combos.iterrows():
+        key = str(row[trade_area_no_col])
+        value = str(row["TRADE AREA"])
+        trade_area_no_to_name[key] = value
+
 template_wb = openpyxl.load_workbook(template_data)
 template_sheet = template_wb.active
 placeholders = get_placeholders(template_sheet)
@@ -490,7 +564,7 @@ with col1:
         <div class="metric-label">Records</div>
     </div>
     <div class="metric-card">
-        <div class="metric-value">{len(df['TRADE AREA'].unique())}</div>
+        <div class="metric-value">{unique_trade_areas_count}</div>
         <div class="metric-label">Trade Areas</div>
     </div>
     <div class="metric-card">
@@ -498,77 +572,69 @@ with col1:
         <div class="metric-label">Placeholders</div>
     </div>
     """, unsafe_allow_html=True)
+    
+    # Refresh button under Placeholders
+    st.markdown("---")
+    if st.button("Refresh Data", use_container_width=True):
+        st.cache_data.clear()
+        st.cache_resource.clear()
+        if os.path.exists(_config_file):
+            os.remove(_config_file)
+        st.rerun()
 
 # --- COLUMN 2: TRADE AREA SELECTION ---
 with col2:
     st.markdown("### Select Trade Areas")
     
-    unique_tas = sorted([str(ta) for ta in df["TRADE AREA"].dropna().unique()])
-    
     # Select All / Clear All buttons
     btn_col1, btn_col2 = st.columns(2)
     with btn_col1:
         if st.button("Select All", use_container_width=True):
-            for ta in unique_tas:
+            for ta in all_trade_areas:
                 st.session_state[f"ta_{ta}"] = True
-            st.session_state.selected_tas = unique_tas.copy()
             st.rerun()
     with btn_col2:
         if st.button("Clear All", use_container_width=True):
-            for ta in unique_tas:
+            for ta in all_trade_areas:
                 st.session_state[f"ta_{ta}"] = False
-            st.session_state.selected_tas = []
             st.rerun()
     
     # Initialize session state for checkboxes - default unchecked
-    for ta in unique_tas:
+    for ta in all_trade_areas:
         if f"ta_{ta}" not in st.session_state:
             st.session_state[f"ta_{ta}"] = False
     
-    # Checkboxes in scrollable container
+    # Checkboxes in scrollable container - display ALL TRADE AREA names
     st.markdown('<div class="checkbox-container">', unsafe_allow_html=True)
-    selected_tas = []
-    for ta in unique_tas:
-        if st.checkbox(ta, key=f"ta_{ta}"):
-            selected_tas.append(ta)
+    for ta in all_trade_areas:
+        st.checkbox(ta, key=f"ta_{ta}")
     st.markdown('</div>', unsafe_allow_html=True)
-    
-    st.session_state.selected_tas = selected_tas
 
 # --- COLUMN 3: ACTIONS ---
 with col3:
     st.markdown("### Actions")
     
-    # Refresh button at top of actions
-    if st.button("Refresh Data", use_container_width=True):
-        # Clear all caches
-        st.cache_data.clear()
-        st.cache_resource.clear()
-        # Remove the config file to force reload
-        if os.path.exists(_config_file):
-            os.remove(_config_file)
-        # Rerun the app
-        st.rerun()
-    
-    st.divider()
-    
     if st.session_state.zip_data is None and st.session_state.single_file is None:
         if st.button("Generate Reports", use_container_width=True, type="primary"):
-            selected = st.session_state.selected_tas
-            if not selected:
+            # Get selected trade area names from session state
+            selected_trade_areas = [ta for ta in all_trade_areas if st.session_state.get(f"ta_{ta}", False)]
+            
+            if not selected_trade_areas:
                 st.warning("Select at least one Trade Area.")
             else:
                 with st.spinner("Generating..."):
                     progress_bar = st.progress(0)
                     
-                    filtered_df = df[df["TRADE AREA"].astype(str).isin(selected)]
+                    # Filter based on selected trade area names
+                    filtered_df = df[df["TRADE AREA"].isin(selected_trade_areas)]
+                    
                     groups = filtered_df.groupby("TRADE AREA")
                     total_groups = len(groups)
                     
                     # If only one trade area selected, create single file
-                    if len(selected) == 1:
-                        trade_area = selected[0]
-                        group = filtered_df[filtered_df["TRADE AREA"].astype(str) == trade_area]
+                    if len(selected_trade_areas) == 1:
+                        selected_ta = selected_trade_areas[0]
+                        group = filtered_df[filtered_df["TRADE AREA"] == selected_ta]
                         
                         template_data.seek(0)
                         wb = openpyxl.load_workbook(template_data)
@@ -590,7 +656,6 @@ with col3:
                                         for ph in placeholders:
                                             target_regex = r"\{\{\s*" + re.escape(ph) + r"(\s*:.*?)?\}\}"
                                             if re.search(target_regex, new_val):
-                                                # Get the value from the row
                                                 raw_data_val = row.get(ph.upper(), "")
                                                 if pd.isna(raw_data_val) or raw_data_val is None:
                                                     raw_data_val = ""
@@ -608,7 +673,7 @@ with col3:
                         wb.remove(base_sheet)
                         wb_buffer = io.BytesIO()
                         wb.save(wb_buffer)
-                        safe_filename = str(trade_area).replace("/", "-").replace("\\", "-")
+                        safe_filename = str(selected_ta).replace("/", "-").replace("\\", "-")
                         
                         st.session_state.single_file = {
                             "data": wb_buffer.getvalue(),
@@ -641,7 +706,6 @@ with col3:
                                                 for ph in placeholders:
                                                     target_regex = r"\{\{\s*" + re.escape(ph) + r"(\s*:.*?)?\}\}"
                                                     if re.search(target_regex, new_val):
-                                                        # Get the value from the row
                                                         raw_data_val = row.get(ph.upper(), "")
                                                         if pd.isna(raw_data_val) or raw_data_val is None:
                                                             raw_data_val = ""
