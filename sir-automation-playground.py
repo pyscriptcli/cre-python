@@ -11,26 +11,68 @@ from copy import copy
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(
-    page_title="Report Generator",
+    page_title="trs.sitesourcing report",
     page_icon="",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# --- CUSTOM CSS - MINIMALIST ---
+# --- FORCE LIGHT MODE ---
 st.markdown("""
 <style>
+    /* Force light mode */
+    .stApp {
+        background-color: #ffffff !important;
+    }
+    .stApp > header {
+        background-color: #ffffff !important;
+    }
+    .stApp > div {
+        background-color: #ffffff !important;
+    }
+    .main > div {
+        background-color: #ffffff !important;
+    }
+    .block-container {
+        background-color: #ffffff !important;
+    }
+    div[data-testid="stVerticalBlock"] {
+        background-color: #ffffff !important;
+    }
+    div[data-testid="stHorizontalBlock"] {
+        background-color: #ffffff !important;
+    }
+    
+    /* Override any dark mode elements */
+    .stButton > button {
+        background-color: #003366 !important;
+        color: white !important;
+    }
+    .stDownloadButton > button {
+        background-color: #28a745 !important;
+        color: white !important;
+    }
+    .stAlert {
+        background-color: #f8f9fa !important;
+    }
+    .stSelectbox > div {
+        background-color: white !important;
+    }
+    .stMultiSelect > div {
+        background-color: white !important;
+    }
+    
     /* Import Roboto from Google */
     @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
     
     * {
         font-family: 'Roboto', 'Segoe UI', sans-serif !important;
+        color: #1a1a1a !important;
     }
     
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
-    .stApp {background-color: #f5f5f5;}
     
     .block-container {
         padding-top: 0.5rem !important;
@@ -39,29 +81,26 @@ st.markdown("""
     }
     
     .main-header {
-        background-color: #003366;
+        background-color: #003366 !important;
         padding: 0.6rem 1.2rem;
         border-radius: 4px;
         margin-bottom: 0.6rem;
-        color: white;
     }
     .main-header h1 {
-        color: white;
+        color: white !important;
         font-weight: 500;
         margin: 0;
         font-size: 1.2rem;
         letter-spacing: 0.5px;
     }
     .main-header p {
-        color: #e6e6e6;
+        color: #e6e6e6 !important;
         margin: 0;
         font-size: 0.75rem;
         font-weight: 300;
     }
     
     .stButton > button {
-        background-color: #003366;
-        color: white;
         border: none;
         border-radius: 3px;
         padding: 0.25rem 0.6rem;
@@ -70,15 +109,14 @@ st.markdown("""
         transition: all 0.2s ease;
         width: 100%;
         min-height: 32px;
+        color: white !important;
     }
     .stButton > button:hover {
-        background-color: #002244;
+        background-color: #002244 !important;
         box-shadow: 0 2px 6px rgba(0, 51, 102, 0.2);
     }
     
     .stDownloadButton > button {
-        background-color: #28a745;
-        color: white;
         border: none;
         border-radius: 3px;
         padding: 0.25rem 0.6rem;
@@ -86,24 +124,30 @@ st.markdown("""
         font-size: 0.75rem;
         width: 100%;
         min-height: 32px;
+        color: white !important;
     }
     .stDownloadButton > button:hover {
-        background-color: #218838;
+        background-color: #218838 !important;
+        box-shadow: 0 2px 6px rgba(40, 167, 69, 0.2);
     }
     
     div[data-testid="stContainer"] {
-        background-color: white;
+        background-color: white !important;
         border-radius: 4px;
         padding: 0.6rem;
         box-shadow: 0 1px 3px rgba(0,0,0,0.08);
         border: 1px solid #e8e8e8;
     }
     
-    .stAlert {border-radius: 4px; padding: 0.4rem;}
-    .stAlert[data-baseweb="notification"] {border-left-color: #003366;}
+    .stAlert {
+        border-radius: 4px;
+        padding: 0.4rem;
+        background-color: #f8f9fa !important;
+    }
+    .stAlert[data-baseweb="notification"] {border-left-color: #003366 !important;}
     
     h1, h2, h3, h4 {
-        color: #003366;
+        color: #003366 !important;
         font-weight: 500;
         font-size: 0.85rem;
         margin: 0 0 0.3rem 0;
@@ -111,7 +155,7 @@ st.markdown("""
     
     .stCheckbox label {
         font-weight: 400;
-        color: #1a1a1a;
+        color: #1a1a1a !important;
         font-size: 0.8rem;
     }
     
@@ -119,11 +163,11 @@ st.markdown("""
         margin-bottom: 0.1rem;
     }
     
-    .stProgress > div > div {background-color: #003366;}
-    hr {border-color: #003366; opacity: 0.15; margin: 0.5rem 0;}
+    .stProgress > div > div {background-color: #003366 !important;}
+    hr {border-color: #003366 !important; opacity: 0.15; margin: 0.5rem 0;}
     
     .metric-card {
-        background-color: white;
+        background-color: white !important;
         border-radius: 4px;
         padding: 0.4rem;
         box-shadow: 0 1px 3px rgba(0,0,0,0.08);
@@ -134,11 +178,11 @@ st.markdown("""
     .metric-value {
         font-size: 1.1rem;
         font-weight: 500;
-        color: #003366;
+        color: #003366 !important;
         font-family: 'Roboto', sans-serif;
     }
     .metric-label {
-        color: #666;
+        color: #666 !important;
         font-size: 0.6rem;
         font-weight: 300;
         text-transform: uppercase;
@@ -151,6 +195,7 @@ st.markdown("""
         max-height: 280px;
         overflow-y: auto;
         padding-right: 4px;
+        background-color: white !important;
     }
     .checkbox-container::-webkit-scrollbar {
         width: 4px;
@@ -164,21 +209,58 @@ st.markdown("""
         border-radius: 2px;
     }
     
-    /* Action buttons area */
-    .action-area {
-        display: flex;
-        flex-direction: column;
-        gap: 0.3rem;
-    }
-    
     .stSpinner > div {
         border-color: #003366 !important;
     }
     
-    /* Success message */
     .stSuccess {
         font-size: 0.8rem;
         padding: 0.3rem;
+        background-color: #d4edda !important;
+        color: #155724 !important;
+    }
+    .stSuccess * {
+        color: #155724 !important;
+    }
+    
+    .stWarning {
+        background-color: #fff3cd !important;
+        color: #856404 !important;
+    }
+    .stWarning * {
+        color: #856404 !important;
+    }
+    
+    .stError {
+        background-color: #f8d7da !important;
+        color: #721c24 !important;
+    }
+    .stError * {
+        color: #721c24 !important;
+    }
+    
+    .stInfo {
+        background-color: #e8f0fe !important;
+        color: #004085 !important;
+    }
+    .stInfo * {
+        color: #004085 !important;
+    }
+    
+    /* Force white backgrounds for all inputs */
+    .stSelectbox > div > div {
+        background-color: white !important;
+    }
+    .stMultiSelect > div > div {
+        background-color: white !important;
+    }
+    .stTextInput > div > div > input {
+        background-color: white !important;
+    }
+    
+    /* Ensure all text is visible */
+    .stMarkdown, .stMarkdown * {
+        color: #1a1a1a !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -343,7 +425,7 @@ def load_files():
 # --- HEADER ---
 st.markdown("""
 <div class="main-header">
-    <h1>Report Generator</h1>
+    <h1>trs.sitesourcing report</h1>
     <p>Generate trade area reports</p>
 </div>
 """, unsafe_allow_html=True)
