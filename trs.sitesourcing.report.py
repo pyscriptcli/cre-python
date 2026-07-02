@@ -27,7 +27,7 @@ if not os.path.exists(_config_file):
     with open(_config_file, "w", encoding="utf-8") as f:
         f.write("[theme]\nbase=\"light\"\n")
 
-# --- CUSTOM CSS WITH FIXED FOOTER OVERLAY ---
+# --- CUSTOM CSS WITH EXPANDED HIDDEN OVERLAYS ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
@@ -36,7 +36,7 @@ st.markdown("""
         font-family: 'Roboto', 'Segoe UI', sans-serif !important;
     }
     
-    /* Strict Hiding of Streamlit Footers, Menus, Headers, and Watermarks */
+    /* Strict Hiding of Streamlit Footers, Menus, Headers, and Options Button */
     #MainMenu {visibility: hidden !important;}
     footer {visibility: hidden !important;}
     header {visibility: hidden !important;}
@@ -44,55 +44,16 @@ st.markdown("""
     .stAppDeployButton {display: none !important;}
     div[data-testid="stStatusWidget"] {display: none !important;}
     
-    /* Target and terminate native "Hosted with Streamlit" container classes */
-    [data-testid="stViewerBadge"], .viewerBadge_container__1QSob, .viewerBadge_link__1S16K {
-        display: none !important;
-        visibility: hidden !important;
-    }
-    div[data-testid="stDecoration"] {
-        display: none !important;
-        visibility: hidden !important;
-    }
-    
     .main-header {
         display: none !important;
     }
     
     .block-container {
         padding-top: 0.3rem !important;
-        padding-bottom: 4rem !important;
+        padding-bottom: 3.5rem !important;
         max-width: 1200px !important;
     }
     
-    /* Custom Footer Cover Styling */
-    .custom-footer {
-        position: fixed;
-        left: 0;
-        bottom: 0;
-        width: 100%;
-        background-color: white;
-        color: #003366;
-        text-align: center;
-        padding: 8px 0;
-        font-size: 0.8rem;
-        border-top: 1px solid #e0e0e0;
-        z-index: 999999;
-    }
-    .custom-footer p {
-        margin: 0 !important;
-        padding: 0 !important;
-        color: #003366 !important;
-    }
-    .custom-footer a {
-        display: block;
-        text-align: center;
-        color: #002244 !important;
-        text-decoration: none;
-        font-weight: 500;
-        margin-top: 2px;
-    }
-    
-    /* Core Layout Component UI Styles */
     .stButton > button {
         background-color: #003366 !important;
         color: white !important;
@@ -268,11 +229,38 @@ st.markdown("""
     .stMarkdown, .stMarkdown * {
         color: #003366 !important;
     }
+    
+    /* Watermark masking footer overlay */
+    .footer-overlay {
+        position: fixed !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        height: 35px !important;
+        background-color: white !important;
+        z-index: 9999999 !important;
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.05) !important;
+        border-top: 1px solid #e8e8e8 !important;
+        pointer-events: none !important;
+    }
+    
+    .main {
+        padding-bottom: 45px !important;
+    }
+    
+    .stApp {
+        padding-bottom: 35px !important;
+    }
+    
+    .stAppViewContainer {
+        padding-bottom: 35px !important;
+    }
 </style>
+""", unsafe_allow_html=True)
 
-<div class='custom-footer'>
-    <p>Application Portal <a href='mailto:support@trs-reporting.internal'>Contact Support Administrator</a></p>
-</div>
+# --- PERSISTENT FOOTER OVERLAY ---
+st.markdown("""
+<div class="footer-overlay"></div>
 """, unsafe_allow_html=True)
 
 # --- LOGIN VERIFICATION LOGIC ---
@@ -287,16 +275,18 @@ def check_password(password):
 
 # --- 3x3 LOGIN GRID LAYOUT ---
 if not st.session_state.authenticated:
+    # Vertical grid row padding
     st.write("##")
     st.write("##")
     
+    # 3 horizontal blocks (Left Margin, Center Panel, Right Margin)
     r1_col1, r1_col2, r1_col3 = st.columns([1, 1.2, 1])
     
     with r1_col2:
         with st.container():
-            st.markdown("<h3 style='text-align: center; margin-bottom: 20px;'>Secure Login</h3>", unsafe_allow_html=True)
-            password_input = st.text_input("Enter Access Token", type="password", label_visibility="collapsed")
-            login_btn = st.button("Authenticate", use_container_width=True)
+            st.markdown("<h3 style='text-align: center; margin-bottom: 20px;'>Access Required</h3>", unsafe_allow_html=True)
+            password_input = st.text_input("Enter password:", type="password", label_visibility="collapsed")
+            login_btn = st.button("Login", use_container_width=True)
             
             if login_btn or password_input:
                 if check_password(password_input):
