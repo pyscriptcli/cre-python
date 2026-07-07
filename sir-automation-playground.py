@@ -21,7 +21,7 @@ st.set_page_config(
     page_title="trs.sitesourcing.viewer",
     page_icon="👁️",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
 # --- PROGRAMMATIC LIGHT MODE LOCK ---
@@ -93,31 +93,31 @@ st.markdown("""
         color: #333333 !important;
     }
     
-    .sidebar-section {
+    .control-section {
         background-color: #f5f5f5 !important;
         border-radius: 4px;
-        padding: 1rem;
-        margin-bottom: 1rem;
+        padding: 0.8rem 1rem !important;
         border: 1px solid #e8e8e8;
+        margin-bottom: 0.5rem;
     }
     
     .metric-card {
         background-color: #f5f5f5 !important;
         border-radius: 4px;
-        padding: 0.4rem;
+        padding: 0.3rem 0.5rem;
         box-shadow: 0 1px 3px rgba(0,0,0,0.04);
         border-left: 3px solid #999999;
         text-align: center;
-        margin-bottom: 0.3rem;
+        margin-bottom: 0.2rem;
     }
     .metric-value {
-        font-size: 1.1rem;
+        font-size: 1rem;
         font-weight: 500;
         color: #333333 !important;
     }
     .metric-label {
         color: #666666 !important;
-        font-size: 0.6rem;
+        font-size: 0.55rem;
         font-weight: 400;
         text-transform: uppercase;
         letter-spacing: 0.5px;
@@ -135,8 +135,20 @@ st.markdown("""
         padding: 1rem;
         border: 1px solid #e8e8e8;
         overflow: auto;
-        min-height: 600px;
+        min-height: 500px;
+        max-height: 800px;
         box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    
+    .excel-container table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 11px;
+    }
+    
+    .excel-container td {
+        padding: 4px 6px;
+        border: 1px solid #d0d0d0;
     }
     
     /* Tab styling */
@@ -174,6 +186,26 @@ st.markdown("""
         box-shadow: 0 -2px 10px rgba(0,0,0,0.03) !important;
         border-top: 1px solid #e8e8e8 !important;
         pointer-events: none !important;
+    }
+    
+    /* Info box styling */
+    .info-box {
+        background-color: #f8f8f8;
+        border-radius: 4px;
+        padding: 0.5rem 0.8rem;
+        border: 1px solid #e8e8e8;
+        margin-top: 0.3rem;
+    }
+    
+    .info-box strong {
+        color: #333333;
+    }
+    
+    .info-box .label {
+        color: #666666;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -328,7 +360,7 @@ def render_excel_to_html(workbook, sheet_name=None):
     max_row = ws.max_row
     max_col = ws.max_column
     
-    html = '<table style="border-collapse: collapse; font-family: \'Roboto\', sans-serif; font-size: 12px; width: 100%;">'
+    html = '<table style="border-collapse: collapse; font-family: \'Roboto\', sans-serif; font-size: 11px; width: 100%;">'
     
     # Build merged cell map
     merged_cells = {}
@@ -365,7 +397,7 @@ def render_excel_to_html(workbook, sheet_name=None):
             
             font_color = '#333333'
             font_weight = 'normal'
-            font_size = '12px'
+            font_size = '11px'
             if cell.font:
                 if cell.font.color and cell.font.color.rgb:
                     font_color = cell.font.color.rgb
@@ -390,7 +422,7 @@ def render_excel_to_html(workbook, sheet_name=None):
             
             # Build style
             style = f'background-color: {bg_color}; color: {font_color}; font-weight: {font_weight}; font-size: {font_size}; '
-            style += f'text-align: {h_align}; vertical-align: {v_align}; padding: 6px 8px; border: {border_style}; '
+            style += f'text-align: {h_align}; vertical-align: {v_align}; padding: 4px 6px; border: {border_style}; '
             
             if wrap_text:
                 style += 'white-space: normal; word-wrap: break-word; max-width: 300px; '
@@ -444,92 +476,83 @@ if df is None or template_wb is None:
     st.error("Failed to load data. Please check your internet connection and try again.")
     st.stop()
 
-# --- SIDEBAR ---
-with st.sidebar:
-    st.markdown("### 📊 Viewer Controls")
-    st.markdown("---")
-    
-    # Get unique trade areas
-    trade_areas = sorted(df["TRADE AREA"].dropna().unique())
-    
-    # Check for TRADE AREA NO column
-    trade_area_no_col = None
-    for col in df.columns:
-        if "TRADE AREA NO" in col.upper() or "TRADE AREA #" in col.upper():
-            trade_area_no_col = col
-            break
-    
-    # Trade Area dropdown
+# --- MAIN CONTENT ---
+st.markdown("### 👁️ Report Viewer")
+
+# --- ROW 1: CONTROLS ---
+st.markdown('<div class="control-section">', unsafe_allow_html=True)
+
+# Get unique trade areas
+trade_areas = sorted(df["TRADE AREA"].dropna().unique())
+
+# Check for TRADE AREA NO column
+trade_area_no_col = None
+for col in df.columns:
+    if "TRADE AREA NO" in col.upper() or "TRADE AREA #" in col.upper():
+        trade_area_no_col = col
+        break
+
+# Create 3 columns for controls
+col1, col2, col3, col4, col5 = st.columns([1.5, 1.5, 1.2, 0.8, 0.8])
+
+with col1:
     selected_ta = st.selectbox(
-        "Select Trade Area",
+        "🏢 Trade Area",
         options=trade_areas,
         index=0 if trade_areas else None,
         key="ta_select"
     )
-    
+
+with col2:
     if selected_ta:
-        # Filter sites for selected trade area
         sites_in_ta = df[df["TRADE AREA"] == selected_ta]["SITE NAME"].dropna().unique()
         sites_in_ta = sorted(sites_in_ta)
-        
-        # Site Name dropdown
         selected_site = st.selectbox(
-            "Select Site",
+            "📍 Site Name",
             options=sites_in_ta,
             index=0 if len(sites_in_ta) > 0 else None,
             key="site_select"
         )
-        
-        st.markdown("---")
-        
-        # Display information about selected site
-        if selected_site:
-            site_data = df[(df["TRADE AREA"] == selected_ta) & (df["SITE NAME"] == selected_site)]
-            if not site_data.empty:
-                st.markdown("### 📋 Site Details")
-                
-                # Show key fields
-                info_fields = ["SITE NAME", "ADDRESS", "CITY", "STATE", "ZIP", "PHONE"]
-                for field in info_fields:
-                    if field in df.columns:
-                        col_upper = field.upper()
-                        if col_upper in df.columns:
-                            val = site_data[col_upper].iloc[0]
-                            if pd.notna(val) and val != "":
-                                st.markdown(f"**{field}:** {val}")
-                
-                # Show TRADE AREA NO if available
-                if trade_area_no_col:
-                    ta_no = site_data[trade_area_no_col].iloc[0]
-                    if pd.notna(ta_no):
-                        st.markdown(f"**Trade Area #:** {ta_no}")
-    
-    st.markdown("---")
-    st.markdown("### 📈 Statistics")
-    
-    # Stats
+    else:
+        selected_site = st.selectbox(
+            "📍 Site Name",
+            options=[],
+            key="site_select"
+        )
+        st.warning("Select a Trade Area first")
+
+with col3:
+    # Show site info summary
+    if selected_ta and selected_site:
+        site_data = df[(df["TRADE AREA"] == selected_ta) & (df["SITE NAME"] == selected_site)]
+        if not site_data.empty:
+            # Show TRADE AREA NO if available
+            if trade_area_no_col:
+                ta_no = site_data[trade_area_no_col].iloc[0]
+                if pd.notna(ta_no):
+                    st.markdown(f"**Trade Area #:** {ta_no}")
+            
+            # Show address if available
+            if "ADDRESS" in df.columns:
+                addr = site_data["ADDRESS"].iloc[0]
+                if pd.notna(addr) and addr != "":
+                    st.markdown(f"**Address:** {addr}")
+
+with col4:
+    st.markdown("&nbsp;")  # Spacer
+    if st.button("🔄 Refresh", use_container_width=True):
+        st.cache_data.clear()
+        st.rerun()
+
+with col5:
+    st.markdown("&nbsp;")  # Spacer
+    # Statistics button or indicator
     total_sites = len(df["SITE NAME"].dropna().unique())
-    total_tas = len(trade_areas)
-    total_placeholders = len(placeholders)
-    
-    st.markdown(f"""
-    <div class="metric-card">
-        <div class="metric-value">{total_tas}</div>
-        <div class="metric-label">Trade Areas</div>
-    </div>
-    <div class="metric-card">
-        <div class="metric-value">{total_sites}</div>
-        <div class="metric-label">Total Sites</div>
-    </div>
-    <div class="metric-card">
-        <div class="metric-value">{total_placeholders}</div>
-        <div class="metric-label">Placeholders</div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(f"**Total Sites:** {total_sites}")
 
-# --- MAIN CONTENT ---
-st.markdown("### 👁️ Report Viewer")
+st.markdown('</div>', unsafe_allow_html=True)
 
+# --- ROW 2: VIEWER ---
 if selected_ta and selected_site:
     try:
         # Get the data for the selected site
@@ -650,15 +673,11 @@ if selected_ta and selected_site:
                 # Summary
                 populated = sum(1 for p in placeholder_data if p["Status"] == "✅ Populated")
                 total = len(placeholder_data)
-                st.markdown(f"**Summary:** {populated}/{total} placeholders populated")
+                st.progress(populated/total if total > 0 else 0)
+                st.markdown(f"**{populated}** of **{total}** placeholders populated ({int(populated/total*100) if total > 0 else 0}%)")
     
     except Exception as e:
         st.error(f"Error generating report: {str(e)}")
         st.info("Please try selecting a different site or trade area.")
 else:
-    st.info("👈 Select a Trade Area and Site from the sidebar to view the report.")
-
-# Optional: Refresh button at bottom
-if st.button("🔄 Refresh Data", use_container_width=True):
-    st.cache_data.clear()
-    st.rerun()
+    st.info("👆 Select a Trade Area and Site from the controls above to view the report.")
