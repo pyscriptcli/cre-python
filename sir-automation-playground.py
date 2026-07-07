@@ -27,7 +27,7 @@ if not os.path.exists(_config_file):
     with open(_config_file, "w", encoding="utf-8") as f:
         f.write("[theme]\nbase=\"light\"\n")
 
-# --- CUSTOM CSS FOR HIGH-CONTRAST DATA PREVIEW ---
+# --- CUSTOM CSS ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
@@ -171,7 +171,6 @@ def sanitize_tab_name(name, existing_names):
         counter += 1
 
 def parse_excel_color(openpyxl_color, default_hex="#FFFFFF"):
-    """Safely extracts real hex values from openpyxl color models, handling indexed configurations."""
     if not openpyxl_color:
         return default_hex
     if openpyxl_color.type == 'rgb' and openpyxl_color.rgb:
@@ -231,14 +230,11 @@ def render_range_to_html(workbook, sheet_name=None, range_string="A1:P67"):
             if re.match(r'^\d+\.0$', val_str):
                 val_str = val_str.split('.')[0]
                 
-            # Safely resolve background color fill maps
             bg_hex = "#FFFFFF"
             if cell.fill and cell.fill.fill_type:
                 bg_hex = parse_excel_color(cell.fill.fgColor, "#FFFFFF")
             
-            # --- FIX FOR THE BLACK BOXES ---
-            # If the cell background evaluates directly to solid pure black (#000000) or 
-            # if it's the specific empty accent bars at the bottom, reset them safely to match theme aesthetics
+            # Reset automatic system default blacks to clear white canvas frames
             if bg_hex == "#000000" and val_str == "":
                 bg_hex = "#FFFFFF"
                 
@@ -248,7 +244,7 @@ def render_range_to_html(workbook, sheet_name=None, range_string="A1:P67"):
                 if cell.font.bold: font_weight = 'bold'
                 font_hex = parse_excel_color(cell.font.color, "#333333")
                 if font_hex == "#000000" and bg_hex == "#000000":
-                    font_hex = "#FFFFFF" # Contrast fix safety check
+                    font_hex = "#FFFFFF"
                     
             val_upper = val_str.upper()
             if bg_hex.lower() in ['#800000', '#8c0000', '#7a0000'] or "SITE INFORMATION REPORT" in val_upper:
@@ -264,23 +260,26 @@ def render_range_to_html(workbook, sheet_name=None, range_string="A1:P67"):
                 if cell.alignment and cell.alignment.horizontal:
                     h_align = cell.alignment.horizontal
             
-            # Dynamic extraction layout for individual border parameters
-            border_css = "border: 1px solid #a0a0a0;" # High contrast baseline
+            border_css = "border: 1px solid #d0d0d0;"
             if cell.border:
                 t_side = cell.border.top
                 b_side = cell.border.bottom
                 l_side = cell.border.left
                 r_side = cell.border.right
                 
-                t_color = parse_excel_color(t_side.color, "#a0a0a0") if t_side else "#a0a0a0"
-                b_color = parse_excel_color(b_side.color, "#a0a0a0") if b_side else "#a0a0a0"
-                l_color = parse_excel_color(l_side.color, "#a0a0a0") if l_side else "#a0a0a0"
-                r_color = parse_excel_color(r_side.color, "#a0a0a0") if r_side else "#a0a0a0"
+                t_color = parse_excel_color(t_side.color, "#d0d0d0") if t_side and t_side.style else "transparent"
+                b_color = parse_excel_color(b_side.color, "#d0d0d0") if b_side and b_side.style else "transparent"
+                l_color = parse_excel_color(l_side.color, "#d0d0d0") if l_side and l_side.style else "transparent"
+                r_color = parse_excel_color(r_side.color, "#d0d0d0") if r_side and r_side.style else "transparent"
                 
-                border_css = f"border-top: 1px solid {t_color}; "
-                border_css += f"border-bottom: 1px solid {b_color}; "
-                border_css += f"border-left: 1px solid {l_color}; "
-                border_css += f"border-right: 1px solid {r_color};"
+                # Fallback to standard grid line color mapping if custom parameters are active
+                if t_color == "transparent" and b_color == "transparent" and l_color == "transparent" and r_color == "transparent":
+                    border_css = "border: 1px solid #d0d0d0;"
+                else:
+                    border_css = f"border-top: 1px solid {t_color if t_color != 'transparent' else '#d0d0d0'}; "
+                    border_css += f"border-bottom: 1px solid {b_color if b_color != 'transparent' else '#d0d0d0'}; "
+                    border_css += f"border-left: 1px solid {l_color if l_color != 'transparent' else '#d0d0d0'}; "
+                    border_css += f"border-right: 1px solid {r_color if r_color != 'transparent' else '#d0d0d0'};"
                     
             style = f'background-color: {bg_hex}; color: {font_hex}; font-weight: {font_weight}; '
             style += f'text-align: {h_align}; {border_css} '
@@ -405,7 +404,7 @@ with col5:
 with col6:
     st.markdown(f"<p class='info-text'>Sites: {len(df['SITE NAME'].dropna().unique())}</p>", unsafe_allow_html=True)
 
-# --- DIRECT HTML INJECTION LAYER (Brave Safe) ---
+# --- DIRECT HTML INJECTION LAYER ---
 if site_excel_bytes:
     try:
         active_wb = load_workbook(io.BytesIO(site_excel_bytes))
