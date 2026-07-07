@@ -349,11 +349,11 @@ if selected_ta and selected_site:
 with col4:
     if site_excel_bytes:
         safe_filename = f"{selected_site}_{selected_ta}".replace("/", "-").replace("\\", "-")
-        st.download_button("Excel Report", data=site_excel_bytes, file_name=f"{safe_filename}.xlsx", use_container_width=True)
+        st.download_button("Download Site Report", data=site_excel_bytes, file_name=f"{safe_filename}.xlsx", use_container_width=True)
 
 with col5:
     if selected_ta:
-        if st.button("Trade Report", use_container_width=True):
+        if st.button("Download Trade Area Report", use_container_width=True):
             with st.spinner("Generating..."):
                 ta_data = df[df["TRADE AREA"] == selected_ta]
                 template_data.seek(0)
