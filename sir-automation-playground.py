@@ -11,6 +11,7 @@ import os
 import hashlib
 from openpyxl import load_workbook
 import streamlit.components.v1 as components
+import base64
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(
@@ -97,7 +98,7 @@ st.markdown("""
         margin-bottom: 1rem;
     }
     
-    /* Password visibility icon - flat black and white */
+    /* Password visibility icon - flat black */
     div[data-testid="stTextInput"] button {
         background: transparent !important;
         border: none !important;
@@ -748,8 +749,8 @@ with col2:
 with col3:
     # Single step export - direct download with auto-trigger
     if selected_ta and selected_ta != "Select Trade Area...":
-        if st.button("Export All Sites", use_container_width=True):
-            with st.spinner("Generating report and preparing download..."):
+        if st.button("Export", use_container_width=True):
+            with st.spinner("Exporting report and preparing download..."):
                 wb_buffer = generate_trade_area_report(df, selected_ta, template_bytes_raw, placeholders)
                 # Use a hidden download button that auto-triggers
                 b64 = base64.b64encode(wb_buffer.getvalue()).decode()
