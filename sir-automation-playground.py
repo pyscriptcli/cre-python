@@ -315,7 +315,8 @@ if selected_ta and selected_site:
         base_sheet = wb.active
         for row_cells in base_sheet.iter_rows():
             for cell in row_cells:
-                if isinstance(cell.value, str) and "{?" in cell.value or "{{" in cell.value:
+                # FIXED: Added safe type safety grouping logic check wrapper
+                if isinstance(cell.value, str) and ("{{" in cell.value):
                     new_val = cell.value
                     for ph in placeholders:
                         target_regex = r"\{\{\s*" + re.escape(ph) + r"(\s*:.*?)?\}\}"
