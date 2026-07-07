@@ -11,7 +11,6 @@ import os
 import hashlib
 from openpyxl import load_workbook
 import streamlit.components.v1 as components
-import base64
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(
@@ -98,7 +97,7 @@ st.markdown("""
         margin-bottom: 1rem;
     }
     
-    /* Hide the password visibility text and show icon instead */
+    /* Password visibility icon - flat black and white */
     div[data-testid="stTextInput"] button {
         background: transparent !important;
         border: none !important;
@@ -107,30 +106,23 @@ st.markdown("""
         height: auto !important;
         width: auto !important;
         padding: 4px 8px !important;
-        font-size: 18px !important;
-        color: #5f6368 !important;
     }
     div[data-testid="stTextInput"] button:hover {
         background: transparent !important;
         box-shadow: none !important;
     }
     div[data-testid="stTextInput"] button svg {
-        width: 20px !important;
-        height: 20px !important;
+        display: none !important;
     }
     div[data-testid="stTextInput"] button span {
         display: none !important;
     }
     div[data-testid="stTextInput"] button::before {
-        content: "👁️";
+        content: "👁";
         font-size: 18px;
-    }
-    
-    /* Login container styling */
-    .login-container {
-        max-width: 400px;
-        margin: 0 auto;
-        padding: 20px;
+        color: #000000;
+        font-weight: 400;
+        line-height: 1;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -238,11 +230,6 @@ def generate_trade_area_report(df, trade_area, template_bytes, placeholders):
     wb_buffer = io.BytesIO()
     wb.save(wb_buffer)
     return wb_buffer
-
-# Function to create download link directly
-def get_download_link(data, filename, label):
-    b64 = base64.b64encode(data).decode()
-    return f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="{filename}" style="text-decoration: none; width: 100%; display: block;">{label}</a>'
 
 # --- COMPLETE HTML BLUEPRINT WITH DYNAMIC REMARKS ROW HEIGHT ---
 HTML_FRAMEWORK = """
@@ -759,30 +746,30 @@ with col2:
     selected_site_display = st.selectbox("Site Name", options=sites_in_ta, index=0, label_visibility="collapsed")
 
 with col3:
-    # Single step export - direct download when button is clicked
+    # Single step export - direct download with auto-trigger
     if selected_ta and selected_ta != "Select Trade Area...":
-        if st.button("📥 Export All Sites", use_container_width=True):
-            with st.spinner("Generating and preparing download..."):
+        if st.button("Export All Sites", use_container_width=True):
+            with st.spinner("Generating report and preparing download..."):
                 wb_buffer = generate_trade_area_report(df, selected_ta, template_bytes_raw, placeholders)
-                # Use st.download_button with a placeholder that gets triggered immediately
-                st.download_button(
-                    label="✅ Download Report", 
-                    data=wb_buffer.getvalue(), 
-                    file_name=f"{selected_ta}_Full_Report.xlsx", 
-                    use_container_width=True,
-                    key=f"download_{selected_ta}"
-                )
-                # Auto-trigger the download button using JavaScript
+                # Use a hidden download button that auto-triggers
+                b64 = base64.b64encode(wb_buffer.getvalue()).decode()
+                file_name = f"{selected_ta}_Full_Report.xlsx"
+                
+                # Auto-download using JavaScript
                 st.markdown(f"""
                 <script>
-                    setTimeout(function() {{
-                        const downloadBtn = document.querySelector('button[data-testid="baseButton-secondary"][kind="secondary"]');
-                        if (downloadBtn) {{
-                            downloadBtn.click();
-                        }}
-                    }}, 100);
+                    (function() {{
+                        const link = document.createElement('a');
+                        link.href = 'data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}';
+                        link.download = '{file_name}';
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                    }})();
                 </script>
                 """, unsafe_allow_html=True)
+                
+                st.success("Download started successfully!")
 
 # --- DIRECT HTML VIEW LAYOUT ---
 if selected_ta != "Select Trade Area..." and selected_site_display != "Select Site...":
