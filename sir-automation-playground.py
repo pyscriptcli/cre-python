@@ -26,7 +26,7 @@ if not os.path.exists(_config_file):
     with open(_config_file, "w", encoding="utf-8") as f:
         f.write("[theme]\nbase=\"light\"\n")
 
-# --- CUSTOM GOOGLE WORKSPACE/MATERIAL DESIGN CSS ---
+# --- CUSTOM GOOGLE WORKSPACE / GOOGLE SHEETS EMBED CSS ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto:wght@300;400;500;700&display=swap');
@@ -49,17 +49,17 @@ st.markdown("""
         max-width: 100% !important;
     }
     
-    /* Google Tonal Styled Export Button */
+    /* Google Workspace UI Buttons */
     .stButton > button, .stDownloadButton > button {
         background-color: #0b57d0 !important;
         color: #ffffff !important;
         border: none !important;
         border-radius: 100px !important;
-        padding: 0.5rem 1.5rem !important;
-        font-size: 0.875rem !important;
+        padding: 0.5rem 1.2rem !important;
+        font-size: 0.85rem !important;
         font-weight: 500 !important;
-        min-height: 40px !important;
-        height: 40px !important;
+        min-height: 38px !important;
+        height: 38px !important;
         width: 100% !important;
         box-shadow: 0 1px 2px 0 rgba(60,64,67,0.3), 0 1px 3px 1px rgba(60,64,67,0.15) !important;
         transition: background-color 0.2s, box-shadow 0.2s;
@@ -69,7 +69,7 @@ st.markdown("""
         box-shadow: 0 1px 3px 0 rgba(60,64,67,0.3), 0 4px 8px 3px rgba(60,64,67,0.15) !important;
     }
     
-    /* Document Selectors Styled Frames */
+    /* Document Control Dropdowns */
     .stSelectbox label { 
         font-size: 0.75rem !important; 
         font-weight: 500 !important;
@@ -80,32 +80,32 @@ st.markdown("""
         background-color: #fff !important;
         border: 1px solid #747775 !important;
         border-radius: 4px !important;
-        min-height: 40px !important;
-        height: 40px !important;
+        min-height: 38px !important;
+        height: 38px !important;
     }
     .stSelectbox > div > div > div { 
-        padding-top: 4px !important; 
-        font-size: 0.9rem !important; 
+        padding-top: 2px !important; 
+        font-size: 0.875rem !important; 
     }
     
     div[data-testid="stHorizontalBlock"] { 
-        gap: 1rem !important; 
+        gap: 0.75rem !important; 
         align-items: flex-end !important; 
         background: #f0f4f9;
-        padding: 1rem;
-        border-radius: 16px;
+        padding: 0.75rem 1rem;
+        border-radius: 12px;
         margin-bottom: 1rem;
     }
     
-    /* Document Display Blueprint Container */
+    /* Spreadsheet Rendering Blueprint Area */
     .excel-container {
         background-color: #ffffff !important;
-        border-radius: 12px;
-        padding: 1.5rem;
+        border-radius: 8px;
+        padding: 1rem;
         border: 1px solid #c4c7c5;
-        box-shadow: 0 1px 3px 0 rgba(0,0,0,0.1);
-        overflow: auto;
-        margin-top: 1rem;
+        box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);
+        overflow-x: auto;
+        margin-top: 0.5rem;
         width: 100%;
     }
 </style>
@@ -171,12 +171,12 @@ def sanitize_tab_name(name, existing_names):
         counter += 1
 
 def parse_site_number(site_display_str):
-    """Helper to cleanly extract the leading site number digits for numeric sorting."""
+    """Processes string text patterns to allow true natural sequencing logic."""
     match = re.match(r"^(\d+)", site_display_str)
     return int(match.group(1)) if match else float('inf')
 
 def generate_trade_area_report(df, trade_area, template_bytes, placeholders):
-    """Core engine for batch-building the multi-tab report, with hard regex token stripping."""
+    """Generates multi-tab spreadsheet dynamically upon explicit user execution request."""
     ta_data = df[df["TRADE AREA"] == trade_area]
     wb = load_workbook(io.BytesIO(template_bytes))
     base_sheet = wb.active
@@ -206,13 +206,10 @@ def generate_trade_area_report(df, trade_area, template_bytes, placeholders):
                     new_val = re.sub(r"\{\{.*?\}\}", "", new_val)
                     cell.value = new_val.strip() if new_val else ""
                     
-        # Apply Auto-Fit row heights conditionally only when data content is abnormally long
+        # Apply row auto fit cleanly conditional to string context sizing constraints
         for row in new_sheet.iter_rows():
-            max_len = 0
-            for cell in row:
-                if cell.value:
-                    max_len = max(max_len, len(str(cell.value)))
-            if max_len > 40:  # Threshold constraint defining text complexity that warrants wrapping expansion
+            max_len = max([len(str(cell.value or '')) for cell in row])
+            if max_len > 45: 
                 new_sheet.row_dimensions[row[0].row].height = None
 
     wb.remove(base_sheet)
@@ -220,20 +217,20 @@ def generate_trade_area_report(df, trade_area, template_bytes, placeholders):
     wb.save(wb_buffer)
     return wb_buffer
 
-# --- HTML TEMPLATE BLUEPRINT FROM EXPORT DATA (All fonts scale reduced by 2pt) ---
+# --- RAW BLUEPRINT DESIGN LAYOUT (-2pt Font Compressed Base Style Sheet) ---
 RAW_TEMPLATE_HTML = """
 <style type="text/css">
     .ritz .waffle a { color: #15c; }
-    .ritz .waffle .s0{border-bottom:1px SOLID #bfbfbf;border-right:1px SOLID #bfbfbf;background-color:#800000;text-align:center;font-weight:700;color:#ffffff;font-family:'Google Sans',Arial;font-size:12pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:6px 3px;}
-    .ritz .waffle .s1{border-bottom:1px SOLID #bfbfbf;border-right:1px SOLID #bfbfbf;background-color:#f0f4f9;text-align:left;font-weight:700;color:#1f1f1f;font-family:'Google Sans',Arial;font-size:10pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:4px 6px;}
-    .ritz .waffle .s2{border-bottom:1px SOLID #e1e3e1;background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:9pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:4px 6px;}
-    .ritz .waffle .s3{border-bottom:1px SOLID #e1e3e1;border-right:1px SOLID #e1e3e1;background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:9pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:4px 6px;}
-    .ritz .waffle .s4{border-right:1px SOLID #e1e3e1;background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:9pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:4px 6px;}
-    .ritz .waffle .s5{background-color:#ffffff;text-align:left;color:#444746;font-family:Arial;font-size:9pt;vertical-align:middle;white-space:normal;word-break:break-word;direction:ltr;padding:6px 8px;}
-    .ritz .waffle .s6{border:1px SOLID #c4c7c5;background-color:#f8f9fa;text-align:left;color:#1f1f1f;font-family:Arial;font-size:9pt;font-weight:500;vertical-align:middle;white-space:normal;word-break:break-word;direction:ltr;padding:6px 8px;}
-    .ritz .waffle .s7{background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:9pt;vertical-align:middle;white-space:normal;word-break:break-word;direction:ltr;padding:6px 8px;}
-    .ritz .waffle .s8{border:1px SOLID #c4c7c5;background-color:#f8f9fa;text-align:left;color:#000000;font-family:Arial;font-size:9pt;vertical-align:middle;white-space:normal;word-break:break-word;direction:ltr;padding:6px 8px;}
-    .ritz .waffle .s9{border-bottom:1px SOLID transparent;border-right:1px SOLID transparent;background-color:#ffffff;text-align:left;color:#b3261e;font-family:Arial;font-size:9pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:4px 6px;}
+    .ritz .waffle .s0 {border-bottom:1px SOLID #bfbfbf;border-right:1px SOLID #bfbfbf;background-color:#800000;text-align:center;font-weight:700;color:#ffffff;font-family:'Google Sans',Arial;font-size:12pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:6px 3px;}
+    .ritz .waffle .s1 {border-bottom:1px SOLID #bfbfbf;border-right:1px SOLID #bfbfbf;background-color:#f0f4f9;text-align:left;font-weight:700;color:#1f1f1f;font-family:'Google Sans',Arial;font-size:10pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:4px 6px;}
+    .ritz .waffle .s2 {border-bottom:1px SOLID #e1e3e1;background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:9pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:4px 6px;}
+    .ritz .waffle .s3 {border-bottom:1px SOLID #e1e3e1;border-right:1px SOLID #e1e3e1;background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:9pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:4px 6px;}
+    .ritz .waffle .s4 {border-right:1px SOLID #e1e3e1;background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:9pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:4px 6px;}
+    .ritz .waffle .s5 {background-color:#ffffff;text-align:left;color:#444746;font-family:Arial;font-size:9pt;vertical-align:middle;white-space:normal;word-break:break-word;direction:ltr;padding:6px 8px;}
+    .ritz .waffle .s6 {border:1px SOLID #c4c7c5;background-color:#f8f9fa;text-align:left;color:#1f1f1f;font-family:Arial;font-size:9pt;font-weight:500;vertical-align:middle;white-space:normal;word-break:break-word;direction:ltr;padding:6px 8px;}
+    .ritz .waffle .s7 {background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:9pt;vertical-align:middle;white-space:normal;word-break:break-word;direction:ltr;padding:6px 8px;}
+    .ritz .waffle .s8 {border:1px SOLID #c4c7c5;background-color:#f8f9fa;text-align:left;color:#000000;font-family:Arial;font-size:9pt;vertical-align:middle;white-space:normal;word-break:break-word;direction:ltr;padding:6px 8px;}
+    .ritz .waffle .s9 {border-bottom:1px SOLID transparent;border-right:1px SOLID transparent;background-color:#ffffff;text-align:left;color:#b3261e;font-family:Arial;font-size:9pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:4px 6px;}
     .ritz .waffle .s10{border:1px SOLID #c4c7c5;background-color:#f8f9fa;text-align:left;color:#000000;font-family:Arial;font-size:9pt;vertical-align:middle;white-space:normal;word-break:break-word;direction:ltr;padding:6px 8px;}
     .ritz .waffle .s11{background-color:#e1e3e1;text-align:left;color:#000000;font-family:Arial;font-size:9pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:4px 6px;}
     .ritz .waffle .s12{border-bottom:1px SOLID #000000;background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:9pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:4px 6px;}
@@ -371,7 +368,7 @@ if df is None or template_bytes_raw is None:
 
 # --- CONTROLS ROW ---
 trade_areas = ["Select Trade Area..."] + sorted(df["TRADE AREA"].dropna().unique().tolist())
-col1, col2, col3, col4 = st.columns([1.5, 1.5, 0.7, 0.8])
+col1, col2, col3, col4 = st.columns([1.5, 1.5, 0.8, 1.0])
 
 with col1:
     st.markdown("<p style='font-size:0.75rem; font-weight:500; color:#444746; margin:0;'>Trade Area</p>", unsafe_allow_html=True)
@@ -381,7 +378,6 @@ with col2:
     st.markdown("<p style='font-size:0.75rem; font-weight:500; color:#444746; margin:0;'>Site View</p>", unsafe_allow_html=True)
     if selected_ta and selected_ta != "Select Trade Area...":
         raw_sites = df[df["TRADE AREA"] == selected_ta]["SITE_DISPLAY"].dropna().unique().tolist()
-        # Sort natural leading-numerical array strings (1, 2, ... 9, 10, etc.)
         sorted_sites = sorted(raw_sites, key=parse_site_number)
         sites_in_ta = ["Select Site..."] + sorted_sites
     else:
@@ -395,14 +391,16 @@ with col3:
 
 with col4:
     if selected_ta and selected_ta != "Select Trade Area...":
-        with st.spinner("Generating..."):
-            wb_buffer = generate_trade_area_report(df, selected_ta, template_bytes_raw, placeholders)
-            st.download_button(
-                label="Export", 
-                data=wb_buffer.getvalue(), 
-                file_name=f"{selected_ta}_Report.xlsx", 
-                use_container_width=True
-            )
+        # Action only occurs on button context initialization to maintain lightweight rendering speed
+        if st.button("Generate Multi-Tab Report", use_container_width=True):
+            with st.spinner("Compiling Excel Workbook..."):
+                wb_buffer = generate_trade_area_report(df, selected_ta, template_bytes_raw, placeholders)
+                st.download_button(
+                    label="Download Report", 
+                    data=wb_buffer.getvalue(), 
+                    file_name=f"{selected_ta}_Report.xlsx", 
+                    use_container_width=True
+                )
 
 # --- DIRECT HTML VIEW BLUEPRINT INJECTION LAYER ---
 if selected_ta != "Select Trade Area..." and selected_site_display != "Select Site...":
