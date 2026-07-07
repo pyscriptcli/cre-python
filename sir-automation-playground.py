@@ -10,6 +10,7 @@ from copy import copy
 import os
 import hashlib
 from openpyxl import load_workbook
+from PIL import Image, ImageDraw, ImageFont
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(
@@ -68,26 +69,14 @@ st.markdown("""
     div[data-testid="stHorizontalBlock"] { gap: 0.3rem !important; align-items: center !important; }
     .info-text { font-size: 0.7rem; color: #333; text-align: right; margin: 0; padding: 0; line-height: 24px; font-weight: 500; }
     
-    .excel-container {
-        background-color: #ffffff !important;
-        border-radius: 2px;
-        padding: 0.4rem;
+    .photo-container {
         border: 1px solid #d0d0d0;
-        overflow: auto;
         margin-top: 0.5rem;
+        background-color: #ffffff;
+        padding: 4px;
+        border-radius: 2px;
         width: 100%;
-    }
-    .excel-container table {
-        border-collapse: collapse;
-        width: 100%;
-        font-size: 10px;
-        table-layout: fixed;
-    }
-    .excel-container td {
-        padding: 4px 6px;
-        word-break: break-word !important;
-        white-space: normal !important;
-        vertical-align: middle;
+        text-align: center;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -170,58 +159,100 @@ def sanitize_tab_name(name, existing_names):
             return new_name
         counter += 1
 
-def parse_excel_color(openpyxl_color, default_hex="#FFFFFF"):
-    if not openpyxl_color:
-        return default_hex
-    if openpyxl_color.type == 'rgb' and openpyxl_color.rgb:
-        rgb_str = str(openpyxl_color.rgb)
-        if rgb_str.startswith('FF'):
-            return '#' + rgb_str[2:]
-        return '#' + rgb_str if len(rgb_str) == 6 else default_hex
-    return default_hex
+def parse_excel_color(openpyxl_color, default_rgb=(255, 255, 255)):
+    if not openpyxl_color or openpyxl_color.type != 'rgb' or not openpyxl_color.rgb:
+        return default_rgb
+    rgb_str = str(openpyxl_color.rgb)
+    if len(rgb_str) == 8:  # ARGB format handled natively
+        rgb_str = rgb_str[2:]
+    if len(rgb_str) == 6:
+        return tuple(int(rgb_str[i:i+2], 16) for i in (0, 2, 4))
+    return default_rgb
 
-# --- HIGH-FIDELITY RANGE HTML CONVERSION GENERATOR ENGINE (A1:P67) ---
-def render_range_to_html(workbook, sheet_name=None, range_string="A1:P67"):
+# --- PILLOW 1:1 PHOTO CANVAS RENDERING ENGINE (A1:P67) ---
+def render_range_to_image(workbook, sheet_name=None, range_string="A1:P67"):
     ws = workbook[sheet_name] if sheet_name else workbook.active
     min_col, min_row, max_col, max_row = range_boundaries(range_string)
     
+    # Scale width parameters explicitly to high DPI canvas sizes
     col_widths = []
     for c in range(min_col, max_col + 1):
         w = ws.column_dimensions[get_column_letter(c)].width
-        col_widths.append(w if w else 10)
-    total_width = sum(col_widths)
-    col_pcts = [f"{(w / total_width) * 100}%" for w in col_widths]
+        col_widths.append(int((w if w else 10) * 9.5)) # Scaling factor 
+        
+    row_heights = []
+    for r in range(min_row, max_row + 1):
+        h = ws.row_dimensions[r].height
+        row_heights.append(int((h if h else 18) * 1.5)) # Scaling factor
+        
+    img_width = sum(col_widths)
+    img_height = sum(row_heights)
     
-    html = '<table style="border-collapse: collapse; font-family: \'Roboto\', sans-serif; font-size: 10px; width: 100%; table-layout: fixed;">'
-    html += '<colgroup>'
-    for pct in col_pcts:
-        html += f'<col style="width: {pct};">'
-    html += '</colgroup>'
+    # Initialize high fidelity canvas mapping arrays
+    img = Image.new('RGB', (img_width, img_height), color=(255, 255, 255))
+    draw = ImageDraw.Draw(img)
     
-    merged_cells = {}
+    # Load fallback vector font arrays cleanly
+    try:
+        font_regular = ImageFont.load_default()
+        font_bold = ImageFont.load_default()
+    except:
+        font_regular = ImageFont.load_default()
+        font_bold = ImageFont.load_default()
+
+    # Calculate absolute starting boundary matrices
+    col_positions = [0]
+    for w in col_widths:
+        col_positions.append(col_positions[-1] + w)
+        
+    row_positions = [0]
+    for h in row_heights:
+        row_positions.append(row_positions[-1] + h)
+        
+    # Process cell mergers to avoid writing over masked sections
+    merged_blocks = {}
     for merged_range in ws.merged_cells.ranges:
         m_min_c, m_min_r, m_max_c, m_max_r = range_boundaries(str(merged_range))
         if m_min_r >= min_row and m_max_r <= max_row and m_min_c >= min_col and m_max_c <= max_col:
             for r in range(m_min_r, m_max_r + 1):
                 for c in range(m_min_c, m_max_c + 1):
-                    if r == m_min_r and c == m_min_c:
-                        merged_cells[(r, c)] = {
-                            'rowspan': m_max_r - m_min_r + 1,
-                            'colspan': m_max_c - m_min_c + 1,
-                            'is_master': True
-                        }
-                    else:
-                        merged_cells[(r, c)] = {'is_master': False}
-                        
-    for r in range(min_row, max_row + 1):
-        html += '<tr>'
-        for c in range(min_col, max_col + 1):
-            if (r, c) in merged_cells and not merged_cells[(r, c)].get('is_master', False):
-                continue
+                    merged_blocks[(r, c)] = (m_min_r, m_min_c, m_max_r, m_max_c)
+
+    # First Pass: Render Background Fills & Custom Colors
+    for r_idx, r in enumerate(range(min_row, max_row + 1)):
+        for c_idx, c in enumerate(range(min_col, max_col + 1)):
+            is_master = True
+            if (r, c) in merged_blocks:
+                mr_min, mc_min, mr_max, mc_max = merged_blocks[(r, c)]
+                if r != mr_min or c != mc_min:
+                    is_master = False
+                x1 = col_positions[mc_min - min_col]
+                y1 = row_positions[mr_min - min_row]
+                x2 = col_positions[mc_max - min_col + 1]
+                y2 = row_positions[mr_max - min_row + 1]
+            else:
+                x1 = col_positions[c_idx]
+                y1 = row_positions[r_idx]
+                x2 = col_positions[c_idx + 1]
+                y2 = row_positions[r_idx + 1]
                 
+            if is_master:
+                cell = ws.cell(row=r, column=c)
+                bg_color = parse_excel_color(cell.fill.fgColor, (255, 255, 255)) if cell.fill and cell.fill.fill_type else (255, 255, 255)
+                
+                # Dynamic Black Box reset protection layer
+                if bg_color == (0, 0, 0) and (cell.value is None or str(cell.value).strip() == ""):
+                    bg_color = (255, 255, 255)
+                    
+                draw.rectangle([x1, y1, x2, y2], fill=bg_color)
+
+    # Second Pass: Render Grid Borders & Plain Values Text Data Matrix
+    for r_idx, r in enumerate(range(min_row, max_row + 1)):
+        for c_idx, c in enumerate(range(min_col, max_col + 1)):
             cell = ws.cell(row=r, column=c)
             value = cell.value if cell.value is not None else ''
             
+            # Plain string text conversions
             if isinstance(value, float) and value.is_integer():
                 value = int(value)
             elif hasattr(value, 'strftime'):
@@ -230,71 +261,62 @@ def render_range_to_html(workbook, sheet_name=None, range_string="A1:P67"):
             if re.match(r'^\d+\.0$', val_str):
                 val_str = val_str.split('.')[0]
                 
-            bg_hex = "#FFFFFF"
-            if cell.fill and cell.fill.fill_type:
-                bg_hex = parse_excel_color(cell.fill.fgColor, "#FFFFFF")
-            
-            # Reset automatic system default blacks to clear white canvas frames
-            if bg_hex == "#000000" and val_str == "":
-                bg_hex = "#FFFFFF"
-                
-            font_hex = '#333333'
-            font_weight = 'normal'
-            if cell.font:
-                if cell.font.bold: font_weight = 'bold'
-                font_hex = parse_excel_color(cell.font.color, "#333333")
-                if font_hex == "#000000" and bg_hex == "#000000":
-                    font_hex = "#FFFFFF"
-                    
-            val_upper = val_str.upper()
-            if bg_hex.lower() in ['#800000', '#8c0000', '#7a0000'] or "SITE INFORMATION REPORT" in val_upper:
-                font_hex = '#FFFFFF'
-                font_weight = 'bold'
-                h_align = 'center'
-            elif any(header in val_upper for header in ["GENERAL INFORMATION", "LOCATION", "TERMS", "RATES", "TECHNICAL INFO", "PROVISIONS", "LESSOR AND TENANT DETAILS", "IF WITH SUB-LESSOR", "REGULATORY", "SITE ACQUIRABILITY"]):
-                font_hex = '#000000'
-                font_weight = 'bold'
-                h_align = 'left'
+            if (r, c) in merged_blocks:
+                mr_min, mc_min, mr_max, mc_max = merged_blocks[(r, c)]
+                if r != mr_min or c != mc_min:
+                    continue
+                x1 = col_positions[mc_min - min_col]
+                y1 = row_positions[mr_min - min_row]
+                x2 = col_positions[mc_max - min_col + 1]
+                y2 = row_positions[mr_max - min_row + 1]
             else:
-                h_align = 'left'
-                if cell.alignment and cell.alignment.horizontal:
-                    h_align = cell.alignment.horizontal
+                x1 = col_positions[c_idx]
+                y1 = row_positions[r_idx]
+                x2 = col_positions[c_idx + 1]
+                y2 = row_positions[r_idx + 1]
+
+            # High contrast line border rendering rules
+            draw.rectangle([x1, y1, x2, y2], outline=(180, 180, 180), width=1)
             
-            border_css = "border: 1px solid #d0d0d0;"
-            if cell.border:
-                t_side = cell.border.top
-                b_side = cell.border.bottom
-                l_side = cell.border.left
-                r_side = cell.border.right
+            if val_str:
+                bg_color_check = parse_excel_color(cell.fill.fgColor, (255, 255, 255)) if cell.fill and cell.fill.fill_type else (255, 255, 255)
                 
-                t_color = parse_excel_color(t_side.color, "#d0d0d0") if t_side and t_side.style else "transparent"
-                b_color = parse_excel_color(b_side.color, "#d0d0d0") if b_side and b_side.style else "transparent"
-                l_color = parse_excel_color(l_side.color, "#d0d0d0") if l_side and l_side.style else "transparent"
-                r_color = parse_excel_color(r_side.color, "#d0d0d0") if r_side and r_side.style else "transparent"
+                font_color = (51, 51, 51)
+                is_bold = False
+                if cell.font:
+                    if cell.font.bold: is_bold = True
+                    font_color = parse_excel_color(cell.font.color, (51, 51, 51))
                 
-                # Fallback to standard grid line color mapping if custom parameters are active
-                if t_color == "transparent" and b_color == "transparent" and l_color == "transparent" and r_color == "transparent":
-                    border_css = "border: 1px solid #d0d0d0;"
+                # Dark Header Row Formatting Rules (Site Information Report)
+                if bg_color_check in [(128, 0, 0), (140, 0, 0), (122, 0, 0)] or "SITE INFORMATION REPORT" in val_str.upper():
+                    font_color = (255, 255, 255)
+                    is_bold = True
+                    h_align = "center"
+                elif any(h in val_str.upper() for h in ["GENERAL INFORMATION", "LOCATION", "TERMS", "RATES", "TECHNICAL INFO", "PROVISIONS", "LESSOR AND TENANT DETAILS", "IF WITH SUB-LESSOR", "REGULATORY", "SITE ACQUIRABILITY"]):
+                    font_color = (0, 0, 0)
+                    is_bold = True
+                    h_align = "left"
                 else:
-                    border_css = f"border-top: 1px solid {t_color if t_color != 'transparent' else '#d0d0d0'}; "
-                    border_css += f"border-bottom: 1px solid {b_color if b_color != 'transparent' else '#d0d0d0'}; "
-                    border_css += f"border-left: 1px solid {l_color if l_color != 'transparent' else '#d0d0d0'}; "
-                    border_css += f"border-right: 1px solid {r_color if r_color != 'transparent' else '#d0d0d0'};"
+                    h_align = "left"
+                    if cell.alignment and cell.alignment.horizontal:
+                        h_align = cell.alignment.horizontal
+                
+                active_font = font_bold if is_bold else font_regular
+                
+                # Calculate text centering padding profiles
+                text_w, text_h = draw.textbytes(val_str, font=active_font) if hasattr(draw, 'textbytes') else (len(val_str)*5, 10)
+                
+                if h_align == "center":
+                    tx = x1 + ((x2 - x1) - text_w) // 2
+                elif h_align == "right":
+                    tx = x2 - text_w - 6
+                else:
+                    tx = x1 + 6
                     
-            style = f'background-color: {bg_hex}; color: {font_hex}; font-weight: {font_weight}; '
-            style += f'text-align: {h_align}; {border_css} '
-            style += 'white-space: normal !important; word-wrap: break-word !important; word-break: break-word !important;'
-            
-            rowspan = merged_cells[(r, c)].get('rowspan', 1) if (r, c) in merged_cells else 1
-            colspan = merged_cells[(r, c)].get('colspan', 1) if (r, c) in merged_cells else 1
-            
-            if rowspan > 1 or colspan > 1:
-                html += f'<td style="{style}" rowspan="{rowspan}" colspan="{colspan}">{val_str}</td>'
-            else:
-                html += f'<td style="{style}">{val_str}</td>'
-        html += '</tr>'
-    html += '</table>'
-    return html
+                ty = y1 + ((y2 - y1) - text_h) // 2
+                draw.text((tx, ty), val_str, fill=font_color, font=active_font)
+                
+    return img
 
 # --- LOAD DATA ---
 @st.cache_data(ttl=3600)
@@ -404,14 +426,20 @@ with col5:
 with col6:
     st.markdown(f"<p class='info-text'>Sites: {len(df['SITE NAME'].dropna().unique())}</p>", unsafe_allow_html=True)
 
-# --- DIRECT HTML INJECTION LAYER ---
+# --- DIRECT PHOTO PREVIEW RENDER LAYER ---
 if site_excel_bytes:
     try:
         active_wb = load_workbook(io.BytesIO(site_excel_bytes))
-        range_html_content = render_range_to_html(active_wb, range_string="A1:P67")
-        st.markdown(f'<div class="excel-container">{range_html_content}</div>', unsafe_allow_html=True)
+        
+        # Render range A1:P67 to a pixel-perfect image matrix
+        cloned_image_canvas = render_range_to_image(active_wb, range_string="A1:P67")
+        
+        # Display the high fidelity output image directly inside the web container
+        st.markdown('<div class="photo-container">', unsafe_allow_html=True)
+        st.image(cloned_image_canvas, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
             
     except Exception as e:
-        st.error(f"Error rendering display framework matrix: {str(e)}")
+        st.error(f"Error rendering image frame: {str(e)}")
 else:
     st.info("Select a Trade Area and Site to view the report.")
