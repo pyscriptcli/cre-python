@@ -211,44 +211,173 @@ HTML_FRAMEWORK = """
     <style type="text/css">
         body { margin: 0; padding: 0; background-color: #ffffff; font-family: Arial, sans-serif; }
         .ritz .waffle a { color: inherit; }
-        .ritz .waffle td { padding: 2px 3px !important; vertical-align: middle; border: 1px solid #e1e3e1; }
+        .ritz .waffle td { 
+            padding: 2px 3px !important; 
+            vertical-align: middle; 
+            border: none !important; /* Remove all borders */
+        }
         
-        .freezebar-origin-ltr { background-color: #f8f9fa; border: 1px solid #c4c7c5; }
-        .column-headers-background { background-color: #f8f9fa; text-align: center; font-size: 8pt; color: #444746; font-weight: normal; border: 1px solid #c4c7c5; }
-        .row-headers-background { background-color: #f8f9fa; text-align: center; font-size: 8pt; color: #444746; font-weight: normal; border: 1px solid #c4c7c5; }
+        .freezebar-origin-ltr { background-color: #f8f9fa; border: none !important; }
+        .column-headers-background { background-color: #f8f9fa; text-align: center; font-size: 8pt; color: #444746; font-weight: normal; border: none !important; }
+        .row-headers-background { background-color: #f8f9fa; text-align: center; font-size: 8pt; color: #444746; font-weight: normal; border: none !important; }
         
-        .ritz .waffle .s0 {border-bottom:1px SOLID #bfbfbf;border-right:1px SOLID #bfbfbf;background-color:#800000;text-align:center;font-weight:bold;color:#ffffff;font-size:8pt;white-space:nowrap;direction:ltr;}
-        .ritz .waffle .s1 {border-bottom:1px SOLID #bfbfbf;border-right:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;font-weight:bold;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
-        .ritz .waffle .s2 {background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
-        .ritz .waffle .s3 {border-right:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
+        /* Header row - remove borders */
+        .ritz .waffle .s0 {
+            border: none !important;
+            background-color:#800000;
+            text-align:center;
+            font-weight:bold;
+            color:#ffffff;
+            font-size:8pt;
+            white-space:nowrap;
+            direction:ltr;
+            padding: 4px 3px !important;
+        }
         
-        /* DATA CELLS: Modified white-space rule to dynamically wrap text and break long string boundaries safely */
-        .ritz .waffle .s4 {border-bottom:1px SOLID transparent;background-color:#f8f9fa;border:1px SOLID #c4c7c5;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:normal;word-wrap:break-word;word-break:break-word;direction:ltr;}
+        /* Section headers - remove borders */
+        .ritz .waffle .s1 {
+            border: none !important;
+            background-color:#ffffff;
+            text-align:left;
+            font-weight:bold;
+            color:#000000;
+            font-size:8pt;
+            white-space:nowrap;
+            direction:ltr;
+            padding: 4px 3px !important;
+        }
         
-        .ritz .waffle .s5 {background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
-        .ritz .waffle .s6 {border-bottom:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
-        .ritz .waffle .s7 {border-bottom:1px SOLID #bfbfbf;border-right:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
-        .ritz .waffle .s8 {border-bottom:1px SOLID transparent;background-color:#ffffff;text-align:left;color:#ff0000;font-size:8pt;white-space:nowrap;direction:ltr;}
+        /* Label cells */
+        .ritz .waffle .s2 {
+            background-color:#ffffff;
+            text-align:left;
+            color:#000000;
+            font-size:8pt;
+            white-space:nowrap;
+            direction:ltr;
+            border: none !important;
+        }
         
-        /* MULTI-LINE DATA REMARKS CELLS: Enabled wrapping and auto stretching properties */
-        .ritz .waffle .s9 {border-bottom:1px SOLID transparent;border-right:1px SOLID #bfbfbf;background-color:#f8f9fa;border:1px SOLID #c4c7c5;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:normal;word-wrap:break-word;word-break:break-word;direction:ltr;}
+        .ritz .waffle .s3 {
+            border: none !important;
+            background-color:#ffffff;
+            text-align:left;
+            color:#000000;
+            font-size:8pt;
+            white-space:nowrap;
+            direction:ltr;
+        }
         
-        .ritz .waffle .s10{background-color:#bfbfbf;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
-        .ritz .waffle .s11{border-bottom:1px SOLID #000000;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
-        .ritz .waffle .s12{border-bottom:1px SOLID #000000;border-right:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
-        .ritz .waffle .s13{background-color:#b7b7b7;text-align:left;font-weight:bold;color:#ff0000;font-size:8pt;white-space:nowrap;direction:ltr;}
-        .ritz .waffle .s14{background-color:#b7b7b7;text-align:left;color:#ff0000;font-size:8pt;white-space:nowrap;direction:ltr;}
-        .ritz .waffle .s15{border-bottom:1px SOLID transparent;background-color:#b7b7b7;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
-        .ritz .waffle .s16{border-bottom:1px SOLID transparent;background-color:#b7b7b7;text-align:left;color:#ff0000;font-size:8pt;white-space:nowrap;direction:ltr;}
-        .ritz .waffle .s17{background-color:#b7b7b7;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
-        .ritz .waffle .s18{border-bottom:1px SOLID transparent;border-right:1px SOLID #bfbfbf;background-color:#b7b7b7;text-align:left;color:#ff0000;font-size:8pt;white-space:nowrap;direction:ltr;}
-        .ritz .waffle .s19{border-bottom:1px SOLID #000000;background-color:#b7b7b7;text-align:left;color:#ff0000;font-size:8pt;white-space:nowrap;direction:ltr;}
-        .ritz .waffle .s20{border-bottom:1px SOLID #000000;background-color:#b7b7b7;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
-        .ritz .waffle .s21{border-bottom:1px SOLID #000000;border-right:1px SOLID #bfbfbf;background-color:#b7b7b7;text-align:left;color:#ff0000;font-size:8pt;white-space:nowrap;direction:ltr;}
-        .ritz .waffle .s22{background-color:#ffffff;text-align:left;font-weight:bold;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
-        .ritz .waffle .s23{border-right:none;border-bottom:1px SOLID transparent;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
-        .ritz .waffle .s24{border-left:none;border-bottom:1px SOLID transparent;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
-        .ritz .waffle .s25{border-left:none;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
+        /* DATA CELLS - Modified to wrap text and stretch vertically */
+        .ritz .waffle .s4 {
+            border: none !important;
+            background-color:#f8f9fa;
+            text-align:left;
+            color:#000000;
+            font-size:8pt;
+            vertical-align:middle;
+            white-space:normal !important;
+            word-wrap:break-word !important;
+            word-break:break-word !important;
+            overflow-wrap:break-word !important;
+            max-width: 100% !important;
+            direction:ltr;
+            padding: 4px 3px !important;
+            line-height: 1.4;
+        }
+        
+        .ritz .waffle .s5 {
+            background-color:#ffffff;
+            text-align:left;
+            color:#000000;
+            font-size:8pt;
+            white-space:nowrap;
+            direction:ltr;
+            border: none !important;
+        }
+        
+        .ritz .waffle .s6 {
+            border: none !important;
+            background-color:#ffffff;
+            text-align:left;
+            color:#000000;
+            font-size:8pt;
+            white-space:nowrap;
+            direction:ltr;
+        }
+        
+        .ritz .waffle .s7 {
+            border: none !important;
+            background-color:#ffffff;
+            text-align:left;
+            color:#000000;
+            font-size:8pt;
+            white-space:nowrap;
+            direction:ltr;
+        }
+        
+        .ritz .waffle .s8 {
+            border: none !important;
+            background-color:#ffffff;
+            text-align:left;
+            color:#ff0000;
+            font-size:8pt;
+            white-space:nowrap;
+            direction:ltr;
+        }
+        
+        /* MULTI-LINE DATA REMARKS CELLS - Enabled wrapping and auto stretching */
+        .ritz .waffle .s9 {
+            border: none !important;
+            background-color:#f8f9fa;
+            text-align:left;
+            color:#000000;
+            font-size:8pt;
+            vertical-align:middle;
+            white-space:normal !important;
+            word-wrap:break-word !important;
+            word-break:break-word !important;
+            overflow-wrap:break-word !important;
+            max-width: 100% !important;
+            direction:ltr;
+            padding: 4px 3px !important;
+            line-height: 1.4;
+        }
+        
+        .ritz .waffle .s10{background-color:#bfbfbf;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;border: none !important;}
+        .ritz .waffle .s11{border: none !important;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
+        .ritz .waffle .s12{border: none !important;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
+        .ritz .waffle .s13{background-color:#b7b7b7;text-align:left;font-weight:bold;color:#ff0000;font-size:8pt;white-space:nowrap;direction:ltr;border: none !important;}
+        .ritz .waffle .s14{background-color:#b7b7b7;text-align:left;color:#ff0000;font-size:8pt;white-space:nowrap;direction:ltr;border: none !important;}
+        .ritz .waffle .s15{border: none !important;background-color:#b7b7b7;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
+        .ritz .waffle .s16{border: none !important;background-color:#b7b7b7;text-align:left;color:#ff0000;font-size:8pt;white-space:nowrap;direction:ltr;}
+        .ritz .waffle .s17{background-color:#b7b7b7;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;border: none !important;}
+        .ritz .waffle .s18{border: none !important;background-color:#b7b7b7;text-align:left;color:#ff0000;font-size:8pt;white-space:nowrap;direction:ltr;}
+        .ritz .waffle .s19{border: none !important;background-color:#b7b7b7;text-align:left;color:#ff0000;font-size:8pt;white-space:nowrap;direction:ltr;}
+        .ritz .waffle .s20{border: none !important;background-color:#b7b7b7;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
+        .ritz .waffle .s21{border: none !important;background-color:#b7b7b7;text-align:left;color:#ff0000;font-size:8pt;white-space:nowrap;direction:ltr;}
+        .ritz .waffle .s22{background-color:#ffffff;text-align:left;font-weight:bold;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;border: none !important;}
+        .ritz .waffle .s23{border: none !important;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
+        .ritz .waffle .s24{border: none !important;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
+        .ritz .waffle .s25{border: none !important;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
+        
+        /* Table styling - remove borders */
+        .ritz .waffle {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        
+        /* Auto-height for rows with wrapped text */
+        .ritz .waffle tr {
+            height: auto !important;
+        }
+        
+        /* Ensure cells with long text stretch */
+        .ritz .waffle td[class*="s4"], 
+        .ritz .waffle td[class*="s9"] {
+            height: auto !important;
+            min-height: 20px;
+        }
     </style>
 </head>
 <body>
