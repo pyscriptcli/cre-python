@@ -145,6 +145,7 @@ if not st.session_state.authenticated:
 # --- CONFIGURATION ---
 SOURCE_URL = "https://docs.google.com/spreadsheets/d/14nhO9u7zJRcOoux8I7l2IzwU7iQZNW9fRX6TCip47CE/export?format=xlsx"
 TEMPLATE_URL = "https://docs.google.com/spreadsheets/d/1uS3xmnPi0o4c_EayQtURYDSMMPRDRGSb/export?format=xlsx"
+DRIVE_FOLDER_URL = "https://drive.google.com/drive/folders/13sLmXzxQvV12_ypTBRG2QW1yVIHaanba"
 
 # --- HELPER FUNCTIONS ---
 @st.cache_data(ttl=3600)
@@ -203,11 +204,9 @@ def transform_to_direct_download(drive_url):
     """Converts a standard Google Drive sharing link into a direct rendering asset URL stream."""
     url_str = str(drive_url).strip()
     if "drive.google.com" in url_str:
-        # Match pattern ids for files
         file_id_match = re.search(r'/d/([a-zA-Z0-9-_]+)', url_str)
         if file_id_match:
             return f"https://drive.google.com/uc?export=download&id={file_id_match.group(1)}"
-        # Match query parameter strings values
         id_param_match = re.search(r'id=([a-zA-Z0-9-_]+)', url_str)
         if id_param_match:
             return f"https://drive.google.com/uc?export=download&id={id_param_match.group(1)}"
@@ -219,7 +218,7 @@ def parse_link_cell(cell_value):
         return []
     return [url.strip() for url in str(cell_value).split(",") if url.strip()]
 
-# --- HTML TEMPLATE BLUEPRINT ---
+# --- HTML TEMPLATE BLUEPRINT DEFINITION ---
 RAW_TEMPLATE_HTML = """
 <style type="text/css">
     .ritz .waffle a { color: inherit; }
@@ -494,45 +493,58 @@ if site_excel_bytes and site_row_data is not None:
 
     # --- TAB 2: PROPERTY PHOTOS ---
     with tab2:
-        st.markdown(f"### 📸 Photos for {selected_site}")
-        st.info(f"Manage assets directly inside the [Google Drive Folder]({DRIVE_FOLDER_URL}).")
+        st.markdown(f"### Photos for {selected_site}")
         
-        p_col1, p_col2, p_col3 = st.columns(3)
-        with p_col1:
-            st.markdown(f'<div class="asset-card"><img src="https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=400&q=80" width="100%" style="border-radius:2px;"><div class="asset-title">Facade Preview.jpg</div></div>', unsafe_allow_html=True)
-        with p_col2:
-            st.markdown(f'<div class="asset-card"><img src="https://images.unsplash.com/photo-1582268611958-ebfd161ef9cf?auto=format&fit=crop&w=400&q=80" width="100%" style="border-radius:2px;"><div class="asset-title">Interior Layout.jpg</div></div>', unsafe_allow_html=True)
-        with p_col3:
-            st.markdown(f'<div class="asset-card"><img src="https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=400&q=80" width="100%" style="border-radius:2px;"><div class="asset-title">Street View Map.jpg</div></div>', unsafe_allow_html=True)
+        # Pull links directly out of the PHOTOS column for the selected row data row
+        raw_photos = site_row_data.get("PHOTOS", "")
+        photo_links = parse_link_cell(raw_photos)
+        
+        if photo_links:
+            # Build an image card display column structure dynamically
+            img_cols = st.columns(min(len(photo_links), 3))
+            for idx, raw_url in enumerate(photo_links):
+                target_col = img_cols[idx % 3]
+                with target_col:
+                    direct_download_url = transform_to_direct_download(raw_url)
+                    st.markdown(
+                        f'<div class="asset-card">'
+                        f'<img src="{direct_download_url}" width="100%" style="border-radius:2px; max-height:280px; object-fit:cover;">'
+                        f'<div class="asset-title">Photo Asset {idx + 1}</div>'
+                        f'</div>', 
+                        unsafe_allow_html=True
+                    )
+        else:
+            st.warning("No photo file locations discovered in the dataset for this property.")
 
     # --- TAB 3: PROPERTY DOCS ---
     with tab3:
-        st.markdown(f"### 📄 Documents for {selected_site}")
-        st.info(f"Manage assets directly inside the [Google Drive Folder]({DRIVE_FOLDER_URL}).")
+        st.markdown(f"### Documents for {selected_site}")
         
-        d_col1, d_col2 = st.columns(2)
-        with d_col1:
-            st.markdown("""
-            <div class="asset-card" style="text-align:left; padding:15px;">
-                <strong>📄 Lease_Agreement_Draft.pdf</strong><br>
-                <span style="font-size:0.75rem; color:#666;">Type: PDF Document • Updated: Recent</span>
-            </div>
-            <div class="asset-card" style="text-align:left; padding:15px;">
-                <strong>📐 Floor_Plan_Technical_Blueprints.dwg</strong><br>
-                <span style="font-size:0.75rem; color:#666;">Type: CAD File • Updated: Recent</span>
-            </div>
-            """, unsafe_allow_html=True)
-        with d_col2:
-            st.markdown("""
-            <div class="asset-card" style="text-align:left; padding:15px;">
-                <strong>📜 Title_Deed_Verification_Cert.pdf</strong><br>
-                <span style="font-size:0.75rem; color:#666;">Type: PDF Document • Updated: Recent</span>
-            </div>
-            <div class="asset-card" style="text-align:left; padding:15px;">
-                <strong>📋 Zoning_Clearance_Permit_Signed.pdf</strong><br>
-                <span style="font-size:0.75rem; color:#666;">Type: PDF Document • Updated: Recent</span>
-            </div>
-            """, unsafe_allow_html=True)
+        # Pull links directly out of the DOCS column for the selected row data row
+        raw_docs = site_row_data.get("DOCS", "")
+        doc_links = parse_link_cell(raw_docs)
+        
+        if doc_links:
+            doc_cols = st.columns(min(len(doc_links), 2))
+            for idx, raw_url in enumerate(doc_links):
+                target_col = doc_cols[idx % 2]
+                with target_col:
+                    direct_download_url = transform_to_direct_download(raw_url)
+                    # For documents, provide a clean download interaction interface card block
+                    st.markdown(
+                        f'<div class="asset-card" style="text-align:left; padding:15px;">'
+                        f'<strong>Document Attachment {idx + 1}</strong><br>'
+                        f'<span style="font-size:0.75rem; color:#666; word-break:break-all;">Source: {raw_url}</span><br><br>'
+                        f'<a href="{direct_download_url}" target="_blank" style="text-decoration:none;">'
+                        f'<button style="background-color:#e8e8e8; border:1px solid #d0d0d0; padding:4px 8px; font-size:0.75rem; border-radius:2px; cursor:pointer; width:100%; text-align:center; color:#333;">'
+                        f'Download / View Document'
+                        f'</button>'
+                        f'</a>'
+                        f'</div>', 
+                        unsafe_allow_html=True
+                    )
+        else:
+            st.warning("No document file locations discovered in the dataset for this property.")
 
 else:
     st.info("Select a Trade Area and Site to view the report.")
