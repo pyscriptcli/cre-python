@@ -68,9 +68,8 @@ st.markdown("""
     div[data-testid="stHorizontalBlock"] { gap: 0.3rem !important; align-items: center !important; }
     .info-text { font-size: 0.7rem; color: #333; text-align: right; margin: 0; padding: 0; line-height: 24px; font-weight: 500; }
     
-    /* Document Display Canvas styling layout grid rules */
     .excel-container {
-        background-color: white !important;
+        background-color: #ffffff !important;
         border-radius: 2px;
         padding: 0.4rem;
         border: 1px solid #d0d0d0;
@@ -82,12 +81,11 @@ st.markdown("""
         border-collapse: collapse;
         width: 100%;
         font-size: 10px;
-        table-layout: fixed; /* Lock columns grid layout tightly */
+        table-layout: fixed;
     }
     .excel-container td {
         padding: 4px 6px;
-        border: 1px solid #a0a0a0; /* High contrast structural wire borders */
-        word-break: break-word !important; /* Force internal vertical wrapping expanding upwards */
+        word-break: break-word !important;
         white-space: normal !important;
         vertical-align: middle;
     }
@@ -149,6 +147,8 @@ def clone_cell_styles(source_cell, target_cell):
         target_cell.alignment = Alignment(horizontal=source_cell.alignment.horizontal, vertical=source_cell.alignment.vertical, wrap_text=True)
     if source_cell.fill:
         target_cell.fill = copy(source_cell.fill)
+    if source_cell.border:
+        target_cell.border = copy(source_cell.border)
 
 def copy_and_merge_aware_injection(template_ws, target_ws, coord, data_value):
     if not target_ws: return
@@ -170,12 +170,22 @@ def sanitize_tab_name(name, existing_names):
             return new_name
         counter += 1
 
-# --- HIGH-FIDELITY RANGE HTML CONVERSION GENERATOR Engine (A1:P67) ---
+def parse_excel_color(openpyxl_color, default_hex="#FFFFFF"):
+    """Safely extracts real hex values from openpyxl color models, handling indexed configurations."""
+    if not openpyxl_color:
+        return default_hex
+    if openpyxl_color.type == 'rgb' and openpyxl_color.rgb:
+        rgb_str = str(openpyxl_color.rgb)
+        if rgb_str.startswith('FF'):
+            return '#' + rgb_str[2:]
+        return '#' + rgb_str if len(rgb_str) == 6 else default_hex
+    return default_hex
+
+# --- HIGH-FIDELITY RANGE HTML CONVERSION GENERATOR ENGINE (A1:P67) ---
 def render_range_to_html(workbook, sheet_name=None, range_string="A1:P67"):
     ws = workbook[sheet_name] if sheet_name else workbook.active
     min_col, min_row, max_col, max_row = range_boundaries(range_string)
     
-    # Calculate adaptive column configuration width metrics matching proportions perfectly
     col_widths = []
     for c in range(min_col, max_col + 1):
         w = ws.column_dimensions[get_column_letter(c)].width
@@ -189,7 +199,6 @@ def render_range_to_html(workbook, sheet_name=None, range_string="A1:P67"):
         html += f'<col style="width: {pct};">'
     html += '</colgroup>'
     
-    # Pre-map cell tracking locations for structural sheet mergers
     merged_cells = {}
     for merged_range in ws.merged_cells.ranges:
         m_min_c, m_min_r, m_max_c, m_max_r = range_boundaries(str(merged_range))
@@ -214,7 +223,6 @@ def render_range_to_html(workbook, sheet_name=None, range_string="A1:P67"):
             cell = ws.cell(row=r, column=c)
             value = cell.value if cell.value is not None else ''
             
-            # Plain Text Cast Configuration Strategy
             if isinstance(value, float) and value.is_integer():
                 value = int(value)
             elif hasattr(value, 'strftime'):
@@ -223,23 +231,25 @@ def render_range_to_html(workbook, sheet_name=None, range_string="A1:P67"):
             if re.match(r'^\d+\.0$', val_str):
                 val_str = val_str.split('.')[0]
                 
-            # Parse Hex Styles mapping color contrast models
-            bg_hex = '#FFFFFF'
-            if cell.fill and cell.fill.fgColor and cell.fill.fgColor.rgb:
-                rgb_str = cell.fill.fgColor.rgb
-                if len(rgb_str) == 8: bg_hex = '#' + rgb_str[2:]
-                elif len(rgb_str) == 6: bg_hex = '#' + rgb_str
+            # Safely resolve background color fill maps
+            bg_hex = "#FFFFFF"
+            if cell.fill and cell.fill.fill_type:
+                bg_hex = parse_excel_color(cell.fill.fgColor, "#FFFFFF")
+            
+            # --- FIX FOR THE BLACK BOXES ---
+            # If the cell background evaluates directly to solid pure black (#000000) or 
+            # if it's the specific empty accent bars at the bottom, reset them safely to match theme aesthetics
+            if bg_hex == "#000000" and val_str == "":
+                bg_hex = "#FFFFFF"
                 
             font_hex = '#333333'
             font_weight = 'normal'
             if cell.font:
                 if cell.font.bold: font_weight = 'bold'
-                if cell.font.color and cell.font.color.rgb:
-                    rgb_f = cell.font.color.rgb
-                    if len(rgb_f) == 8: font_hex = '#' + rgb_f[2:]
-                    elif len(rgb_f) == 6: font_hex = '#' + rgb_f
+                font_hex = parse_excel_color(cell.font.color, "#333333")
+                if font_hex == "#000000" and bg_hex == "#000000":
+                    font_hex = "#FFFFFF" # Contrast fix safety check
                     
-            # Hardcoded manual design adjustments for dark red headers
             val_upper = val_str.upper()
             if bg_hex.lower() in ['#800000', '#8c0000', '#7a0000'] or "SITE INFORMATION REPORT" in val_upper:
                 font_hex = '#FFFFFF'
@@ -253,9 +263,27 @@ def render_range_to_html(workbook, sheet_name=None, range_string="A1:P67"):
                 h_align = 'left'
                 if cell.alignment and cell.alignment.horizontal:
                     h_align = cell.alignment.horizontal
+            
+            # Dynamic extraction layout for individual border parameters
+            border_css = "border: 1px solid #a0a0a0;" # High contrast baseline
+            if cell.border:
+                t_side = cell.border.top
+                b_side = cell.border.bottom
+                l_side = cell.border.left
+                r_side = cell.border.right
+                
+                t_color = parse_excel_color(t_side.color, "#a0a0a0") if t_side else "#a0a0a0"
+                b_color = parse_excel_color(b_side.color, "#a0a0a0") if b_side else "#a0a0a0"
+                l_color = parse_excel_color(l_side.color, "#a0a0a0") if l_side else "#a0a0a0"
+                r_color = parse_excel_color(r_side.color, "#a0a0a0") if r_side else "#a0a0a0"
+                
+                border_css = f"border-top: 1px solid {t_color}; "
+                border_css += f"border-bottom: 1px solid {b_color}; "
+                border_css += f"border-left: 1px solid {l_color}; "
+                border_css += f"border-right: 1px solid {r_color};"
                     
             style = f'background-color: {bg_hex}; color: {font_hex}; font-weight: {font_weight}; '
-            style += f'text-align: {h_align}; border: 1px solid #a0a0a0; '
+            style += f'text-align: {h_align}; {border_css} '
             style += 'white-space: normal !important; word-wrap: break-word !important; word-break: break-word !important;'
             
             rowspan = merged_cells[(r, c)].get('rowspan', 1) if (r, c) in merged_cells else 1
@@ -365,7 +393,7 @@ with col5:
                                         raw_data_val = r_row.get(ph.upper(), "")
                                         if pd.isna(raw_data_val) or raw_data_val is None: raw_data_val = ""
                                         if isinstance(raw_data_val, float) and raw_data_val.is_integer(): val_str = str(int(raw_data_val))
-                                        elif hasattr(raw_data_val, 'strftime'): val_str = raw_data_val.strftime('%B %d, %Y')
+                                        elif hasattr(raw_data_val, 'strftime'): val_str = r_row.get(ph.upper(), "").strftime('%B %d, %Y')
                                         else: val_str = str(raw_data_val)
                                         new_val = re.sub(target_regex, val_str, new_val)
                                 cell.value = new_val.strip() if new_val else ""
@@ -381,14 +409,10 @@ with col6:
 if site_excel_bytes:
     try:
         active_wb = load_workbook(io.BytesIO(site_excel_bytes))
-        
-        # Pull range A1:P67 straight from the newly loaded populated openpyxl book
         range_html_content = render_range_to_html(active_wb, range_string="A1:P67")
-        
-        # Direct markdown injection has no base64 string pointers for Brave Shields to track or block
         st.markdown(f'<div class="excel-container">{range_html_content}</div>', unsafe_allow_html=True)
             
     except Exception as e:
-        st.error(f"Error rendering grid display framework matrix: {str(e)}")
+        st.error(f"Error rendering display framework matrix: {str(e)}")
 else:
     st.info("Select a Trade Area and Site to view the report.")
