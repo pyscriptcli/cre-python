@@ -202,7 +202,7 @@ def generate_trade_area_report(df, trade_area, template_bytes, placeholders):
     wb.save(wb_buffer)
     return wb_buffer
 
-# --- COMPLETE HTML BLUEPRINT FROM EXPORT FILES ---
+# --- COMPLETE HTML BLUEPRINT FROM EXPORT FILES (All styles condensed by 2pt) ---
 HTML_FRAMEWORK = """
 <!DOCTYPE html>
 <html>
@@ -210,12 +210,14 @@ HTML_FRAMEWORK = """
     <style type="text/css">
         body { margin: 0; padding: 0; background-color: #ffffff; font-family: Arial, sans-serif; }
         .ritz .waffle a { color: inherit; }
-        .ritz .waffle td { padding: 2px 3px !important; vertical-align: middle; border: 1px solid #e1e3e1; }
+        .ritz .waffle td { padding: 2px 3px !important; vertical-align: middle; }
         
+        /* Table Layout Header and Index Rules */
         .freezebar-origin-ltr { background-color: #f8f9fa; border: 1px solid #c4c7c5; }
         .column-headers-background { background-color: #f8f9fa; text-align: center; font-size: 8pt; color: #444746; font-weight: normal; border: 1px solid #c4c7c5; }
         .row-headers-background { background-color: #f8f9fa; text-align: center; font-size: 8pt; color: #444746; font-weight: normal; border: 1px solid #c4c7c5; }
         
+        /* Master CSS Sheet Rules Map (-2pt reduction processed) */
         .ritz .waffle .s0 {border-bottom:1px SOLID #bfbfbf;border-right:1px SOLID #bfbfbf;background-color:#800000;text-align:center;font-weight:bold;color:#ffffff;font-size:8pt;white-space:nowrap;direction:ltr;}
         .ritz .waffle .s1 {border-bottom:1px SOLID #bfbfbf;border-right:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;font-weight:bold;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
         .ritz .waffle .s2 {background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
@@ -337,18 +339,11 @@ HTML_FRAMEWORK = """
         </tr>
         <tr style="height: 19px;"><td class="s2">Frontage (in m)</td><td class="s2"></td><td class="s4" colspan="5">_FRONTAGE_</td><td class="s3"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s7"></td></tr>
         <tr style="height: 19px;"><td class="s2">Depth (in m)</td><td class="s2"></td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s1" colspan="7">Provisions</td></tr>
-        <tr style="height: 19px;"><td class="s5" colspan="2">Floor to Slab Height (in m) - if Bldg</td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s2" colspan="7"></td></tr>
+        <tr style="height: 19px;"><td class="s5" colspan="2">Floor to Slab Height (in m) - if Bldg</td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td></tr>
         <tr style="height: 19px;"><td class="s5" colspan="2">No. of Storeys (If Bldg Lessee)</td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s5" colspan="2">Tenant is the Owner</td><td class="s9" colspan="5"></td></tr>
         <tr style="height: 19px;"><td class="s5" colspan="2">Type of Structure(if Bldg Lessee)</td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s5" colspan="2">Lease Type</td><td class="s9" colspan="5">_LEASE_TYPE_</td></tr>
         <tr style="height: 19px;"><td class="s2">Soil Profile</td><td class="s2"></td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s5" colspan="2">Principal COL</td><td class="s9" colspan="5"></td></tr>
-        
-        <tr style="height: 19px;">
-            <td class="s2">Supply Access:</td><td class="s2"></td><td class="s2" colspan="5"></td>
-            <td class="s3"></td>
-            <td class="s5" colspan="2">Sub-Lease Provision</td>
-            <td class="s9" colspan="5"></td>
-        </tr>
-        
+        <tr style="height: 19px;"><td class="s2">Supply Access:</td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td><td class="s5" colspan="2">Sub-Lease Provision</td><td class="s9" colspan="5">_SUB_LEASE_PROVISION_</td></tr>
         <tr style="height: 19px;"><td class="s2">Power</td><td class="s10"></td><td class="s2">Aircon</td><td class="s10"></td><td class="s5" colspan="2">LPG Fire Pro</td><td class="s10"></td><td class="s3"></td><td class="s5" colspan="2">Pre-Term/Partial Term</td><td class="s9" colspan="5"></td></tr>
         <tr style="height: 19px;"><td class="s2">Water</td><td class="s10"></td><td class="s2">Exhaust</td><td class="s10"></td><td class="s5" colspan="2">Drainage TP</td><td class="s10"></td><td class="s3"></td><td class="s5" colspan="2">Tripartite Agreement</td><td class="s9" colspan="5"></td></tr>
         <tr style="height: 9px;"><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s3"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s7"></td></tr>
@@ -403,7 +398,7 @@ HTML_FRAMEWORK = """
         <tr style="height: 19px;"><td class="s2">Confidence Level</td><td class="s4" colspan="2"></td><td class="s2" colspan="11"></td><td class="s3"></td></tr>
         <tr style="height: 19px;">
             <td class="s2">Site Availability</td>
-            <td class="s23" colspan="2"><div style="width:184px;left:-1px">_SITE_AVAILABILITY_CLASS_</div></td>
+            <td class="s23"><div style="width:184px;left:-1px">_SITE_AVAILABILITY_CLASS_</div></td>
             <td class="s24"></td><td class="s25"></td><td class="s2" colspan="10"></td><td class="s3"></td>
         </tr>
         <tr style="height: 19px;">
@@ -450,7 +445,9 @@ if df is None or template_bytes_raw is None:
 
 # --- CONTROLS ROW ---
 trade_areas = ["Select Trade Area..."] + sorted(df["TRADE AREA"].dropna().unique().tolist())
-col1, col2, col3, col4 = st.columns([1.5, 1.5, 0.8, 1.0])
+
+# Reorganized layout: 3 columns for Select Trade Area, Select Site, and Export button
+col1, col2, col3 = st.columns([1.5, 1.5, 1.0])
 
 with col1:
     st.markdown("<p style='font-size:0.75rem; font-weight:500; color:#444746; margin:0;'>Trade Area</p>", unsafe_allow_html=True)
@@ -467,11 +464,7 @@ with col2:
     selected_site_display = st.selectbox("Site Name", options=sites_in_ta, index=0, label_visibility="collapsed")
 
 with col3:
-    if st.button("Refresh Cache", use_container_width=True):
-        st.cache_data.clear()
-        st.rerun()
-
-with col4:
+    st.markdown("<p style='font-size:0.75rem; font-weight:500; color:#444746; margin:0;'>&nbsp;</p>", unsafe_allow_html=True)  # Spacer for alignment
     if selected_ta and selected_ta != "Select Trade Area...":
         if st.button("Generate Multi-Tab Report", use_container_width=True):
             with st.spinner("Compiling Excel Workbook..."):
@@ -480,7 +473,8 @@ with col4:
                     label="Download Report", 
                     data=wb_buffer.getvalue(), 
                     file_name=f"{selected_ta}_Report.xlsx", 
-                    use_container_width=True
+                    use_container_width=True,
+                    key="download_report"
                 )
 
 # --- DIRECT HTML VIEW LAYOUT ---
@@ -522,6 +516,9 @@ if selected_ta != "Select Trade Area..." and selected_site_display != "Select Si
             rendered_view = rendered_view.replace("_FRONTAGE_", process_val("FRONTAGE"))
             rendered_view = rendered_view.replace("_LEASE_TYPE_", process_val("LEASE TYPE"))
             
+            # Sub-Lease Provision - fixed alignment and key
+            rendered_view = rendered_view.replace("_SUB_LEASE_PROVISION_", process_val("SUB-LEASE PROVISION"))
+            
             rendered_view = rendered_view.replace("_LESSOR_", process_val("LESSOR"))
             rendered_view = rendered_view.replace("_CONTACT_PERSON_SOURCE_", process_val("CONTACT PERSON/SOURCE"))
             rendered_view = rendered_view.replace("_CONTACT_NUMBER_", process_val("CONTACT NUMBER"))
@@ -534,6 +531,6 @@ if selected_ta != "Select Trade Area..." and selected_site_display != "Select Si
             components.html(rendered_view, height=850, scrolling=True)
                 
         except Exception as e:
-            st.error(f"Error compiling visual framework matrix: {str(e)}")
+            st.error(f"Error compiling visual matrix framework: {str(e)}")
 else:
     st.info("Please select a Trade Area and a Site to view the specific report.")
