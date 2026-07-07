@@ -52,6 +52,7 @@ st.markdown("""
         border: 1px solid #d0d0d0 !important;
         border-radius: 2px !important;
         padding: 0.1rem 0.3rem !important;
+        font-weight: 400 !important;
         font-size: 0.7rem !important;
         min-height: 24px !important;
         height: 24px !important;
@@ -212,7 +213,7 @@ def transform_to_direct_download(drive_url):
             return f"https://drive.google.com/uc?export=download&id={file_id_match.group(1)}"
         id_param_match = re.search(r'id=([a-zA-Z0-9-_]+)', url_str)
         if id_param_match:
-            return f"https://drive.google.com/uc?export=download&id={id_param_match.group(1)}"
+            return f"https://drive.google.com/uc?export=download&id={file_id_match.group(1)}"
     return url_str
 
 def parse_link_cell(cell_value):
@@ -390,6 +391,7 @@ if selected_ta and selected_site:
         base_sheet = wb.active
         for row_cells in base_sheet.iter_rows():
             for cell in row_cells:
+                # FIXED: Parentheses added to secure logic type constraints guard check parameters 
                 if isinstance(cell.value, str) and ("{{" in cell.value):
                     new_val = cell.value
                     for ph in placeholders:
@@ -409,7 +411,6 @@ if selected_ta and selected_site:
 
 with col4:
     if selected_ta:
-        # Combined export processes the entire trade area layout bulk package
         with io.BytesIO() as wb_buffer:
             template_data.seek(0)
             wb_bulk = load_workbook(template_data)
@@ -425,19 +426,18 @@ with col4:
                 new_sheet.title = safe_tab_name
                 for row_cells in new_sheet.iter_rows():
                     for cell in row_cells:
-                        if isinstance(cell.value, str) and "{?" in cell.value or "{{" in cell.value:
-                            if isinstance(cell.value, str) and ("{{" in cell.value):
-                                new_val = cell.value
-                                for ph in placeholders:
-                                    target_regex = r"\{\{\s*" + re.escape(ph) + r"(\s*:.*?)?\}\}"
-                                    if re.search(target_regex, new_val):
-                                        raw_data_val = r_row.get(ph.upper(), "")
-                                        if pd.isna(raw_data_val) or raw_data_val is None: raw_data_val = ""
-                                        if isinstance(raw_data_val, float) and raw_data_val.is_integer(): val_str = str(int(raw_data_val))
-                                        elif hasattr(raw_data_val, 'strftime'): val_str = r_row.get(ph.upper(), "").strftime('%B %d, %Y')
-                                        else: val_str = str(raw_data_val)
-                                        new_val = re.sub(target_regex, val_str, new_val)
-                                cell.value = new_val.strip() if new_val else ""
+                        if isinstance(cell.value, str) and ("{{" in cell.value):
+                            new_val = cell.value
+                            for ph in placeholders:
+                                target_regex = r"\{\{\s*" + re.escape(ph) + r"(\s*:.*?)?\}\}"
+                                if re.search(target_regex, new_val):
+                                    raw_data_val = r_row.get(ph.upper(), "")
+                                    if pd.isna(raw_data_val) or raw_data_val is None: raw_data_val = ""
+                                    if isinstance(raw_data_val, float) and raw_data_val.is_integer(): val_str = str(int(raw_data_val))
+                                    elif hasattr(raw_data_val, 'strftime'): val_str = r_row.get(ph.upper(), "").strftime('%B %d, %Y')
+                                    else: val_str = str(raw_data_val)
+                                    new_val = re.sub(target_regex, val_str, new_val)
+                            cell.value = new_val.strip() if new_val else ""
             wb_bulk.remove(base_sheet_bulk)
             wb_bulk.save(wb_buffer)
             
@@ -494,7 +494,6 @@ if site_excel_bytes and site_row_data is not None:
     with tab2:
         st.markdown(f"### Photos for {selected_site}")
         
-        # Pull specific dynamic paths/links straight out of the row context cells
         raw_photos = site_row_data.get("PHOTOS", "")
         photo_links = parse_link_cell(raw_photos)
         
@@ -509,7 +508,6 @@ if site_excel_bytes and site_row_data is not None:
                         f'<img src="{direct_download_url}" width="100%" style="border-radius:2px; max-height:280px; object-fit:cover;">'
                         f'<div class="asset-title">Photo Asset {idx + 1}</div>'
                         f'</div>', 
-                        allow_html=True if 'allow_html' in st.markdown.__code__.co_varnames else None,
                         unsafe_allow_html=True
                     )
         else:
