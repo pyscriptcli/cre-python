@@ -10,7 +10,6 @@ from copy import copy
 import os
 import hashlib
 from openpyxl import load_workbook
-from PIL import Image, ImageDraw, ImageFont
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(
@@ -28,7 +27,7 @@ if not os.path.exists(_config_file):
     with open(_config_file, "w", encoding="utf-8") as f:
         f.write("[theme]\nbase=\"light\"\n")
 
-# --- CUSTOM CSS ---
+# --- CUSTOM BASE CSS ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
@@ -69,14 +68,15 @@ st.markdown("""
     div[data-testid="stHorizontalBlock"] { gap: 0.3rem !important; align-items: center !important; }
     .info-text { font-size: 0.7rem; color: #333; text-align: right; margin: 0; padding: 0; line-height: 24px; font-weight: 500; }
     
-    .photo-container {
-        border: 1px solid #d0d0d0;
-        margin-top: 0.5rem;
-        background-color: #ffffff;
-        padding: 4px;
+    /* Document Display Container */
+    .excel-container {
+        background-color: white !important;
         border-radius: 2px;
+        padding: 0.5rem;
+        border: 1px solid #d0d0d0;
+        overflow: auto;
+        margin-top: 0.5rem;
         width: 100%;
-        text-align: center;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -114,18 +114,6 @@ def download_file(url):
         return io.BytesIO(response.content) if response.status_code == 200 else None
     except:
         return None
-
-# Dynamically download true vector fonts into memory to ensure anti-aliased clean rendering in headless deployments
-@st.cache_data(ttl=86400)
-def download_vector_fonts():
-    reg_url = "https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Regular.ttf"
-    bold_url = "https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Bold.ttf"
-    try:
-        reg_font = requests.get(reg_url, timeout=10).content
-        bold_font = requests.get(bold_url, timeout=10).content
-        return io.BytesIO(reg_font), io.BytesIO(bold_font)
-    except:
-        return None, None
 
 def get_placeholders(sheet):
     placeholders = set()
@@ -165,172 +153,130 @@ def sanitize_tab_name(name, existing_names):
         return clean_name
     counter = 1
     while True:
-        new_name = f".{clean_name[:27]} ({counter})"
+        new_name = f"{clean_name[:27]} ({counter})"
         if new_name not in existing_names:
             existing_names.add(new_name)
             return new_name
         counter += 1
 
-def parse_excel_color(openpyxl_color, default_rgb=(255, 255, 255)):
-    if not openpyxl_color or openpyxl_color.type != 'rgb' or not openpyxl_color.rgb:
-        return default_rgb
-    rgb_str = str(openpyxl_color.rgb)
-    if len(rgb_str) == 8: 
-        rgb_str = rgb_str[2:]
-    if len(rgb_str) == 6:
-        return tuple(int(rgb_str[i:i+2], 16) for i in (0, 2, 4))
-    return default_rgb
-
-# --- PILLOW CRYSTAL-CLEAR RENDERING ENGINE (A1:P67) ---
-def render_range_to_image(workbook, font_reg_bytes, font_bold_bytes, sheet_name=None, range_string="A1:P67"):
-    ws = workbook[sheet_name] if sheet_name else workbook.active
-    min_col, min_row, max_col, max_row = range_boundaries(range_string)
-    
-    # Scale width coordinates explicitly to high resolution pixel bounds
-    col_widths = []
-    for c in range(min_col, max_col + 1):
-        w = ws.column_dimensions[get_column_letter(c)].width
-        col_widths.append(int((w if w else 10) * 12)) # Heightened scaling factor for crisp details
-        
-    row_heights = []
-    for r in range(min_row, max_row + 1):
-        h = ws.row_dimensions[r].height
-        row_heights.append(int((h if h else 20) * 1.8)) 
-        
-    img_width = sum(col_widths)
-    img_height = sum(row_heights)
-    
-    img = Image.new('RGB', (img_width, img_height), color=(255, 255, 255))
-    draw = ImageDraw.Draw(img)
-    
-    col_positions = [0]
-    for w in col_widths:
-        col_positions.append(col_positions[-1] + w)
-        
-    row_positions = [0]
-    for h in row_heights:
-        row_positions.append(row_positions[-1] + h)
-        
-    merged_blocks = {}
-    for merged_range in ws.merged_cells.ranges:
-        m_min_c, m_min_r, m_max_c, m_max_r = range_boundaries(str(merged_range))
-        if m_min_r >= min_row and m_max_r <= max_row and m_min_c >= min_col and m_max_c <= max_col:
-            for r in range(m_min_r, m_max_r + 1):
-                for c in range(m_min_c, m_max_c + 1):
-                    if r == m_min_r and c == m_min_c:
-                        merged_blocks[(r, c)] = (m_min_r, m_min_c, m_max_r, m_max_c)
-                    else:
-                        merged_blocks[(r, c)] = False 
-
-    # Pass 1: Render Background Color Blocks
-    for r_idx, r in enumerate(range(min_row, max_row + 1)):
-        for c_idx, c in enumerate(range(min_col, max_col + 1)):
-            if (r, c) in merged_blocks and merged_blocks[(r, c)] is False:
-                continue
-                
-            if (r, c) in merged_blocks and merged_blocks[(r, c)]:
-                mr_min, mc_min, mr_max, mc_max = merged_blocks[(r, c)]
-                x1 = col_positions[mc_min - min_col]
-                y1 = row_positions[mr_min - min_row]
-                x2 = col_positions[mc_max - min_col + 1]
-                y2 = row_positions[mr_max - min_row + 1]
-            else:
-                x1 = col_positions[c_idx]
-                y1 = row_positions[r_idx]
-                x2 = col_positions[c_idx + 1]
-                y2 = row_positions[r_idx + 1]
-                
-            cell = ws.cell(row=r, column=c)
-            bg_color = parse_excel_color(cell.fill.fgColor, (255, 255, 255)) if cell.fill and cell.fill.fill_type else (255, 255, 255)
-            
-            if bg_color == (0, 0, 0) and (cell.value is None or str(cell.value).strip() == ""):
-                bg_color = (255, 255, 255)
-                
-            draw.rectangle([x1, y1, x2, y2], fill=bg_color)
-
-    # Pass 2: Render Anti-Aliased Clean Text Layers & Outlines
-    for r_idx, r in enumerate(range(min_row, max_row + 1)):
-        for c_idx, c in enumerate(range(min_col, max_col + 1)):
-            if (r, c) in merged_blocks and merged_blocks[(r, c)] is False:
-                continue
-                
-            if (r, c) in merged_blocks and merged_blocks[(r, c)]:
-                mr_min, mc_min, mr_max, mc_max = merged_blocks[(r, c)]
-                x1 = col_positions[mc_min - min_col]
-                y1 = row_positions[mr_min - min_row]
-                x2 = col_positions[mc_max - min_col + 1]
-                y2 = row_positions[mr_max - min_row + 1]
-            else:
-                x1 = col_positions[c_idx]
-                y1 = row_positions[r_idx]
-                x2 = col_positions[c_idx + 1]
-                y2 = row_positions[r_idx + 1]
-
-            cell = ws.cell(row=r, column=c)
-            value = cell.value if cell.value is not None else ''
-            
-            if isinstance(value, float) and value.is_integer():
-                value = int(value)
-            elif hasattr(value, 'strftime'):
-                value = value.strftime('%B %d, %Y')
-            val_str = str(value).strip()
-            if re.match(r'^\d+\.0$', val_str):
-                val_str = val_str.split('.')[0]
-                
-            draw.rectangle([x1, y1, x2, y2], outline=(190, 190, 190), width=1)
-            
-            if val_str:
-                bg_color_check = parse_excel_color(cell.fill.fgColor, (255, 255, 255)) if cell.fill and cell.fill.fill_type else (255, 255, 255)
-                
-                font_color = (51, 51, 51)
-                is_bold = False
-                excel_font_size = 10
-                
-                if cell.font:
-                    if cell.font.bold: is_bold = True
-                    if cell.font.size: excel_font_size = cell.font.size
-                    font_color = parse_excel_color(cell.font.color, (51, 51, 51))
-                
-                # Dynamic calculated text scaling matching resolution bounds
-                scaled_font_size = max(int(excel_font_size * 1.35), 11)
-                
-                if bg_color_check in [(128, 0, 0), (140, 0, 0), (122, 0, 0)] or "SITE INFORMATION REPORT" in val_str.upper():
-                    font_color = (255, 255, 255)
-                    is_bold = True
-                    h_align = "center"
-                elif any(h in val_str.upper() for h in ["GENERAL INFORMATION", "LOCATION", "TERMS", "RATES", "TECHNICAL INFO", "PROVISIONS", "LESSOR AND TENANT DETAILS", "IF WITH SUB-LESSOR", "REGULATORY", "SITE ACQUIRABILITY"]):
-                    font_color = (0, 0, 0)
-                    is_bold = True
-                    h_align = "left"
-                else:
-                    h_align = "left"
-                    if cell.alignment and cell.alignment.horizontal:
-                        h_align = cell.alignment.horizontal
-                
-                # Initialize standard vector font streams on the active canvas
-                try:
-                    font_source = font_bold_bytes if is_bold else font_reg_bytes
-                    font_source.seek(0)
-                    active_font = ImageFont.truetype(font_source, scaled_font_size)
-                except:
-                    active_font = ImageFont.load_default()
-                
-                # Fetch text bounding metrics to adjust structural text alignments
-                bbox = draw.textbbox((0, 0), val_str, font=active_font)
-                text_w = bbox[2] - bbox[0]
-                text_h = bbox[3] - bbox[1]
-                
-                if h_align == "center":
-                    tx = x1 + ((x2 - x1) - text_w) // 2
-                elif h_align == "right":
-                    tx = x2 - text_w - 8
-                else:
-                    tx = x1 + 8
-                    
-                ty = y1 + ((y2 - y1) - text_h) // 2 - 2
-                draw.text((tx, ty), val_str, fill=font_color, font=active_font)
-                
-    return img
+# --- HTML TEMPLATE BLUEPRINT FROM EXPORT DATA ---
+RAW_TEMPLATE_HTML = """
+<style type="text/css">
+    .ritz .waffle a { color: inherit; }
+    .ritz .waffle .s0{border-bottom:1px SOLID #bfbfbf;border-right:1px SOLID #bfbfbf;background-color:#800000;text-align:center;font-weight:bold;color:#ffffff;font-family:Arial;font-size:14pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
+    .ritz .waffle .s1{border-bottom:1px SOLID #bfbfbf;border-right:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;font-weight:bold;color:#000000;font-family:Arial;font-size:14pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
+    .ritz .waffle .s2{border-bottom:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:14pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
+    .ritz .waffle .s3{border-bottom:1px SOLID #bfbfbf;border-right:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:14pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
+    .ritz .waffle .s4{border-right:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:14pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
+    .ritz .waffle .s5{background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:14pt;vertical-align:middle;white-space:normal;word-break:break-word;direction:ltr;padding:4px 6px;}
+    .ritz .waffle .s6{border:1px SOLID #a0a0a0;background-color:#bfbfbf;text-align:left;color:#000000;font-family:Arial;font-size:12pt;vertical-align:middle;white-space:normal;word-break:break-word;direction:ltr;padding:4px 6px;}
+    .ritz .waffle .s7{background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:14pt;vertical-align:middle;white-space:normal;word-break:break-word;direction:ltr;padding:4px 6px;}
+    .ritz .waffle .s8{border:1px SOLID #a0a0a0;background-color:#bfbfbf;text-align:left;color:#000000;font-family:Arial;font-size:14pt;vertical-align:middle;white-space:normal;word-break:break-word;direction:ltr;padding:4px 6px;}
+    .ritz .waffle .s9{border-bottom:1px SOLID transparent;border-right:1px SOLID transparent;background-color:#ffffff;text-align:left;color:#ff0000;font-family:Arial;font-size:14pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
+    .ritz .waffle .s10{border:1px SOLID #a0a0a0;background-color:#bfbfbf;text-align:left;color:#000000;font-family:Arial;font-size:13pt;vertical-align:middle;white-space:normal;word-break:break-word;direction:ltr;padding:4px 6px;}
+    .ritz .waffle .s11{background-color:#bfbfbf;text-align:left;color:#000000;font-family:Arial;font-size:14pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
+    .ritz .waffle .s12{border-bottom:1px SOLID #000000;background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:14pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
+    .ritz .waffle .s13{border-bottom:1px SOLID #000000;border-right:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:14pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
+    .ritz .waffle .s14{background-color:#b7b7b7;text-align:left;font-weight:bold;color:#ff0000;font-family:Arial;font-size:14pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
+    .ritz .waffle .s15{background-color:#b7b7b7;text-align:left;color:#000000;font-family:Arial;font-size:14pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
+    .ritz .waffle .s16{border-right:1px SOLID #000000;background-color:#b7b7b7;text-align:left;color:#000000;font-family:Arial;font-size:14pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
+    .ritz .waffle .s17{background-color:#b7b7b7;text-align:left;color:#ff0000;font-family:Arial;font-size:14pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
+    .ritz .waffle .s18{border-bottom:1px SOLID transparent;border-right:1px SOLID transparent;background-color:#b7b7b7;text-align:left;color:#000000;font-family:Arial;font-size:14pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
+    .ritz .waffle .s19{border-bottom:1px SOLID transparent;border-right:1px SOLID transparent;background-color:#b7b7b7;text-align:left;color:#ff0000;font-family:Arial;font-size:14pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
+    .ritz .waffle .s20{border-bottom:1px SOLID transparent;border-right:1px SOLID #000000;background-color:#b7b7b7;text-align:left;color:#000000;font-family:Arial;font-size:14pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
+    .ritz .waffle .s21{border-bottom:1px SOLID #000000;background-color:#b7b7b7;text-align:left;color:#000000;font-family:Arial;font-size:14pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
+    .ritz .waffle .s22{border-bottom:1px SOLID #000000;border-right:1px SOLID #000000;background-color:#b7b7b7;text-align:left;color:#000000;font-family:Arial;font-size:14pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
+    .ritz .waffle .s23{background-color:#ffffff;text-align:left;font-weight:bold;color:#000000;font-family:Arial;font-size:14pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
+    .ritz .waffle .s24{border-bottom:1px SOLID transparent;border-right:1px SOLID transparent;background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:12pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
+    .ritz .waffle .s25{background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:12pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
+    .ritz .waffle td { border: 1px solid #d0d0d0; }
+</style>
+<div class="ritz grid-container" dir="ltr">
+<table class="waffle" cellspacing="0" cellpadding="0" style="table-layout: fixed; width: 100%;">
+    <colgroup>
+        <col style="width:14%;"><col style="width:14%;"><col style="width:6%;"><col style="width:6%;"><col style="width:6%;"><col style="width:6%;"><col style="width:9%;"><col style="width:1%;"><col style="width:1%;"><col style="width:9%;"><col style="width:17%;"><col style="width:6%;"><col style="width:6%;"><col style="width:6%;"><col style="width:6%;"><col style="width:1%;">
+    </colgroup>
+    <tbody>
+        <tr style="height: 24px;"><td class="s0" dir="ltr" colspan="16">SITE INFORMATION REPORT</td></tr>
+        <tr style="height: 20px;"><td class="s1" dir="ltr" colspan="8">General Information</td><td class="s1"></td><td class="s1" dir="ltr" colspan="7">Location</td></tr>
+        <tr style="height: 19px;"><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td><td class="s4"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td></tr>
+        <tr style="height: 19px;"><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s4"></td><td class="s4"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s4"></td></tr>
+        <tr style="height: 22px;"><td class="s5" dir="ltr">Trade Area Name</td><td class="s5"></td><td class="s6" dir="ltr" colspan="5">_TRADE_AREA_</td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Site Name</td><td class="s6" dir="ltr" colspan="5">_SITE_NAME_</td></tr>
+        <tr style="height: 22px;"><td class="s5" dir="ltr">Site Name:</td><td class="s5"></td><td class="s6" dir="ltr" colspan="5">_SITE_NAME_</td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Unit #, Bldg/St # and St Name</td><td class="s6" dir="ltr" colspan="5">_UNIT_BLDG_ST_NAME_</td></tr>
+        <tr style="height: 22px;"><td class="s5" dir="ltr">Site Number:</td><td class="s5"></td><td class="s6" dir="ltr" colspan="5">_SITE_NO_</td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Barangay/District Name</td><td class="s6" dir="ltr" colspan="5">_BARANGAY_DISTRICT_NAME_</td></tr>
+        <tr style="height: 22px;"><td class="s5" dir="ltr">Date Started</td><td class="s5"></td><td class="s6" dir="ltr" colspan="5">_TIMESTAMP_</td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">City/Municipality</td><td class="s6" dir="ltr" colspan="5">_CITY_MUNICIPALITY_</td></tr>
+        <tr style="height: 22px;"><td class="s7" dir="ltr" colspan="2">Date Report Submitted</td><td class="s7" dir="ltr" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Region</td><td class="s6" dir="ltr" colspan="5">_REGION_</td></tr>
+        <tr style="height: 22px;"><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Postal Code</td><td class="s6" dir="ltr" colspan="5">_POSTAL_CODE_</td></tr>
+        <tr style="height: 19px;"><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td><td class="s4"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td></tr>
+        <tr style="height: 20px;"><td class="s1" dir="ltr" colspan="8">Terms</td><td class="s4"></td><td class="s1" dir="ltr" colspan="7">Rates</td></tr>
+        <tr style="height: 19px;"><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s4"></td><td class="s4"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s4"></td></tr>
+        <tr style="height: 22px;"><td class="s5" dir="ltr">Site Availability Date</td><td class="s5"></td><td class="s8" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s9" dir="ltr" colspan="2">Monthly Rental Rate (Php)</td><td class="s10" dir="ltr" colspan="5">_MONTHLY_RENTAL_RATE_</td></tr>
+        <tr style="height: 22px;"><td class="s5" dir="ltr">COL Start Date</td><td class="s5"></td><td class="s8" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s9" dir="ltr" colspan="2">Percentage Rent</td><td class="s10" colspan="5"></td></tr>
+        <tr style="height: 22px;"><td class="s5" dir="ltr">COL End Date</td><td class="s5"></td><td class="s8" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s9" dir="ltr" colspan="2">Minimum Guaranteed Rent</td><td class="s10" colspan="5"></td></tr>
+        <tr style="height: 22px;"><td class="s5" dir="ltr">Lease Terms</td><td class="s5"></td><td class="s8" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s9" dir="ltr" colspan="2">Annual Escalation Rate (%)</td><td class="s10" dir="ltr" colspan="5">_ESCALATION_</td></tr>
+        <tr style="height: 22px;"><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td><td class="s4"></td><td class="s9" dir="ltr" colspan="2">Advance Rental (Php)</td><td class="s10" dir="ltr" colspan="5">_ADVANCE_RENTAL_</td></tr>
+        <tr style="height: 20px;"><td class="s1" dir="ltr" colspan="8">Technical Info</td><td class="s4"></td><td class="s9" dir="ltr" colspan="2">Security Deposit Amount (Php)</td><td class="s10" dir="ltr" colspan="5">_SECURITY_DEPOSIT_</td></tr>
+        <tr style="height: 22px;"><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s4"></td><td class="s4"></td><td class="s9" dir="ltr" colspan="2">CUSA Dues</td><td class="s10" dir="ltr" colspan="5">_CUSA_</td></tr>
+        <tr style="height: 22px;"><td class="s7" dir="ltr" colspan="2">Lot /Floor Area (in sqm)</td><td class="s6" dir="ltr" colspan="5">_LOT_FLOOR_AREA_SQM_</td><td class="s4"></td><td class="s4"></td><td class="s9" dir="ltr" colspan="2">Estimated Revenue Per Mo.</td><td class="s8" colspan="5"></td></tr>
+        <tr style="height: 19px;"><td class="s5" dir="ltr">Frontage (in m)</td><td class="s5"></td><td class="s8" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td></tr>
+        <tr style="height: 19px;"><td class="s5" dir="ltr">Depth (in m)</td><td class="s5"></td><td class="s8" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s1" dir="ltr" colspan="7">Provisions</td></tr>
+        <tr style="height: 22px;"><td class="s7" dir="ltr" colspan="2">Floor to Slab Height (in m) - if Bldg</td><td class="s8" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s4"></td></tr>
+        <tr style="height: 22px;"><td class="s7" dir="ltr" colspan="2">No. of Storeys (If Bldg Lessee)</td><td class="s8" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Tenant is the Owner</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
+        <tr style="height: 22px;"><td class="s7" dir="ltr" colspan="2">Type of Structure(if Bldg Lessee)</td><td class="s8" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Lease Type</td><td class="s6" dir="ltr" colspan="4">_LEASE_TYPE_</td><td class="s4"></td></tr>
+        <tr style="height: 22px;"><td class="s5" dir="ltr">Soil Profile</td><td class="s5"></td><td class="s8" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Principal COL</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
+        <tr style="height: 22px;"><td class="s5" dir="ltr">Supply Access:</td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Sub-Lease Provison</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
+        <tr style="height: 22px;"><td class="s5" dir="ltr">Power</td><td class="s11"></td><td class="s5" dir="ltr">Aircon</td><td class="s11"></td><td class="s7" dir="ltr" colspan="2">LPG Fire Pro</td><td class="s11"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Pre-Term/Partial Term</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
+        <tr style="height: 22px;"><td class="s5" dir="ltr">Water</td><td class="s11"></td><td class="s5" dir="ltr">Exhaust</td><td class="s11"></td><td class="s7" dir="ltr" colspan="2">Drainage TP</td><td class="s11"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Tripartite Agreement</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
+        <tr style="height: 19px;"><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td><td class="s4"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td></tr>
+        <tr style="height: 20px;"><td class="s1" dir="ltr" colspan="8">Lessor and Tenant Details</td><td class="s4"></td><td class="s1" dir="ltr" colspan="7">If with Sub-Lessor/ Sub-Lessee</td></tr>
+        <tr style="height: 19px;"><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s4"></td><td class="s4"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s4"></td></tr>
+        <tr style="height: 22px;"><td class="s5" dir="ltr">Name of Lessor</td><td class="s5"></td><td class="s6" dir="ltr" colspan="5">_LESSOR_</td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Name of Sub-Lessor</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
+        <tr style="height: 22px;"><td class="s5" dir="ltr">Contact No.</td><td class="s5"></td><td class="s6" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Contact No.</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
+        <tr style="height: 22px;"><td class="s5" dir="ltr">E-mail Address</td><td class="s5"></td><td class="s6" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">E-mail Address</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
+        <tr style="height: 22px;"><td class="s5" dir="ltr">Type of Ownership</td><td class="s5"></td><td class="s6" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Type of Ownership</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
+        <tr style="height: 22px;"><td class="s5" dir="ltr">Company Name</td><td class="s5"></td><td class="s6" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Company Name</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
+        <tr style="height: 22px;"><td class="s7" dir="ltr" colspan="2">Developer Account Name</td><td class="s6" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Developer Account Name</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
+        <tr style="height: 22px;"><td class="s5" dir="ltr">Business Address</td><td class="s5"></td><td class="s6" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Business Address</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
+        <tr style="height: 22px;"><td class="s7" dir="ltr" colspan="2">Name of Authorized Representative</td><td class="s6" dir="ltr" colspan="5">_CONTACT_PERSON_SOURCE_</td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Name of Authorized Representative</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
+        <tr style="height: 22px;"><td class="s7" dir="ltr" colspan="2">Residence Address of Authorized Representative</td><td class="s6" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Residence Address of Authorized Representative</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
+        <tr style="height: 22px;"><td class="s5" dir="ltr">Contact No.</td><td class="s5"></td><td class="s6" dir="ltr" colspan="5">_CONTACT_NUMBER_</td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Contact No.</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
+        <tr style="height: 22px;"><td class="s5" dir="ltr">E-mail Address</td><td class="s5"></td><td class="s6" dir="ltr" colspan="5">_EMAIL_ADDRESS_</td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">E-mail Address</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
+        <tr style="height: 19px;"><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s4"></td><td class="s4"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s4"></td></tr>
+        <tr style="height: 22px;"><td class="s5" dir="ltr">Name of Lessee</td><td class="s5"></td><td class="s8" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Name of Sub-Lessee</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
+        <tr style="height: 22px;"><td class="s5" dir="ltr">Position</td><td class="s5"></td><td class="s8" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Position</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
+        <tr style="height: 22px;"><td class="s5" dir="ltr">Contact No.</td><td class="s5"></td><td class="s8" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Contact No.</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
+        <tr style="height: 22px;"><td class="s5" dir="ltr">E-mail Address</td><td class="s5"></td><td class="s8" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">E-mail Address</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
+        <tr style="height: 22px;"><td class="s7" dir="ltr" colspan="2">Name of Authorized Representative</td><td class="s8" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Name of Authorized Representative</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
+        <tr style="height: 22px;"><td class="s5" dir="ltr">Business Address</td><td class="s5"></td><td class="s8" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Business Address</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
+        <tr style="height: 19px;"><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td><td class="s4"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td></tr>
+        <tr style="height: 20px;"><td class="s14" dir="ltr" colspan="16">Regulatory</td></tr>
+        <tr style="height: 22px;">
+            <td class="s17" dir="ltr">Setback Requirement</td><td class="s15"></td><td class="s15"></td><td class="s15"></td><td class="s15"></td><td class="s15"></td><td class="s15"></td>
+            <td class="s18"></td><td class="s18"></td>
+            <td class="s19" dir="ltr">Perm Traffic Re-Routing</td><td class="s15"></td><td class="s15"></td><td class="s15"></td>
+            <td class="s17" dir="ltr">Future Development</td><td class="s15"></td><td class="s16"></td>
+        </tr>
+        <tr style="height: 22px;">
+            <td class="s17" dir="ltr">Road Widening</td><td class="s15"></td><td class="s15"></td><td class="s15"></td><td class="s15"></td><td class="s15"></td><td class="s15"></td>
+            <td class="s18"></td><td class="s18"></td>
+            <td class="s19" dir="ltr">Perm Road Closure</td><td class="s15"></td><td class="s15"></td><td class="s15"></td>
+            <td class="s17" dir="ltr">Zoning Clearance</td><td class="s15"></td><td class="s16"></td>
+        </tr>
+        <tr style="height: 22px;">
+            <td class="s17" dir="ltr">Pedestrian Overpass</td><td class="s21"></td><td class="s21"></td><td class="s21"></td><td class="s21"></td><td class="s21"></td><td class="s21"></td>
+            <td class="s21"></td><td class="s21"></td>
+            <td class="s21" dir="ltr">Infrastructure Programs</td><td class="s21"></td><td class="s21"></td><td class="s21"></td>
+            <td class="s21" dir="ltr">Gas Station</td><td class="s21"></td><td class="s22"></td>
+        </tr>
+        <tr style="height: 19px;"><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td><td class="s4"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td></tr>
+        <tr style="height: 20px;"><td class="s23" dir="ltr" colspan="16">Site Acquirability:</td></tr>
+        <tr style="height: 22px;"><td class="s5" dir="ltr">Confidence Level</td><td class="s11" colspan="5"></td><td class="s5"></td><td class="s4"></td><td class="s4"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s4"></td></tr>
+        <tr style="height: 22px;"><td class="s5" dir="ltr">Site Availability</td><td class="s24" colspan="5">_SITE_AVAILABILITY_CLASS_</td><td class="s5"></td><td class="s4"></td><td class="s4"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s4"></td></tr>
+        <tr style="height: 22px;"><td class="s5" dir="ltr">Other Remarks:</td><td class="s25" colspan="5">_REMARKS_</td><td class="s5"></td><td class="s4"></td><td class="s4"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s4"></td></tr>
+    </tbody>
+</table>
+</div>
+"""
 
 # --- LOAD DATA ---
 @st.cache_data(ttl=3600)
@@ -350,8 +296,6 @@ def load_data():
 
 with st.spinner("Loading Data Assets..."):
     df, placeholders, template_bytes_raw = load_data()
-    # Download vector configurations
-    font_reg_b, font_bold_b = download_vector_fonts()
 
 if df is None or template_bytes_raw is None:
     st.error("Failed to load data. Please check connection profiles.")
@@ -374,10 +318,12 @@ with col3:
         st.rerun()
 
 site_excel_bytes = None
+site_row_data = None
+
 if selected_ta and selected_site:
     site_data = df[(df["TRADE AREA"] == selected_ta) & (df["SITE NAME"] == selected_site)]
     if not site_data.empty:
-        row = site_data.iloc[0]
+        site_row_data = site_data.iloc[0]
         template_data.seek(0)
         wb = load_workbook(template_data)
         base_sheet = wb.active
@@ -388,7 +334,7 @@ if selected_ta and selected_site:
                     for ph in placeholders:
                         target_regex = r"\{\{\s*" + re.escape(ph) + r"(\s*:.*?)?\}\}"
                         if re.search(target_regex, new_val):
-                            raw_data_val = row.get(ph.upper(), "")
+                            raw_data_val = site_row_data.get(ph.upper(), "")
                             if pd.isna(raw_data_val) or raw_data_val is None: raw_data_val = ""
                             if isinstance(raw_data_val, float) and raw_data_val.is_integer(): val_str = str(int(raw_data_val))
                             elif hasattr(raw_data_val, 'strftime'): val_str = raw_data_val.strftime('%B %d, %Y')
@@ -442,24 +388,48 @@ with col5:
 with col6:
     st.markdown(f"<p class='info-text'>Sites: {len(df['SITE NAME'].dropna().unique())}</p>", unsafe_allow_html=True)
 
-# --- DIRECT PHOTO PREVIEW RENDER LAYER ---
-if site_excel_bytes:
+# --- DIRECT BLU-PRINT HTML RE-BUILD INJECTION LAYER ---
+if site_excel_bytes and site_row_data is not None:
     try:
-        active_wb = load_workbook(io.BytesIO(site_excel_bytes))
-        
-        # Pass vector components stream parameters straight into renderer
-        cloned_image_canvas = render_range_to_image(
-            active_wb, 
-            io.BytesIO(font_reg_b) if font_reg_b else None, 
-            io.BytesIO(font_bold_b) if font_bold_b else None, 
-            range_string="A1:P67"
-        )
-        
-        st.markdown('<div class="photo-container">', unsafe_allow_html=True)
-        st.image(cloned_image_canvas, use_container_width=True, output_format="PNG")
-        st.markdown('</div>', unsafe_allow_html=True)
+        # Data parsing formatter utilities matching explicit key bounds
+        def process_val(key_string):
+            val = site_row_data.get(key_string.upper(), "")
+            if pd.isna(val) or val is None:
+                return ""
+            if isinstance(val, float) and val.is_integer():
+                return str(int(val))
+            if hasattr(val, 'strftime'):
+                return val.strftime('%B %d, %Y')
+            return str(val).strip()
+
+        # Dynamic string binding layer injecting row cells safely straight into the blueprint
+        rendered_view = RAW_TEMPLATE_HTML
+        rendered_view = rendered_view.replace("_TRADE_AREA_", process_val("TRADE AREA"))
+        rendered_view = rendered_view.replace("_SITE_NAME_", process_val("SITE NAME"))
+        rendered_view = rendered_view.replace("_SITE_NO_", process_val("SITE NO"))
+        rendered_view = rendered_view.replace("_TIMESTAMP_", process_val("TIMESTAMP"))
+        rendered_view = rendered_view.replace("_UNIT_BLDG_ST_NAME_", process_val("UNIT #, BLDG/ST # AND ST NAME"))
+        rendered_view = rendered_view.replace("_BARANGAY_DISTRICT_NAME_", process_val("BARANGAY/DISTRICT NAME"))
+        rendered_view = rendered_view.replace("_CITY_MUNICIPALITY_", process_val("CITY/MUNICIPALITY"))
+        rendered_view = rendered_view.replace("_REGION_", process_val("REGION"))
+        rendered_view = rendered_view.replace("_POSTAL_CODE_", process_val("POSTAL CODE"))
+        rendered_view = rendered_view.replace("_MONTHLY_RENTAL_RATE_", process_val("MONTHLY RENTAL RATE"))
+        rendered_view = rendered_view.replace("_ESCALATION_", process_val("ESCALATION"))
+        rendered_view = rendered_view.replace("_ADVANCE_RENTAL_", process_val("ADVANCE RENTAL"))
+        rendered_view = rendered_view.replace("_SECURITY_DEPOSIT_", process_val("SECURITY DEPOSIT"))
+        rendered_view = rendered_view.replace("_CUSA_", process_val("CUSA"))
+        rendered_view = rendered_view.replace("_LOT_FLOOR_AREA_SQM_", process_val("LOT/FLOOR AREA SQM"))
+        rendered_view = rendered_view.replace("_LEASE_TYPE_", process_val("LEASE TYPE"))
+        rendered_view = rendered_view.replace("_LESSOR_", process_val("LESSOR"))
+        rendered_view = rendered_view.replace("_CONTACT_PERSON_SOURCE_", process_val("CONTACT PERSON/SOURCE"))
+        rendered_view = rendered_view.replace("_CONTACT_NUMBER_", process_val("CONTACT NUMBER"))
+        rendered_view = rendered_view.replace("_EMAIL_ADDRESS_", process_val("EMAIL ADDRESS"))
+        rendered_view = rendered_view.replace("_SITE_AVAILABILITY_CLASS_", process_val("SITE AVAILABILITY CLASS"))
+        rendered_view = rendered_view.replace("_REMARKS_", process_val("REMARKS"))
+
+        st.markdown(f'<div class="excel-container">{rendered_view}</div>', unsafe_allow_html=True)
             
     except Exception as e:
-        st.error(f"Error rendering image frame: {str(e)}")
+        st.error(f"Error compiling visual blueprint frame layer: {str(e)}")
 else:
     st.info("Select a Trade Area and Site to view the report.")
