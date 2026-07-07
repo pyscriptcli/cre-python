@@ -52,7 +52,6 @@ st.markdown("""
         border: 1px solid #d0d0d0 !important;
         border-radius: 2px !important;
         padding: 0.1rem 0.3rem !important;
-        font-weight: 400 !important;
         font-size: 0.7rem !important;
         min-height: 24px !important;
         height: 24px !important;
@@ -213,7 +212,7 @@ def transform_to_direct_download(drive_url):
             return f"https://drive.google.com/uc?export=download&id={file_id_match.group(1)}"
         id_param_match = re.search(r'id=([a-zA-Z0-9-_]+)', url_str)
         if id_param_match:
-            return f"https://drive.google.com/uc?export=download&id={file_id_match.group(1)}"
+            return f"https://drive.google.com/uc?export=download&id={id_param_match.group(1)}"
     return url_str
 
 def parse_link_cell(cell_value):
@@ -391,7 +390,6 @@ if selected_ta and selected_site:
         base_sheet = wb.active
         for row_cells in base_sheet.iter_rows():
             for cell in row_cells:
-                # FIXED: Parentheses added to secure logic type constraints guard check parameters 
                 if isinstance(cell.value, str) and ("{{" in cell.value):
                     new_val = cell.value
                     for ph in placeholders:
@@ -411,6 +409,7 @@ if selected_ta and selected_site:
 
 with col4:
     if selected_ta:
+        # Combined export processes the entire trade area layout bulk package
         with io.BytesIO() as wb_buffer:
             template_data.seek(0)
             wb_bulk = load_workbook(template_data)
@@ -494,6 +493,7 @@ if site_excel_bytes and site_row_data is not None:
     with tab2:
         st.markdown(f"### Photos for {selected_site}")
         
+        # Pull specific dynamic paths/links straight out of the row context cells
         raw_photos = site_row_data.get("PHOTOS", "")
         photo_links = parse_link_cell(raw_photos)
         
