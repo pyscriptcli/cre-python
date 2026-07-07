@@ -49,10 +49,10 @@ st.markdown("""
     div[data-testid="stStatusWidget"] {display: none !important;}
     
     .block-container {
-        padding-top: 0.1rem !important;
-        padding-bottom: 0.1rem !important;
-        padding-left: 0.5rem !important;
-        padding-right: 0.5rem !important;
+        padding-top: 0.05rem !important;
+        padding-bottom: 0.05rem !important;
+        padding-left: 0.3rem !important;
+        padding-right: 0.3rem !important;
         max-width: 100% !important;
     }
     
@@ -60,14 +60,15 @@ st.markdown("""
         background-color: #e8e8e8 !important;
         color: #333333 !important;
         border: 1px solid #d0d0d0 !important;
-        border-radius: 3px !important;
-        padding: 0.2rem 0.4rem !important;
+        border-radius: 2px !important;
+        padding: 0.1rem 0.3rem !important;
         font-weight: 400 !important;
         font-size: 0.7rem !important;
-        min-height: 28px !important;
-        height: 28px !important;
+        min-height: 24px !important;
+        height: 24px !important;
         line-height: 1 !important;
         width: 100%;
+        margin: 0 !important;
     }
     .stButton > button:hover {
         background-color: #f5f5f5 !important;
@@ -78,39 +79,73 @@ st.markdown("""
         background-color: #fafafa !important;
         border-color: #d0d0d0 !important;
         color: #333333 !important;
-        min-height: 28px !important;
-        height: 28px !important;
+        min-height: 24px !important;
+        height: 24px !important;
     }
     .stSelectbox > div > div > div {
         padding-top: 0 !important;
         padding-bottom: 0 !important;
+        font-size: 0.7rem !important;
     }
     .stSelectbox label {
         color: #333333 !important;
         font-weight: 400 !important;
-        font-size: 0.7rem !important;
-        margin-bottom: 0.1rem !important;
+        font-size: 0.65rem !important;
+        margin-bottom: 0 !important;
+        padding-bottom: 0 !important;
     }
     
     .stMarkdown, .stMarkdown * {
         color: #333333 !important;
     }
     
-    .control-section {
-        background-color: #f8f8f8 !important;
-        border-radius: 2px;
-        padding: 0.2rem 0.4rem !important;
-        border: 1px solid #e8e8e8;
-        margin-bottom: 0.2rem;
+    div[data-testid="stVerticalBlock"] {
+        gap: 0 !important;
+    }
+    
+    div[data-testid="stHorizontalBlock"] {
+        gap: 0.2rem !important;
+        align-items: center !important;
+    }
+    
+    .stDownloadButton > button {
+        background-color: #e8e8e8 !important;
+        color: #333333 !important;
+        border: 1px solid #d0d0d0 !important;
+        border-radius: 2px !important;
+        padding: 0.1rem 0.3rem !important;
+        font-weight: 400 !important;
+        font-size: 0.7rem !important;
+        min-height: 24px !important;
+        height: 24px !important;
+        line-height: 1 !important;
+        width: 100%;
+        margin: 0 !important;
+    }
+    .stDownloadButton > button:hover {
+        background-color: #f5f5f5 !important;
+        border-color: #b0b0b0 !important;
+    }
+    
+    .stAlert {
+        padding: 0.1rem 0.3rem !important;
+        font-size: 0.7rem !important;
+        margin: 0 !important;
+        min-height: 24px !important;
+    }
+    
+    .stSpinner {
+        margin: 0 !important;
     }
     
     .excel-container {
         background-color: white !important;
         border-radius: 2px;
-        padding: 0.3rem;
+        padding: 0.2rem;
         border: 1px solid #e8e8e8;
         overflow: auto;
-        height: calc(100vh - 160px);
+        height: calc(100vh - 80px);
+        margin-top: 0.1rem;
     }
     
     .excel-container table {
@@ -120,7 +155,7 @@ st.markdown("""
     }
     
     .excel-container td {
-        padding: 2px 4px;
+        padding: 1px 3px;
         border: 1px solid #d0d0d0;
     }
     
@@ -136,36 +171,21 @@ st.markdown("""
         pointer-events: none !important;
     }
     
-    .stAlert {
-        padding: 0.2rem 0.4rem !important;
-        font-size: 0.7rem !important;
+    .control-container {
+        background-color: #f8f8f8 !important;
+        border-radius: 2px;
+        padding: 0.15rem 0.3rem !important;
+        border: 1px solid #e8e8e8;
+        margin-bottom: 0.1rem;
     }
     
-    div[data-testid="stVerticalBlock"] {
-        gap: 0.1rem !important;
-    }
-    
-    div[data-testid="stHorizontalBlock"] {
-        gap: 0.3rem !important;
-        align-items: center !important;
-    }
-    
-    .stDownloadButton > button {
-        background-color: #e8e8e8 !important;
-        color: #333333 !important;
-        border: 1px solid #d0d0d0 !important;
-        border-radius: 3px !important;
-        padding: 0.2rem 0.4rem !important;
-        font-weight: 400 !important;
-        font-size: 0.7rem !important;
-        min-height: 28px !important;
-        height: 28px !important;
-        line-height: 1 !important;
-        width: 100%;
-    }
-    .stDownloadButton > button:hover {
-        background-color: #f5f5f5 !important;
-        border-color: #b0b0b0 !important;
+    .info-text {
+        font-size: 0.65rem;
+        color: #666;
+        text-align: center;
+        margin: 0;
+        padding: 0;
+        line-height: 24px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -370,7 +390,7 @@ def render_excel_to_html(workbook, sheet_name=None):
             border_style = '1px solid #d0d0d0'
             
             style = f'background-color: {bg_color}; color: {font_color}; font-weight: {font_weight}; font-size: {font_size}; '
-            style += f'text-align: {h_align}; vertical-align: {v_align}; padding: 2px 4px; border: {border_style}; '
+            style += f'text-align: {h_align}; vertical-align: {v_align}; padding: 1px 3px; border: {border_style}; '
             
             if wrap_text:
                 style += 'white-space: normal; word-wrap: break-word; max-width: 300px; '
@@ -411,6 +431,23 @@ def load_data():
     
     return df, template_wb, template_sheet, placeholders, template_data
 
+def sanitize_tab_name(name, existing_names):
+    illegal_chars = r'[\\/*?\[\]:]'
+    clean_name = re.sub(illegal_chars, '', str(name))
+    base_name = clean_name[:31]
+    if base_name not in existing_names:
+        existing_names.add(base_name)
+        return base_name
+    counter = 1
+    while True:
+        suffix = f" ({counter})"
+        max_len = 31 - len(suffix)
+        new_name = f"{clean_name[:max_len]}{suffix}"
+        if new_name not in existing_names:
+            existing_names.add(new_name)
+            return new_name
+        counter += 1
+
 # --- LOAD DATA ---
 with st.spinner("Loading..."):
     df, template_wb, template_sheet, placeholders, template_data = load_data()
@@ -422,8 +459,8 @@ if df is None or template_wb is None:
 # --- CONTROLS ROW ---
 trade_areas = sorted(df["TRADE AREA"].dropna().unique())
 
-# Create columns for controls
-col1, col2, col3, col4, col5, col6 = st.columns([1.2, 1.2, 0.8, 0.8, 0.8, 0.8])
+# Create columns for controls - using more compact columns
+col1, col2, col3, col4, col5, col6, col7 = st.columns([1.2, 1.2, 0.6, 0.7, 0.7, 0.5, 0.3])
 
 with col1:
     selected_ta = st.selectbox(
@@ -454,17 +491,18 @@ with col2:
         )
 
 with col3:
+    st.markdown("<p style='margin:0;padding:0;'>&nbsp;</p>", unsafe_allow_html=True)
     if st.button("Refresh", use_container_width=True):
         st.cache_data.clear()
         st.rerun()
 
 with col4:
+    st.markdown("<p style='margin:0;padding:0;'>&nbsp;</p>", unsafe_allow_html=True)
     if selected_ta and selected_site:
         site_data = df[(df["TRADE AREA"] == selected_ta) & (df["SITE NAME"] == selected_site)]
         if not site_data.empty:
             row = site_data.iloc[0]
             
-            # Create single site download
             template_data.seek(0)
             wb = load_workbook(template_data)
             base_sheet = wb.active
@@ -496,12 +534,11 @@ with col4:
             )
 
 with col5:
+    st.markdown("<p style='margin:0;padding:0;'>&nbsp;</p>", unsafe_allow_html=True)
     if selected_ta:
-        # Create trade area download (all sites in trade area)
-        ta_data = df[df["TRADE AREA"] == selected_ta]
-        
         if st.button("Trade Report", use_container_width=True):
             with st.spinner("Generating..."):
+                ta_data = df[df["TRADE AREA"] == selected_ta]
                 template_data.seek(0)
                 wb = load_workbook(template_data)
                 base_sheet = wb.active
@@ -542,26 +579,12 @@ with col5:
                     key="ta_download"
                 )
 
-def sanitize_tab_name(name, existing_names):
-    illegal_chars = r'[\\/*?\[\]:]'
-    clean_name = re.sub(illegal_chars, '', str(name))
-    base_name = clean_name[:31]
-    if base_name not in existing_names:
-        existing_names.add(base_name)
-        return base_name
-    counter = 1
-    while True:
-        suffix = f" ({counter})"
-        max_len = 31 - len(suffix)
-        new_name = f"{clean_name[:max_len]}{suffix}"
-        if new_name not in existing_names:
-            existing_names.add(new_name)
-            return new_name
-        counter += 1
-
 with col6:
     total_sites = len(df["SITE NAME"].dropna().unique())
-    st.markdown(f"<p style='text-align: center; font-size: 0.7rem; color: #666; margin: 0; padding-top: 8px;'>Sites: {total_sites}</p>", unsafe_allow_html=True)
+    st.markdown(f"<p class='info-text'>Sites: {total_sites}</p>", unsafe_allow_html=True)
+
+with col7:
+    st.markdown("<p style='margin:0;padding:0;'>&nbsp;</p>", unsafe_allow_html=True)
 
 # --- REPORT VIEWER ---
 if selected_ta and selected_site:
