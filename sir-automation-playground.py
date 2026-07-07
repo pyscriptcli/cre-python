@@ -153,7 +153,7 @@ st.markdown("""
     
     .excel-container td {
         padding: 3px 5px;
-        border: 1px solid #c0c0c0; /* Higher contrast border */
+        border: 1px solid #b0b0b0; /* High contrast template cell border lines */
         word-break: break-word !important;
         white-space: normal !important;
     }
@@ -307,7 +307,20 @@ def render_excel_to_html(workbook, sheet_name=None):
     max_row = ws.max_row
     max_col = ws.max_column
     
+    # Dynamically extract individual spreadsheet column percentage widths based on template shape configurations
+    col_widths = []
+    for col_idx in range(1, max_col + 1):
+        col_letter = get_column_letter(col_idx)
+        width = ws.column_dimensions[col_letter].width
+        col_widths.append(width if width else 10)
+    total_width = sum(col_widths)
+    col_pcts = [f"{(w / total_width) * 100}%" for w in col_widths]
+    
     html = '<table style="border-collapse: collapse; font-family: \'Roboto\', sans-serif; font-size: 10px; width: 100%; table-layout: fixed;">'
+    html += '<colgroup>'
+    for pct in col_pcts:
+        html += f'<col style="width: {pct};">'
+    html += '</colgroup>'
     
     merged_cells = {}
     for merged_range in ws.merged_cells.ranges:
@@ -330,21 +343,32 @@ def render_excel_to_html(workbook, sheet_name=None):
             cell = ws.cell(row, col)
             value = cell.value if cell.value is not None else ''
             
+            # Formatter checks: Numbers stay as flat integers, timestamps string format gracefully
             if isinstance(value, float) and value.is_integer():
                 value = int(value)
             elif hasattr(value, 'strftime'):
                 value = value.strftime('%B %d, %Y')
             
+            # Background parsing layers
             bg_color = 'white'
             if cell.fill and cell.fill.fgColor and cell.fill.fgColor.rgb:
                 bg_color = cell.fill.fgColor.rgb
                 if bg_color.startswith('FF'):
                     bg_color = '#' + bg_color[2:]
             
-            if bg_color.lower() in ['#800000', '#8c0000', '#7a0000'] or (isinstance(value, str) and "SITE INFORMATION REPORT" in value.upper()):
+            # One-to-one font color validation override rules
+            # Ensures dark header row cells turn into Bold White text instantly
+            value_str = str(value).strip().upper()
+            if bg_color.lower() in ['#800000', '#8c0000', '#7a0000'] or "SITE INFORMATION REPORT" in value_str:
                 font_color = '#FFFFFF'
                 font_weight = 'bold'
                 font_size = '11px'
+                h_align = 'center'
+            elif any(header in value_str for header in ["GENERAL INFORMATION", "LOCATION", "TERMS", "RATES", "TECHNICAL INFO", "PROVISIONS", "LESSOR AND TENANT DETAILS", "IF WITH SUB-LESSOR", "REGULATORY", "SITE ACQUIRABILITY"]):
+                font_color = '#000000'
+                font_weight = 'bold'
+                font_size = '10px'
+                h_align = 'left'
             else:
                 font_color = '#333333'
                 font_weight = 'normal'
@@ -358,15 +382,17 @@ def render_excel_to_html(workbook, sheet_name=None):
                         font_weight = 'bold'
                     if cell.font.size:
                         font_size = f'{cell.font.size}px'
+                h_align = 'left'
             
-            h_align = 'left'
-            v_align = 'middle'
             if cell.alignment:
-                h_align = cell.alignment.horizontal or 'left'
-                v_align = cell.alignment.vertical or 'middle'
+                if cell.alignment.horizontal:
+                    h_align = cell.alignment.horizontal
+            
+            # High-contrast border profiles map configuration
+            border_style = '1px solid #b0b0b0'
             
             style = f'background-color: {bg_color}; color: {font_color}; font-weight: {font_weight}; font-size: {font_size}; '
-            style += f'text-align: {h_align}; vertical-align: {v_align}; padding: 3px 5px; border: 1px solid #c0c0c0; '
+            style += f'text-align: {h_align}; vertical-align: middle; padding: 4px 5px; border: {border_style}; '
             style += 'white-space: normal !important; word-wrap: break-word !important; word-break: break-word !important;'
             
             rowspan = merged_cells[(row, col)].get('rowspan', 1) if (row, col) in merged_cells else 1
@@ -378,111 +404,6 @@ def render_excel_to_html(workbook, sheet_name=None):
                 html += f'<td style="{style}">{str(value)}</td>'
         html += '</tr>'
     html += '</table>'
-    return html
-
-def render_additional_sections(row, placeholders):
-    html = ''
-    
-    def get_val(ph):
-        val = row.get(ph.upper(), '')
-        if pd.isna(val) or val is None:
-            return ''
-        if isinstance(val, float):
-            if val.is_integer():
-                return str(int(val))
-            return str(val)
-        if hasattr(val, 'strftime'):
-            return val.strftime('%B %d, %Y')
-        val_str = str(val).strip()
-        if re.match(r'^\d+\.0$', val_str):
-            return val_str.split('.')[0]
-        return val_str
-
-    # Accurate side-by-side cloned matrix renderer matching the exact screenshot blueprint layout
-    def make_cloned_split_table(title, left_fields, right_fields):
-        t_html = f'<h4 style="margin: 14px 0 4px 0; font-size: 11px; font-weight: 600; color: #333; text-align: left;">{title}</h4>'
-        t_html += '<table style="border-collapse: collapse; width: 100%; font-size: 10px; border: 1px solid #c0c0c0; margin-bottom: 10px; table-layout: fixed;">'
-        
-        max_len = max(len(left_fields), len(right_fields))
-        for i in range(max_len):
-            t_html += '<tr>'
-            
-            # Left Columns Matrix
-            if i < len(left_fields):
-                lbl_l, ph_l = left_fields[i]
-                val_l = get_val(ph_l)
-                t_html += f'<td style="background-color: #f8f8f8; color: #333333; padding: 4px 6px; border: 1px solid #c0c0c0; font-weight: 500; width: 18%; text-align: left; white-space: normal; word-break: break-word;">{lbl_l}</td>'
-                t_html += f'<td style="background-color: #e0e0e0; color: #333333; padding: 4px 6px; border: 1px solid #c0c0c0; width: 28%; text-align: left; white-space: normal; word-break: break-word;">{val_l}</td>'
-            else:
-                t_html += '<td style="background-color: #f8f8f8; border: 1px solid #c0c0c0; width: 18%;"></td>'
-                t_html += '<td style="background-color: #e0e0e0; border: 1px solid #c0c0c0; width: 28%;"></td>'
-            
-            # Spacer Column Gap Middle
-            t_html += '<td style="background-color: white; border: 1px solid #c0c0c0; width: 8%;"></td>'
-            
-            # Right Columns Matrix
-            if i < len(right_fields):
-                lbl_r, ph_r = right_fields[i]
-                val_r = get_val(ph_r)
-                t_html += f'<td style="background-color: #f8f8f8; color: #333333; padding: 4px 6px; border: 1px solid #c0c0c0; font-weight: 500; width: 18%; text-align: left; white-space: normal; word-break: break-word;">{lbl_r}</td>'
-                t_html += f'<td style="background-color: #e0e0e0; color: #333333; padding: 4px 6px; border: 1px solid #c0c0c0; width: 28%; text-align: left; white-space: normal; word-break: break-word;">{val_r}</td>'
-            else:
-                t_html += '<td style="background-color: #f8f8f8; border: 1px solid #c0c0c0; width: 18%;"></td>'
-                t_html += '<td style="background-color: #e0e0e0; border: 1px solid #c0c0c0; width: 28%;"></td>'
-                
-            t_html += '</tr>'
-            
-        t_html += '</table>'
-        return t_html
-
-    # Cloned structural arrays tracking left vs right layout grids
-    lessor_left = [
-        ('Name of Lessor', 'LESSOR'), ('Contact No.', 'CONTACT NO'), ('E-mail Address', 'EMAIL ADDRESS'),
-        ('Type of Ownership', 'TYPE OF OWNERSHIP'), ('Company Name', 'COMPANY NAME'),
-        ('Developer Account Name', 'DEVELOPER ACCOUNT NAME'), ('Business Address', 'BUSINESS ADDRESS'),
-        ('Name of Authorized Representative', 'CONTACT PERSON/SOURCE')
-    ]
-    lessor_right = [
-        ('Residence Address of Authorized Representative', 'RESIDENCE ADDRESS'), ('Contact No.', 'CONTACT NUMBER'),
-        ('E-mail Address', 'EMAIL ADDRESS'), ('Name of Lessee', 'LESSEE'), ('Position', 'POSITION'),
-        ('Contact No.', 'CONTACT NO'), ('E-mail Address', 'EMAIL ADDRESS'), 
-        ('Name of Authorized Representative', 'AUTHORIZED REPRESENTATIVE'), ('Business Address', 'BUSINESS ADDRESS')
-    ]
-    
-    sub_left = [
-        ('Name of Sub-Lessor', 'SUB-LESSOR'), ('Contact No.', 'CONTACT NO'), ('E-mail Address', 'EMAIL ADDRESS'),
-        ('Type of Ownership', 'TYPE OF OWNERSHIP'), ('Company Name', 'COMPANY NAME'),
-        ('Developer Account Name', 'DEVELOPER ACCOUNT NAME'), ('Business Address', 'BUSINESS ADDRESS'),
-        ('Name of Authorized Representative', 'AUTHORIZED REPRESENTATIVE')
-    ]
-    sub_right = [
-        ('Residence Address of Authorized Representative', 'RESIDENCE ADDRESS'), ('Contact No.', 'CONTACT NUMBER'),
-        ('E-mail Address', 'EMAIL ADDRESS'), ('Name of Sub-Lessee', 'SUB-LESSEE'), ('Position', 'POSITION'),
-        ('Contact No.', 'CONTACT NO'), ('E-mail Address', 'EMAIL ADDRESS'),
-        ('Name of Authorized Representative', 'AUTHORIZED REPRESENTATIVE'), ('Business Address', 'BUSINESS ADDRESS')
-    ]
-
-    regulatory_left = [
-        ('Setback Requirement', 'SETBACK REQUIREMENT'), ('Road Widening', 'ROAD WIDENING'), 
-        ('Pedestrian Overpass', 'PEDESTRIAN OVERPASS'), ('Perm Traffic Re-Routing', 'PERM TRAFFIC RE-ROUTING'),
-        ('Perm Road Closure', 'PERM ROAD CLOSURE')
-    ]
-    regulatory_right = [
-        ('Infrastructure Programs', 'INFRASTRUCTURE PROGRAMS'), ('Future Development', 'FUTURE DEVELOPMENT'),
-        ('Zoning Clearance', 'ZONING CLEARANCE'), ('Gas Station', 'GAS STATION')
-    ]
-
-    acquirability_left = [
-        ('Confidence Level', 'CONFIDENCE LEVEL'), ('Site Availability', 'SITE AVAILABILITY CLASS')
-    ]
-    acquirability_right = [
-        ('Other Remarks:', 'REMARKS')
-    ]
-
-    html += make_cloned_split_table('Lessor and Tenant Details', lessor_left, lessor_right)
-    html += make_cloned_split_table('If with Sub-Lessor/ Sub-Lessee', sub_left, sub_right)
-    html += make_cloned_split_table('Regulatory', regulatory_left, regulatory_right)
-    html += make_cloned_split_table('Site Acquirability', acquirability_left, acquirability_right)
     return html
 
 def sanitize_tab_name(name, existing_names):
@@ -646,6 +567,7 @@ if selected_ta and selected_site:
             base_sheet = wb.active
             row = site_data.iloc[0]
             
+            # Direct text placeholder assignment engine reads and maps keys dynamically from the worksheet template
             for row_cells in base_sheet.iter_rows():
                 for cell in row_cells:
                     if isinstance(cell.value, str) and "{{" in cell.value:
@@ -673,10 +595,8 @@ if selected_ta and selected_site:
                         else:
                             cell.value = new_val.strip() if new_val else ""
             
+            # The exact sheet shape structures are translated directly into optimized HTML 
             html_content = render_excel_to_html(wb)
-            html_content += render_additional_sections(row, placeholders)
-            
-            # Encapsulating everything into a single layout call fixes the raw HTML display bug
             st.markdown(f'<div class="excel-container">{html_content}</div>', unsafe_allow_html=True)
             
     except Exception as e:
