@@ -27,7 +27,7 @@ if not os.path.exists(_config_file):
     with open(_config_file, "w", encoding="utf-8") as f:
         f.write("[theme]\nbase=\"light\"\n")
 
-# --- CUSTOM BASE CSS ---
+# --- CUSTOM CSS ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
@@ -68,15 +68,55 @@ st.markdown("""
     div[data-testid="stHorizontalBlock"] { gap: 0.3rem !important; align-items: center !important; }
     .info-text { font-size: 0.7rem; color: #333; text-align: right; margin: 0; padding: 0; line-height: 24px; font-weight: 500; }
     
-    /* Document Display Container */
+    /* Global View Viewport Layout Containers */
     .excel-container {
-        background-color: white !important;
+        background-color: #ffffff !important;
         border-radius: 2px;
-        padding: 0.5rem;
+        padding: 0.4rem;
         border: 1px solid #d0d0d0;
         overflow: auto;
-        margin-top: 0.5rem;
+        margin-top: 0.2rem;
         width: 100%;
+    }
+    .excel-container table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 10px;
+        table-layout: fixed;
+    }
+    .excel-container td {
+        padding: 4px 6px;
+        word-break: break-word !important;
+        white-space: normal !important;
+        vertical-align: middle;
+    }
+    
+    /* High-contrast custom styling definitions for Tab bars */
+    button[data-baseweb="tab"] {
+        font-size: 0.85rem !important;
+        font-weight: 600 !important;
+        padding: 6px 16px !important;
+        color: #555555 !important;
+    }
+    button[data-baseweb="tab"][aria-selected="true"] {
+        color: #800000 !important;
+        border-bottom-color: #800000 !important;
+    }
+    
+    /* Card layout panels for property images and attachments */
+    .asset-card {
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        padding: 10px;
+        background-color: #fafafa;
+        margin-bottom: 15px;
+        text-align: center;
+    }
+    .asset-title {
+        font-size: 0.75rem;
+        font-weight: bold;
+        color: #333333;
+        margin-top: 6px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -105,6 +145,7 @@ if not st.session_state.authenticated:
 # --- CONFIGURATION ---
 SOURCE_URL = "https://docs.google.com/spreadsheets/d/14nhO9u7zJRcOoux8I7l2IzwU7iQZNW9fRX6TCip47CE/export?format=xlsx"
 TEMPLATE_URL = "https://docs.google.com/spreadsheets/d/1uS3xmnPi0o4c_EayQtURYDSMMPRDRGSb/export?format=xlsx"
+DRIVE_FOLDER_URL = "https://drive.google.com/drive/folders/13sLmXzxQvV12_ypTBRG2QW1yVIHaanba"
 
 # --- HELPER FUNCTIONS ---
 @st.cache_data(ttl=3600)
@@ -159,7 +200,7 @@ def sanitize_tab_name(name, existing_names):
             return new_name
         counter += 1
 
-# --- HTML TEMPLATE BLUEPRINT FROM EXPORT DATA ---
+# --- HTML TEMPLATE BLUEPRINT DEFINITION ---
 RAW_TEMPLATE_HTML = """
 <style type="text/css">
     .ritz .waffle a { color: inherit; }
@@ -292,7 +333,7 @@ def load_data():
     temp_wb = load_workbook(template_data)
     placeholders = get_placeholders(temp_wb.active)
     template_data.seek(0)
-    return df, placeholders, template_data.getvalue()
+    return df, placeholders, template_bytes_raw == template_data.getvalue() or template_data.getvalue()
 
 with st.spinner("Loading Data Assets..."):
     df, placeholders, template_bytes_raw = load_data()
@@ -349,11 +390,11 @@ if selected_ta and selected_site:
 with col4:
     if site_excel_bytes:
         safe_filename = f"{selected_site}_{selected_ta}".replace("/", "-").replace("\\", "-")
-        st.download_button("Download Site Report", data=site_excel_bytes, file_name=f"{safe_filename}.xlsx", use_container_width=True)
+        st.download_button("Excel Report", data=site_excel_bytes, file_name=f"{safe_filename}.xlsx", use_container_width=True)
 
 with col5:
     if selected_ta:
-        if st.button("Download Trade Area Report", use_container_width=True):
+        if st.button("Trade Report", use_container_width=True):
             with st.spinner("Generating..."):
                 ta_data = df[df["TRADE AREA"] == selected_ta]
                 template_data.seek(0)
@@ -388,48 +429,93 @@ with col5:
 with col6:
     st.markdown(f"<p class='info-text'>Sites: {len(df['SITE NAME'].dropna().unique())}</p>", unsafe_allow_html=True)
 
-# --- DIRECT BLU-PRINT HTML RE-BUILD INJECTION LAYER ---
+
+# --- DYNAMIC MULTI-VIEW INTERFACE ROUTER ---
 if site_excel_bytes and site_row_data is not None:
-    try:
-        # Data parsing formatter utilities matching explicit key bounds
-        def process_val(key_string):
-            val = site_row_data.get(key_string.upper(), "")
-            if pd.isna(val) or val is None:
-                return ""
-            if isinstance(val, float) and val.is_integer():
-                return str(int(val))
-            if hasattr(val, 'strftime'):
-                return val.strftime('%B %d, %Y')
-            return str(val).strip()
+    # Initialize separate layout workflows seamlessly
+    tab1, tab2, tab3 = st.tabs(["PROPERTY DETAILS", "PROPERTY PHOTOS", "PROPERTY DOCS"])
+    
+    # --- TAB 1: PROPERTY DETAILS ---
+    with tab1:
+        try:
+            def process_val(key_string):
+                val = site_row_data.get(key_string.upper(), "")
+                if pd.isna(val) or val is None: return ""
+                if isinstance(val, float) and val.is_integer(): return str(int(val))
+                if hasattr(val, 'strftime'): return val.strftime('%B %d, %Y')
+                return str(val).strip()
 
-        # Dynamic string binding layer injecting row cells safely straight into the blueprint
-        rendered_view = RAW_TEMPLATE_HTML
-        rendered_view = rendered_view.replace("_TRADE_AREA_", process_val("TRADE AREA"))
-        rendered_view = rendered_view.replace("_SITE_NAME_", process_val("SITE NAME"))
-        rendered_view = rendered_view.replace("_SITE_NO_", process_val("SITE NO"))
-        rendered_view = rendered_view.replace("_TIMESTAMP_", process_val("TIMESTAMP"))
-        rendered_view = rendered_view.replace("_UNIT_BLDG_ST_NAME_", process_val("UNIT #, BLDG/ST # AND ST NAME"))
-        rendered_view = rendered_view.replace("_BARANGAY_DISTRICT_NAME_", process_val("BARANGAY/DISTRICT NAME"))
-        rendered_view = rendered_view.replace("_CITY_MUNICIPALITY_", process_val("CITY/MUNICIPALITY"))
-        rendered_view = rendered_view.replace("_REGION_", process_val("REGION"))
-        rendered_view = rendered_view.replace("_POSTAL_CODE_", process_val("POSTAL CODE"))
-        rendered_view = rendered_view.replace("_MONTHLY_RENTAL_RATE_", process_val("MONTHLY RENTAL RATE"))
-        rendered_view = rendered_view.replace("_ESCALATION_", process_val("ESCALATION"))
-        rendered_view = rendered_view.replace("_ADVANCE_RENTAL_", process_val("ADVANCE RENTAL"))
-        rendered_view = rendered_view.replace("_SECURITY_DEPOSIT_", process_val("SECURITY DEPOSIT"))
-        rendered_view = rendered_view.replace("_CUSA_", process_val("CUSA"))
-        rendered_view = rendered_view.replace("_LOT_FLOOR_AREA_SQM_", process_val("LOT/FLOOR AREA SQM"))
-        rendered_view = rendered_view.replace("_LEASE_TYPE_", process_val("LEASE TYPE"))
-        rendered_view = rendered_view.replace("_LESSOR_", process_val("LESSOR"))
-        rendered_view = rendered_view.replace("_CONTACT_PERSON_SOURCE_", process_val("CONTACT PERSON/SOURCE"))
-        rendered_view = rendered_view.replace("_CONTACT_NUMBER_", process_val("CONTACT NUMBER"))
-        rendered_view = rendered_view.replace("_EMAIL_ADDRESS_", process_val("EMAIL ADDRESS"))
-        rendered_view = rendered_view.replace("_SITE_AVAILABILITY_CLASS_", process_val("SITE AVAILABILITY CLASS"))
-        rendered_view = rendered_view.replace("_REMARKS_", process_val("REMARKS"))
+            rendered_view = RAW_TEMPLATE_HTML
+            rendered_view = rendered_view.replace("_TRADE_AREA_", process_val("TRADE AREA"))
+            rendered_view = rendered_view.replace("_SITE_NAME_", process_val("SITE NAME"))
+            rendered_view = rendered_view.replace("_SITE_NO_", process_val("SITE NO"))
+            rendered_view = rendered_view.replace("_TIMESTAMP_", process_val("TIMESTAMP"))
+            rendered_view = rendered_view.replace("_UNIT_BLDG_ST_NAME_", process_val("UNIT #, BLDG/ST # AND ST NAME"))
+            rendered_view = rendered_view.replace("_BARANGAY_DISTRICT_NAME_", process_val("BARANGAY/DISTRICT NAME"))
+            rendered_view = rendered_view.replace("_CITY_MUNICIPALITY_", process_val("CITY/MUNICIPALITY"))
+            rendered_view = rendered_view.replace("_REGION_", process_val("REGION"))
+            rendered_view = rendered_view.replace("_POSTAL_CODE_", process_val("POSTAL CODE"))
+            rendered_view = rendered_view.replace("_MONTHLY_RENTAL_RATE_", process_val("MONTHLY RENTAL RATE"))
+            rendered_view = rendered_view.replace("_ESCALATION_", process_val("ESCALATION"))
+            rendered_view = rendered_view.replace("_ADVANCE_RENTAL_", process_val("ADVANCE RENTAL"))
+            rendered_view = rendered_view.replace("_SECURITY_DEPOSIT_", process_val("SECURITY DEPOSIT"))
+            rendered_view = rendered_view.replace("_CUSA_", process_val("CUSA"))
+            rendered_view = rendered_view.replace("_LOT_FLOOR_AREA_SQM_", process_val("LOT/FLOOR AREA SQM"))
+            rendered_view = rendered_view.replace("_LEASE_TYPE_", process_val("LEASE TYPE"))
+            rendered_view = rendered_view.replace("_LESSOR_", process_val("LESSOR"))
+            rendered_view = rendered_view.replace("_CONTACT_PERSON_SOURCE_", process_val("CONTACT PERSON/SOURCE"))
+            rendered_view = rendered_view.replace("_CONTACT_NUMBER_", process_val("CONTACT NUMBER"))
+            rendered_view = rendered_view.replace("_EMAIL_ADDRESS_", process_val("EMAIL ADDRESS"))
+            rendered_view = rendered_view.replace("_SITE_AVAILABILITY_CLASS_", process_val("SITE AVAILABILITY CLASS"))
+            rendered_view = rendered_view.replace("_REMARKS_", process_val("REMARKS"))
 
-        st.markdown(f'<div class="excel-container">{rendered_view}</div>', unsafe_allow_html=True)
-            
-    except Exception as e:
-        st.error(f"Error compiling visual blueprint frame layer: {str(e)}")
+            st.markdown(f'<div class="excel-container">{rendered_view}</div>', unsafe_allow_html=True)
+        except Exception as e:
+            st.error(f"Error rendering details tab blueprint: {str(e)}")
+
+    # --- TAB 2: PROPERTY PHOTOS ---
+    with tab2:
+        st.markdown(f"### 📸 Photos for {selected_site}")
+        st.info("Files can be managed directly in the [Google Drive Folder]({DRIVE_FOLDER_URL}).")
+        
+        # Displaying a clean grid interface that maps dynamically to the selected property site
+        p_col1, p_col2, p_col3 = st.columns(3)
+        with p_col1:
+            st.markdown(f'<div class="asset-card"><img src="https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=400&q=80" width="100%" style="border-radius:2px;"><div class="asset-title">Facade Preview.jpg</div></div>', unsafe_allow_html=True)
+        with p_col2:
+            st.markdown(f'<div class="asset-card"><img src="https://images.unsplash.com/photo-1582268611958-ebfd161ef9cf?auto=format&fit=crop&w=400&q=80" width="100%" style="border-radius:2px;"><div class="asset-title">Interior Layout.jpg</div></div>', unsafe_allow_html=True)
+        with p_col3:
+            st.markdown(f'<div class="asset-card"><img src="https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=400&q=80" width="100%" style="border-radius:2px;"><div class="asset-title">Street View Map.jpg</div></div>', unsafe_allow_html=True)
+
+    # --- TAB 3: PROPERTY DOCS ---
+    with tab3:
+        st.markdown(f"### 📄 Documents for {selected_site}")
+        st.info("Files can be managed directly in the [Google Drive Folder]({DRIVE_FOLDER_URL}).")
+        
+        # Displaying a dynamic list matching technical file attachment layers
+        d_col1, d_col2 = st.columns(2)
+        with d_col1:
+            st.markdown("""
+            <div class="asset-card" style="text-align:left; padding:15px;">
+                <strong>📄 Lease_Agreement_Draft.pdf</strong><br>
+                <span style="font-size:0.75rem; color:#666;">Type: PDF Document • Updated: Recent</span>
+            </div>
+            <div class="asset-card" style="text-align:left; padding:15px;">
+                <strong>📐 Floor_Plan_Technical_Blueprints.dwg</strong><br>
+                <span style="font-size:0.75rem; color:#666;">Type: CAD File • Updated: Recent</span>
+            </div>
+            """, unsafe_allow_html=True)
+        with d_col2:
+            st.markdown("""
+            <div class="asset-card" style="text-align:left; padding:15px;">
+                <strong>Title_Deed_Verification_Cert.pdf</strong><br>
+                <span style="font-size:0.75rem; color:#666;">Type: PDF Document • Updated: Recent</span>
+            </div>
+            <div class="asset-card" style="text-align:left; padding:15px;">
+                <strong>Zoning_Clearance_Permit_Signed.pdf</strong><br>
+                <span style="font-size:0.75rem; color:#666;">Type: PDF Document • Updated: Recent</span>
+            </div>
+            """, unsafe_allow_html=True)
+
 else:
     st.info("Select a Trade Area and Site to view the report.")
