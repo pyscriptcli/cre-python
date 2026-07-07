@@ -96,20 +96,6 @@ st.markdown("""
         border-radius: 12px;
         margin-bottom: 1rem;
     }
-
-    /* Hide any visible label text from collapsed inputs */
-    div[data-testid="stTextInput"] label {
-        display: none !important;
-        visibility: hidden !important;
-        opacity: 0 !important;
-        height: 0 !important;
-        overflow: hidden !important;
-    }
-
-    /* Login page styling */
-    div[data-testid="stTextInput"] > div {
-        margin-top: 0 !important;
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -125,10 +111,8 @@ if not st.session_state.authenticated:
     r1_col1, r1_col2, r1_col3 = st.columns([1, 1.2, 1])
     with r1_col2:
         st.markdown("<h3 style='text-align: center; margin-top:50px;'>Access Required</h3>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; color: #666; font-size: 0.85rem; margin-bottom: 20px;'>Enter your access token to continue</p>", unsafe_allow_html=True)
-        password_input = st.text_input("Password", type="password", label_visibility="collapsed", placeholder="Enter password...")
-        login_clicked = st.button("Login", use_container_width=True)
-        if login_clicked:
+        password_input = st.text_input("Enter password:", type="password", label_visibility="collapsed")
+        if st.button("Login", use_container_width=True) or password_input:
             if check_password(password_input):
                 st.session_state.authenticated = True
                 st.cache_data.clear()
@@ -219,7 +203,7 @@ def generate_trade_area_report(df, trade_area, template_bytes, placeholders):
     wb.save(wb_buffer)
     return wb_buffer
 
-# --- COMPLETE HTML BLUEPRINT WITH WRAP-TEXT LOGIC ---
+# --- COMPLETE HTML BLUEPRINT WITH DYNAMIC REMARKS ROW HEIGHT ---
 HTML_FRAMEWORK = """
 <!DOCTYPE html>
 <html>
@@ -417,12 +401,16 @@ HTML_FRAMEWORK = """
             min-height: 20px;
         }
         
-        /* Make Remarks row taller to accommodate long text */
-        .ritz .waffle tr:last-child td {
-            padding: 8px 3px !important;
-            min-height: 60px !important;
+        /* REMARKS ROW - Dynamically adjusts height based on content */
+        .remarks-row {
+            height: auto !important;
         }
-        .ritz .waffle tr:last-child td.s5 {
+        .remarks-row td {
+            height: auto !important;
+            padding: 6px 3px !important;
+            vertical-align: top !important;
+        }
+        .remarks-row td.s5 {
             white-space: normal !important;
             word-wrap: break-word !important;
             word-break: break-word !important;
@@ -431,8 +419,13 @@ HTML_FRAMEWORK = """
             overflow: visible !important;
             text-overflow: clip !important;
             height: auto !important;
-            min-height: 60px !important;
             line-height: 1.6 !important;
+            padding: 8px 6px !important;
+        }
+        .remarks-label {
+            white-space: nowrap !important;
+            vertical-align: top !important;
+            padding-top: 8px !important;
         }
     </style>
     <script>
@@ -459,6 +452,22 @@ HTML_FRAMEWORK = """
                         }
                     }
                 });
+                
+                // Special handling for Remarks row - always wrap and adjust height
+                const remarksCell = document.querySelector('.remarks-row td.s5');
+                if (remarksCell) {
+                    // Ensure Remarks always wraps
+                    remarksCell.style.whiteSpace = 'normal';
+                    remarksCell.style.wordWrap = 'break-word';
+                    remarksCell.style.wordBreak = 'break-word';
+                    remarksCell.style.overflowWrap = 'break-word';
+                    
+                    // Force height recalculation
+                    const parentRow = remarksCell.closest('tr');
+                    if (parentRow) {
+                        parentRow.style.height = 'auto';
+                    }
+                }
             }
             
             // Check on load
@@ -647,9 +656,10 @@ HTML_FRAMEWORK = """
             <td class="s23" colspan="2"><div style="width:184px;left:-1px">_SITE_AVAILABILITY_CLASS_</div></td>
             <td class="s24"></td><td class="s25"></td><td class="s2" colspan="10"></td><td class="s3"></td>
         </tr>
-        <tr style="height: auto;">
-            <td class="s6">Other Remarks:</td>
-            <td class="s5" colspan="7">_REMARKS_</td>
+        <!-- REMARKS ROW - Dynamically adjusts height based on content -->
+        <tr class="remarks-row" style="height: auto;">
+            <td class="s6 remarks-label" style="white-space: nowrap; vertical-align: top; padding-top: 8px;">Other Remarks:</td>
+            <td class="s5" colspan="7" style="white-space: normal; word-wrap: break-word; word-break: break-word; overflow-wrap: break-word; max-width: 100%; overflow: visible; text-overflow: clip; height: auto; line-height: 1.6; padding: 8px 6px;">_REMARKS_</td>
             <td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s7"></td>
         </tr>
     </tbody>
@@ -698,7 +708,7 @@ with col1:
     selected_ta = st.selectbox("Trade Area", options=trade_areas, index=0, label_visibility="collapsed")
     
 with col2:
-    st.markdown("<p style='font-size:0.75rem; font-weight:500; color:#444746; margin:0;'>Site</p>", unsafe_allow_html=True)
+    st.markdown("<p style='font-size:0.75rem; font-weight:500; color:#444746; margin:0;'>Site View</p>", unsafe_allow_html=True)
     if selected_ta and selected_ta != "Select Trade Area...":
         raw_sites = df[df["TRADE AREA"] == selected_ta]["SITE_DISPLAY"].dropna().unique().tolist()
         sorted_sites = sorted(raw_sites, key=parse_site_number)
@@ -708,15 +718,19 @@ with col2:
     selected_site_display = st.selectbox("Site Name", options=sites_in_ta, index=0, label_visibility="collapsed")
 
 with col3:
+    # Single export button - downloads directly when clicked
     if selected_ta and selected_ta != "Select Trade Area...":
-        wb_buffer = generate_trade_area_report(df, selected_ta, template_bytes_raw, placeholders)
-        st.download_button(
-            label="Export All Sites", 
-            data=wb_buffer.getvalue(), 
-            file_name=f"{selected_ta}_Full_Report.xlsx", 
-            use_container_width=True,
-            key=f"export_{selected_ta}"
-        )
+        export_key = f"export_{selected_ta}"
+        if st.button("📥 Export All Sites", use_container_width=True, key=export_key):
+            with st.spinner("Generating Excel report..."):
+                wb_buffer = generate_trade_area_report(df, selected_ta, template_bytes_raw, placeholders)
+                st.download_button(
+                    label="✅ Download Report", 
+                    data=wb_buffer.getvalue(), 
+                    file_name=f"{selected_ta}_Full_Report.xlsx", 
+                    use_container_width=True,
+                    key=f"download_{selected_ta}"
+                )
 
 # --- DIRECT HTML VIEW LAYOUT ---
 if selected_ta != "Select Trade Area..." and selected_site_display != "Select Site...":
