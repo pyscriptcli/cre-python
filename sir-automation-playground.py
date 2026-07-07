@@ -68,7 +68,7 @@ st.markdown("""
     div[data-testid="stHorizontalBlock"] { gap: 0.3rem !important; align-items: center !important; }
     .info-text { font-size: 0.7rem; color: #333; text-align: right; margin: 0; padding: 0; line-height: 24px; font-weight: 500; }
     
-    /* Global View Viewport Layout Containers */
+    /* Document Display Container */
     .excel-container {
         background-color: #ffffff !important;
         border-radius: 2px;
@@ -91,7 +91,7 @@ st.markdown("""
         vertical-align: middle;
     }
     
-    /* High-contrast custom styling definitions for Tab bars */
+    /* Tab headers styling */
     button[data-baseweb="tab"] {
         font-size: 0.85rem !important;
         font-weight: 600 !important;
@@ -103,7 +103,7 @@ st.markdown("""
         border-bottom-color: #800000 !important;
     }
     
-    /* Card layout panels for property images and attachments */
+    /* Card layout panels for assets */
     .asset-card {
         border: 1px solid #e0e0e0;
         border-radius: 4px;
@@ -145,7 +145,6 @@ if not st.session_state.authenticated:
 # --- CONFIGURATION ---
 SOURCE_URL = "https://docs.google.com/spreadsheets/d/14nhO9u7zJRcOoux8I7l2IzwU7iQZNW9fRX6TCip47CE/export?format=xlsx"
 TEMPLATE_URL = "https://docs.google.com/spreadsheets/d/1uS3xmnPi0o4c_EayQtURYDSMMPRDRGSb/export?format=xlsx"
-DRIVE_FOLDER_URL = "https://drive.google.com/drive/folders/13sLmXzxQvV12_ypTBRG2QW1yVIHaanba"
 
 # --- HELPER FUNCTIONS ---
 @st.cache_data(ttl=3600)
@@ -200,7 +199,27 @@ def sanitize_tab_name(name, existing_names):
             return new_name
         counter += 1
 
-# --- HTML TEMPLATE BLUEPRINT DEFINITION ---
+def transform_to_direct_download(drive_url):
+    """Converts a standard Google Drive sharing link into a direct rendering asset URL stream."""
+    url_str = str(drive_url).strip()
+    if "drive.google.com" in url_str:
+        # Match pattern ids for files
+        file_id_match = re.search(r'/d/([a-zA-Z0-9-_]+)', url_str)
+        if file_id_match:
+            return f"https://drive.google.com/uc?export=download&id={file_id_match.group(1)}"
+        # Match query parameter strings values
+        id_param_match = re.search(r'id=([a-zA-Z0-9-_]+)', url_str)
+        if id_param_match:
+            return f"https://drive.google.com/uc?export=download&id={id_param_match.group(1)}"
+    return url_str
+
+def parse_link_cell(cell_value):
+    """Splits comma-separated lists of URLs if multiple photos/docs exist in one row."""
+    if pd.isna(cell_value) or not str(cell_value).strip():
+        return []
+    return [url.strip() for url in str(cell_value).split(",") if url.strip()]
+
+# --- HTML TEMPLATE BLUEPRINT ---
 RAW_TEMPLATE_HTML = """
 <style type="text/css">
     .ritz .waffle a { color: inherit; }
@@ -432,6 +451,7 @@ with col6:
 
 # --- DYNAMIC MULTI-VIEW INTERFACE ROUTER ---
 if site_excel_bytes and site_row_data is not None:
+    # Router Tabs initialization
     tab1, tab2, tab3 = st.tabs(["PROPERTY DETAILS", "PROPERTY PHOTOS", "PROPERTY DOCS"])
     
     # --- TAB 1: PROPERTY DETAILS ---
@@ -475,7 +495,7 @@ if site_excel_bytes and site_row_data is not None:
     # --- TAB 2: PROPERTY PHOTOS ---
     with tab2:
         st.markdown(f"### 📸 Photos for {selected_site}")
-        st.info(f"Files can be managed directly in the [Google Drive Folder]({DRIVE_FOLDER_URL}).")
+        st.info(f"Manage assets directly inside the [Google Drive Folder]({DRIVE_FOLDER_URL}).")
         
         p_col1, p_col2, p_col3 = st.columns(3)
         with p_col1:
@@ -488,7 +508,7 @@ if site_excel_bytes and site_row_data is not None:
     # --- TAB 3: PROPERTY DOCS ---
     with tab3:
         st.markdown(f"### 📄 Documents for {selected_site}")
-        st.info(f"Files can be managed directly in the [Google Drive Folder]({DRIVE_FOLDER_URL}).")
+        st.info(f"Manage assets directly inside the [Google Drive Folder]({DRIVE_FOLDER_URL}).")
         
         d_col1, d_col2 = st.columns(2)
         with d_col1:
@@ -509,7 +529,7 @@ if site_excel_bytes and site_row_data is not None:
                 <span style="font-size:0.75rem; color:#666;">Type: PDF Document • Updated: Recent</span>
             </div>
             <div class="asset-card" style="text-align:left; padding:15px;">
-                <strong>📝 Zoning_Clearance_Permit_Signed.pdf</strong><br>
+                <strong>📋 Zoning_Clearance_Permit_Signed.pdf</strong><br>
                 <span style="font-size:0.75rem; color:#666;">Type: PDF Document • Updated: Recent</span>
             </div>
             """, unsafe_allow_html=True)
