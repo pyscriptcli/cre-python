@@ -11,6 +11,7 @@ import os
 import hashlib
 from openpyxl import load_workbook
 import base64
+import streamlit.components.v1 as components
 
 # ReportLab libraries needed to draw a highly precise PDF grid layout from raw spreadsheet cells
 from reportlab.lib import colors
@@ -75,7 +76,6 @@ st.markdown("""
     div[data-testid="stHorizontalBlock"] { gap: 0.3rem !important; align-items: center !important; }
     .info-text { font-size: 0.7rem; color: #333; text-align: right; margin: 0; padding: 0; line-height: 24px; font-weight: 500; }
     
-    /* Dedicated PDF Frame Container wrapper styling rules */
     .pdf-frame-container {
         border: 1px solid #d0d0d0;
         margin-top: 0.5rem;
@@ -167,8 +167,6 @@ def generate_pdf_from_range(workbook, sheet_name=None, range_string="A1:P67"):
     ws = workbook[sheet_name] if sheet_name else workbook.active
     min_col, min_row, max_col, max_row = range_boundaries(range_string)
     
-    # Calculate adaptive grid column width dimensions dynamically to fit letter landscape page
-    num_cols = (max_col - min_col) + 1
     page_width = 792  # 11 inches landscape
     page_height = 612 # 8.5 inches landscape
     margin = 18
@@ -185,7 +183,6 @@ def generate_pdf_from_range(workbook, sheet_name=None, range_string="A1:P67"):
         leftMargin=margin, rightMargin=margin, topMargin=margin, bottomMargin=margin
     )
     
-    styles = getSampleStyleSheet()
     table_data = []
     t_styles = [
         ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#B0B0B0')),
@@ -196,14 +193,12 @@ def generate_pdf_from_range(workbook, sheet_name=None, range_string="A1:P67"):
         ('RIGHTPADDING', (0,0), (-1,-1), 3),
     ]
     
-    # Extract structural cell data properties from sheet layout rows
     for r_idx, r in enumerate(range(min_row, max_row + 1)):
         row_cells = []
         for c_idx, c in enumerate(range(min_col, max_col + 1)):
             cell = ws.cell(row=r, column=c)
             val = cell.value if cell.value is not None else ''
             
-            # Plain Text Cast Configuration Strategy
             if isinstance(val, float) and val.is_integer():
                 val = int(val)
             elif hasattr(val, 'strftime'):
@@ -212,7 +207,6 @@ def generate_pdf_from_range(workbook, sheet_name=None, range_string="A1:P67"):
             if re.match(r'^\d+\.0$', val_str):
                 val_str = val_str.split('.')[0]
                 
-            # Parse Hex Styles mapping color contrast models
             bg_hex = '#FFFFFF'
             if cell.fill and cell.fill.fgColor and cell.fill.fgColor.rgb:
                 rgb_str = cell.fill.fgColor.rgb
@@ -228,7 +222,6 @@ def generate_pdf_from_range(workbook, sheet_name=None, range_string="A1:P67"):
                     if len(rgb_f) == 8: font_hex = '#' + rgb_f[2:]
                     elif len(rgb_f) == 6: font_hex = '#' + rgb_f
             
-            # Hardcoded manual design adjustments for Dark Maroon headers
             if bg_hex.lower() in ['#800000', '#8c0000', '#7a0000'] or "SITE INFORMATION REPORT" in val_str.upper():
                 font_hex = '#FFFFFF'
                 is_bold = True
@@ -238,7 +231,6 @@ def generate_pdf_from_range(workbook, sheet_name=None, range_string="A1:P67"):
                 if cell.alignment and cell.alignment.horizontal:
                     align_p = cell.alignment.horizontal
             
-            # Append style updates to reportlab document matrix blocks
             t_styles.append(('BACKGROUND', (c_idx, r_idx), (c_idx, r_idx), colors.HexColor(bg_hex)))
             
             p_style = ParagraphStyle(
@@ -248,7 +240,6 @@ def generate_pdf_from_range(workbook, sheet_name=None, range_string="A1:P67"):
             row_cells.append(Paragraph(val_str, p_style))
         table_data.append(row_cells)
         
-    # Process custom cell merge ranges natively across coordinates
     for merged_range in ws.merged_cells.ranges:
         m_min_c, m_min_r, m_max_c, m_max_r = range_boundaries(str(merged_range))
         if m_min_r >= min_row and m_max_r <= max_row and m_min_c >= min_col and m_max_c <= max_col:
@@ -304,7 +295,6 @@ with col3:
         st.cache_data.clear()
         st.rerun()
 
-# Pre-populate selected site record metrics data block configurations
 site_excel_bytes = None
 if selected_ta and selected_site:
     site_data = df[(df["TRADE AREA"] == selected_ta) & (df["SITE NAME"] == selected_site)]
@@ -315,7 +305,6 @@ if selected_ta and selected_site:
         base_sheet = wb.active
         for row_cells in base_sheet.iter_rows():
             for cell in row_cells:
-                # FIXED: Added safe type safety grouping logic check wrapper
                 if isinstance(cell.value, str) and ("{{" in cell.value):
                     new_val = cell.value
                     for ph in placeholders:
@@ -379,24 +368,26 @@ with col6:
 if site_excel_bytes:
     try:
         active_wb = load_workbook(io.BytesIO(site_excel_bytes))
-        
-        # Render the file binary stream array target range A1:P67 directly into a compressed PDF byte block
         pdf_data_bytes = generate_pdf_from_range(active_wb, range_string="A1:P67")
         
-        # Encode file stream into data base64 url parameters strings to display inline inside layout wrapper
+        # Convert to an fully isolated sandbox data string
         base64_pdf = base64.b64encode(pdf_data_bytes).decode('utf-8')
         
-        # Use an object embed tag configuration instead of an iframe to bypass Brave Shield structural tracking blocks
-        pdf_display_object = f'''
-            <object data="data:application/pdf;base64,{base64_pdf}#toolbar=0&navpanes=0&scrollbar=1" type="application/pdf" width="100%" height="820px">
-                <div style="padding:20px; text-align:center; color:white;">
-                    <p>Brave Shields or your browser settings are blocking the inline PDF container preview.</p>
-                    <a href="data:application/pdf;base64,{base64_pdf}" download="Site_Report.pdf" style="color:#FF4B4B; font-weight:bold; text-decoration:underline;">Click here to download and view the PDF report directly</a>
-                </div>
-            </object>
+        # Wrapping it directly into an explicit iframe string document template
+        html_string = f'''
+            <iframe src="data:application/pdf;base64,{base64_pdf}#toolbar=0&navpanes=0&scrollbar=1" 
+                    width="100%" 
+                    height="800px" 
+                    style="border:none;">
+            </iframe>
         '''
         
-        st.markdown(f'<div class="pdf-frame-container">{pdf_display_object}</div>', unsafe_allow_html=True)
+        # components.html mounts the element onto a clean decoupled sub-domain. 
+        # This completely tricks Brave Shields, allowing the PDF to bypass any blocking layers.
+        with st.container():
+            st.markdown('<div class="pdf-frame-container">', unsafe_allow_html=True)
+            components.html(html_string, height=810, scrolling=False)
+            st.markdown('</div>', unsafe_allow_html=True)
             
     except Exception as e:
         st.error(f"Error compiling canvas range mapping stream: {str(e)}")
