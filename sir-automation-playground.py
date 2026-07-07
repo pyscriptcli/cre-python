@@ -148,11 +148,14 @@ st.markdown("""
         border-collapse: collapse;
         width: 100%;
         font-size: 10px;
+        table-layout: fixed; /* Force structural alignment restriction */
     }
     
     .excel-container td {
-        padding: 1px 3px;
+        padding: 2px 4px;
         border: 1px solid #d0d0d0;
+        word-break: break-word !important; /* Forces wrap on long strings */
+        white-space: normal !important;   /* Allows vertical expansion block */
     }
     
     .footer-overlay {
@@ -167,14 +170,6 @@ st.markdown("""
         pointer-events: none !important;
     }
     
-    .control-container {
-        background-color: #f8f8f8 !important;
-        border-radius: 2px;
-        padding: 0.15rem 0.3rem !important;
-        border: 1px solid #e8e8e8;
-        margin-bottom: 0.1rem;
-    }
-    
     .info-text {
         font-size: 0.7rem;
         color: #333;
@@ -184,34 +179,11 @@ st.markdown("""
         line-height: 24px;
         font-weight: 500;
     }
-    
-    /* Section headers in the report */
-    .section-header {
-        background-color: #f0f0f0 !important;
-        font-weight: bold !important;
-        font-size: 11px !important;
-        padding: 4px 6px !important;
-    }
-    
-    .label-cell {
-        background-color: #f8f8f8 !important;
-        font-weight: 500 !important;
-        font-size: 10px !important;
-        padding: 2px 4px !important;
-    }
-    
-    .value-cell {
-        background-color: white !important;
-        font-size: 10px !important;
-        padding: 2px 4px !important;
-    }
 </style>
 """, unsafe_allow_html=True)
 
 # --- PERSISTENT FOOTER OVERLAY ---
-st.markdown("""
-<div class="footer-overlay"></div>
-""", unsafe_allow_html=True)
+st.markdown('<div class="footer-overlay"></div>', unsafe_allow_html=True)
 
 # --- LOGIN VERIFICATION LOGIC ---
 TARGET_HASH = "6e7dfba0b39da481db37c3263c61cac6"
@@ -223,19 +195,15 @@ def check_password(password):
     hashed = hashlib.md5(password.encode('utf-8')).hexdigest()
     return hashed == TARGET_HASH
 
-# --- 3x3 LOGIN GRID LAYOUT ---
 if not st.session_state.authenticated:
     st.write("##")
     st.write("##")
-    
     r1_col1, r1_col2, r1_col3 = st.columns([1, 1.2, 1])
-    
     with r1_col2:
         with st.container():
             st.markdown("<h3 style='text-align: center; margin-bottom: 20px;'>Access Required</h3>", unsafe_allow_html=True)
             password_input = st.text_input("Enter password:", type="password", label_visibility="collapsed")
             login_btn = st.button("Login", use_container_width=True)
-            
             if login_btn or password_input:
                 if check_password(password_input):
                     st.session_state.authenticated = True
@@ -273,36 +241,22 @@ def get_placeholders(sheet):
 def clone_cell_styles(source_cell, target_cell):
     if source_cell.font:
         target_cell.font = Font(
-            name=source_cell.font.name,
-            size=source_cell.font.size,
-            bold=source_cell.font.bold,
-            italic=source_cell.font.italic,
-            color=copy(source_cell.font.color),
-            underline=source_cell.font.underline,
-            strike=source_cell.font.strike,
-            vertAlign=source_cell.font.vertAlign,
-            scheme=source_cell.font.scheme
+            name=source_cell.font.name, size=source_cell.font.size, bold=source_cell.font.bold,
+            italic=source_cell.font.italic, color=copy(source_cell.font.color), underline=source_cell.font.underline,
+            strike=source_cell.font.strike, vertAlign=source_cell.font.vertAlign, scheme=source_cell.font.scheme
         )
     if source_cell.alignment:
         target_cell.alignment = Alignment(
-            horizontal=source_cell.alignment.horizontal,
-            vertical=source_cell.alignment.vertical,
-            text_rotation=source_cell.alignment.text_rotation,
-            wrap_text=source_cell.alignment.wrap_text,
-            shrink_to_fit=source_cell.alignment.shrink_to_fit,
-            indent=source_cell.alignment.indent
+            horizontal=source_cell.alignment.horizontal, vertical=source_cell.alignment.vertical,
+            text_rotation=source_cell.alignment.text_rotation, wrap_text=True, # Force True internally
+            shrink_to_fit=source_cell.alignment.shrink_to_fit, indent=source_cell.alignment.indent
         )
     if source_cell.border:
         target_cell.border = Border(
-            left=copy(source_cell.border.left),
-            right=copy(source_cell.border.right),
-            top=copy(source_cell.border.top),
-            bottom=copy(source_cell.border.bottom),
-            diagonal=copy(source_cell.border.diagonal),
-            diagonal_direction=source_cell.border.diagonal_direction,
-            outline=copy(source_cell.border.outline),
-            vertical=copy(source_cell.border.vertical),
-            horizontal=copy(source_cell.border.horizontal)
+            left=copy(source_cell.border.left), right=copy(source_cell.border.right),
+            top=copy(source_cell.border.top), bottom=copy(source_cell.border.bottom),
+            diagonal=copy(source_cell.border.diagonal), diagonal_direction=source_cell.border.diagonal_direction,
+            outline=copy(source_cell.border.outline), vertical=copy(source_cell.border.vertical), horizontal=copy(source_cell.border.horizontal)
         )
     if source_cell.fill:
         target_cell.fill = copy(source_cell.fill)
@@ -353,7 +307,7 @@ def render_excel_to_html(workbook, sheet_name=None):
     max_row = ws.max_row
     max_col = ws.max_column
     
-    html = '<table style="border-collapse: collapse; font-family: \'Roboto\', sans-serif; font-size: 10px; width: 100%;">'
+    html = '<table style="border-collapse: collapse; font-family: \'Roboto\', sans-serif; font-size: 10px; width: 100%; table-layout: fixed;">'
     
     merged_cells = {}
     for merged_range in ws.merged_cells.ranges:
@@ -362,9 +316,7 @@ def render_excel_to_html(workbook, sheet_name=None):
             for col in range(min_col, max_col + 1):
                 if row == min_row and col == min_col:
                     merged_cells[(row, col)] = {
-                        'rowspan': max_row - min_row + 1,
-                        'colspan': max_col - min_col + 1,
-                        'is_master': True
+                        'rowspan': max_row - min_row + 1, 'colspan': max_col - min_col + 1, 'is_master': True
                     }
                 else:
                     merged_cells[(row, col)] = {'is_master': False}
@@ -378,56 +330,53 @@ def render_excel_to_html(workbook, sheet_name=None):
             cell = ws.cell(row, col)
             value = cell.value if cell.value is not None else ''
             
+            if isinstance(value, float) and value.is_integer():
+                value = int(value)
+            elif hasattr(value, 'strftime'):
+                value = value.strftime('%B %d, %Y')
+            
             bg_color = 'white'
             if cell.fill and cell.fill.fgColor and cell.fill.fgColor.rgb:
                 bg_color = cell.fill.fgColor.rgb
                 if bg_color.startswith('FF'):
                     bg_color = '#' + bg_color[2:]
             
-            font_color = '#333333'
-            font_weight = 'normal'
-            font_size = '10px'
-            if cell.font:
-                if cell.font.color and cell.font.color.rgb:
-                    font_color = cell.font.color.rgb
-                    if font_color.startswith('FF'):
-                        font_color = '#' + font_color[2:]
-                if cell.font.bold:
-                    font_weight = 'bold'
-                if cell.font.size:
-                    font_size = f'{cell.font.size}px'
+            if bg_color.lower() in ['#800000', '#8c0000', '#7a0000'] or (isinstance(value, str) and "SITE INFORMATION REPORT" in value.upper()):
+                font_color = '#FFFFFF'
+                font_weight = 'bold'
+                font_size = '11px'
+            else:
+                font_color = '#333333'
+                font_weight = 'normal'
+                font_size = '10px'
+                if cell.font:
+                    if cell.font.color and cell.font.color.rgb:
+                        font_color = cell.font.color.rgb
+                        if font_color.startswith('FF'):
+                            font_color = '#' + font_color[2:]
+                    if cell.font.bold:
+                        font_weight = 'bold'
+                    if cell.font.size:
+                        font_size = f'{cell.font.size}px'
             
             h_align = 'left'
             v_align = 'middle'
-            wrap_text = False
             if cell.alignment:
                 h_align = cell.alignment.horizontal or 'left'
                 v_align = cell.alignment.vertical or 'middle'
-                wrap_text = cell.alignment.wrap_text or False
-            
-            border_style = '1px solid #d0d0d0'
             
             style = f'background-color: {bg_color}; color: {font_color}; font-weight: {font_weight}; font-size: {font_size}; '
-            style += f'text-align: {h_align}; vertical-align: {v_align}; padding: 1px 3px; border: {border_style}; '
+            style += f'text-align: {h_align}; vertical-align: {v_align}; padding: 3px 4px; border: 1px solid #d0d0d0; '
+            style += 'white-space: normal !important; word-wrap: break-word !important; word-break: break-word !important;'
             
-            if wrap_text:
-                style += 'white-space: normal; word-wrap: break-word; max-width: 300px; '
-            else:
-                style += 'white-space: nowrap; '
-            
-            rowspan = 1
-            colspan = 1
-            if (row, col) in merged_cells and merged_cells[(row, col)].get('is_master', False):
-                rowspan = merged_cells[(row, col)].get('rowspan', 1)
-                colspan = merged_cells[(row, col)].get('colspan', 1)
+            rowspan = merged_cells[(row, col)].get('rowspan', 1) if (row, col) in merged_cells else 1
+            colspan = merged_cells[(row, col)].get('colspan', 1) if (row, col) in merged_cells else 1
             
             if rowspan > 1 or colspan > 1:
                 html += f'<td style="{style}" rowspan="{rowspan}" colspan="{colspan}">{str(value)}</td>'
             else:
                 html += f'<td style="{style}">{str(value)}</td>'
-        
         html += '</tr>'
-    
     html += '</table>'
     return html
 
@@ -438,142 +387,88 @@ def render_additional_sections(row, placeholders):
         val = row.get(ph.upper(), '')
         if pd.isna(val) or val is None:
             return ''
-        return str(val)
-    
-    # Lessor and Tenant Details
-    html += '''
-    <h4 style="margin: 8px 0 4px 0; font-size: 11px; font-weight: 600; color: #333;">Lessor and Tenant Details</h4>
-    <table style="border-collapse: collapse; width: 100%; font-size: 10px; border: 1px solid #d0d0d0;">
-    '''
-    
+        if isinstance(val, float):
+            if val.is_integer():
+                return str(int(val))
+            return str(val)
+        if hasattr(val, 'strftime'):
+            return val.strftime('%B %d, %Y')
+        val_str = str(val).strip()
+        if re.match(r'^\d+\.0$', val_str):
+            return val_str.split('.')[0]
+        return val_str
+
+    def make_table(title, fields):
+        t_html = f'<h4 style="margin: 14px 0 4px 0; font-size: 11px; font-weight: 600; color: #333;">{title}</h4>'
+        t_html += '<table style="border-collapse: collapse; width: 100%; font-size: 10px; border: 1px solid #d0d0d0; margin-bottom: 10px; table-layout: fixed;">'
+        for label, ph in fields:
+            val = get_val(ph)
+            t_html += f'''
+            <tr>
+                <td style="background-color: #f8f8f8; padding: 3px 4px; border: 1px solid #d0d0d0; font-weight: 500; width: 35%; text-align: left; white-space: normal; word-break: break-word;">{label}</td>
+                <td style="padding: 3px 4px; border: 1px solid #d0d0d0; width: 65%; text-align: left; background-color: white; white-space: normal; word-break: break-word;">{val}</td>
+            </tr>
+            '''
+        t_html += '</table>'
+        return t_html
+
+    # Sections setup
     lessor_fields = [
-        ('Name of Lessor', 'LESSOR'),
-        ('Contact No.', 'CONTACT NO'),
-        ('E-mail Address', 'EMAIL ADDRESS'),
-        ('Type of Ownership', 'TYPE OF OWNERSHIP'),
-        ('Company Name', 'COMPANY NAME'),
-        ('Developer Account Name', 'DEVELOPER ACCOUNT NAME'),
-        ('Business Address', 'BUSINESS ADDRESS'),
-        ('Name of Authorized Representative', 'CONTACT PERSON/SOURCE'),
-        ('Residence Address of Authorized Representative', 'RESIDENCE ADDRESS'),
-        ('Contact No.', 'CONTACT NUMBER'),
-        ('E-mail Address', 'EMAIL ADDRESS'),
-        ('Name of Lessee', 'LESSEE'),
-        ('Position', 'POSITION'),
-        ('Contact No.', 'CONTACT NO'),
-        ('E-mail Address', 'EMAIL ADDRESS'),
-        ('Name of Authorized Representative', 'AUTHORIZED REPRESENTATIVE'),
+        ('Name of Lessor', 'LESSOR'), ('Contact No.', 'CONTACT NO'), ('E-mail Address', 'EMAIL ADDRESS'),
+        ('Type of Ownership', 'TYPE OF OWNERSHIP'), ('Company Name', 'COMPANY NAME'), ('Developer Account Name', 'DEVELOPER ACCOUNT NAME'),
+        ('Business Address', 'BUSINESS ADDRESS'), ('Name of Authorized Representative', 'CONTACT PERSON/SOURCE'),
+        ('Residence Address of Authorized Representative', 'RESIDENCE ADDRESS'), ('Contact No.', 'CONTACT NUMBER'),
+        ('E-mail Address', 'EMAIL ADDRESS'), ('Name of Lessee', 'LESSEE'), ('Position', 'POSITION'),
+        ('Contact No.', 'CONTACT NO'), ('E-mail Address', 'EMAIL ADDRESS'), ('Name of Authorized Representative', 'AUTHORIZED REPRESENTATIVE'),
         ('Business Address', 'BUSINESS ADDRESS')
     ]
-    
-    for label, ph in lessor_fields:
-        val = get_val(ph)
-        html += f'''
-        <tr>
-            <td style="background-color: #f8f8f8; padding: 2px 4px; border: 1px solid #d0d0d0; font-weight: 500; width: 35%;">{label}</td>
-            <td style="padding: 2px 4px; border: 1px solid #d0d0d0; width: 65%;">{val}</td>
-        </tr>
-        '''
-    
-    html += '</table>'
-    
-    # If with Sub-Lessor/Sub-Lessee
-    html += '''
-    <h4 style="margin: 8px 0 4px 0; font-size: 11px; font-weight: 600; color: #333;">If with Sub-Lessor/ Sub-Lessee</h4>
-    <table style="border-collapse: collapse; width: 100%; font-size: 10px; border: 1px solid #d0d0d0;">
-    '''
-    
     sub_lessor_fields = [
-        ('Name of Sub-Lessor', 'SUB-LESSOR'),
-        ('Contact No.', 'CONTACT NO'),
-        ('E-mail Address', 'EMAIL ADDRESS'),
-        ('Type of Ownership', 'TYPE OF OWNERSHIP'),
-        ('Company Name', 'COMPANY NAME'),
-        ('Developer Account Name', 'DEVELOPER ACCOUNT NAME'),
-        ('Business Address', 'BUSINESS ADDRESS'),
-        ('Name of Authorized Representative', 'AUTHORIZED REPRESENTATIVE'),
-        ('Residence Address of Authorized Representative', 'RESIDENCE ADDRESS'),
-        ('Contact No.', 'CONTACT NUMBER'),
-        ('E-mail Address', 'EMAIL ADDRESS'),
-        ('Name of Sub-Lessee', 'SUB-LESSEE'),
-        ('Position', 'POSITION'),
-        ('Contact No.', 'CONTACT NO'),
-        ('E-mail Address', 'EMAIL ADDRESS'),
-        ('Name of Authorized Representative', 'AUTHORIZED REPRESENTATIVE'),
+        ('Name of Sub-Lessor', 'SUB-LESSOR'), ('Contact No.', 'CONTACT NO'), ('E-mail Address', 'EMAIL ADDRESS'),
+        ('Type of Ownership', 'TYPE OF OWNERSHIP'), ('Company Name', 'COMPANY NAME'), ('Developer Account Name', 'DEVELOPER ACCOUNT NAME'),
+        ('Business Address', 'BUSINESS ADDRESS'), ('Name of Authorized Representative', 'AUTHORIZED REPRESENTATIVE'),
+        ('Residence Address of Authorized Representative', 'RESIDENCE ADDRESS'), ('Contact No.', 'CONTACT NUMBER'),
+        ('E-mail Address', 'EMAIL ADDRESS'), ('Name of Sub-Lessee', 'SUB-LESSEE'), ('Position', 'POSITION'),
+        ('Contact No.', 'CONTACT NO'), ('E-mail Address', 'EMAIL ADDRESS'), ('Name of Authorized Representative', 'AUTHORIZED REPRESENTATIVE'),
         ('Business Address', 'BUSINESS ADDRESS')
     ]
-    
-    for label, ph in sub_lessor_fields:
-        val = get_val(ph)
-        html += f'''
-        <tr>
-            <td style="background-color: #f8f8f8; padding: 2px 4px; border: 1px solid #d0d0d0; font-weight: 500; width: 35%;">{label}</td>
-            <td style="padding: 2px 4px; border: 1px solid #d0d0d0; width: 65%;">{val}</td>
-        </tr>
-        '''
-    
-    html += '</table>'
-    
-    # Regulatory
-    html += '''
-    <h4 style="margin: 8px 0 4px 0; font-size: 11px; font-weight: 600; color: #333;">Regulatory</h4>
-    <table style="border-collapse: collapse; width: 100%; font-size: 10px; border: 1px solid #d0d0d0;">
-    '''
-    
     regulatory_fields = [
-        ('Setback Requirement', 'SETBACK REQUIREMENT'),
-        ('Road Widening', 'ROAD WIDENING'),
-        ('Pedestrian Overpass', 'PEDESTRIAN OVERPASS'),
-        ('Perm Traffic Re-Routing', 'PERM TRAFFIC RE-ROUTING'),
-        ('Perm Road Closure', 'PERM ROAD CLOSURE'),
-        ('Infrastructure Programs', 'INFRASTRUCTURE PROGRAMS'),
-        ('Future Development', 'FUTURE DEVELOPMENT'),
-        ('Zoning Clearance', 'ZONING CLEARANCE'),
-        ('Gas Station', 'GAS STATION')
+        ('Setback Requirement', 'SETBACK REQUIREMENT'), ('Road Widening', 'ROAD WIDENING'), ('Pedestrian Overpass', 'PEDESTRIAN OVERPASS'),
+        ('Perm Traffic Re-Routing', 'PERM TRAFFIC RE-ROUTING'), ('Perm Road Closure', 'PERM ROAD CLOSURE'),
+        ('Infrastructure Programs', 'INFRASTRUCTURE PROGRAMS'), ('Future Development', 'FUTURE DEVELOPMENT'),
+        ('Zoning Clearance', 'ZONING CLEARANCE'), ('Gas Station', 'GAS STATION')
     ]
-    
-    for label, ph in regulatory_fields:
-        val = get_val(ph)
-        html += f'''
-        <tr>
-            <td style="background-color: #f8f8f8; padding: 2px 4px; border: 1px solid #d0d0d0; font-weight: 500; width: 35%;">{label}</td>
-            <td style="padding: 2px 4px; border: 1px solid #d0d0d0; width: 65%;">{val}</td>
-        </tr>
-        '''
-    
-    html += '</table>'
-    
-    # Site Acquirability
-    html += '''
-    <h4 style="margin: 8px 0 4px 0; font-size: 11px; font-weight: 600; color: #333;">Site Acquirability</h4>
-    <table style="border-collapse: collapse; width: 100%; font-size: 10px; border: 1px solid #d0d0d0;">
-    '''
-    
     acquirability_fields = [
-        ('Confidence Level', 'CONFIDENCE LEVEL'),
-        ('Site Availability', 'SITE AVAILABILITY CLASS'),
-        ('Other Remarks:', 'REMARKS')
+        ('Confidence Level', 'CONFIDENCE LEVEL'), ('Site Availability', 'SITE AVAILABILITY CLASS'), ('Other Remarks:', 'REMARKS')
     ]
-    
-    for label, ph in acquirability_fields:
-        val = get_val(ph)
-        html += f'''
-        <tr>
-            <td style="background-color: #f8f8f8; padding: 2px 4px; border: 1px solid #d0d0d0; font-weight: 500; width: 35%;">{label}</td>
-            <td style="padding: 2px 4px; border: 1px solid #d0d0d0; width: 65%;">{val}</td>
-        </tr>
-        '''
-    
-    html += '</table>'
-    
+
+    html += make_table('Lessor and Tenant Details', lessor_fields)
+    html += make_table('If with Sub-Lessor/ Sub-Lessee', sub_lessor_fields)
+    html += make_table('Regulatory', regulatory_fields)
+    html += make_table('Site Acquirability', acquirability_fields)
     return html
+
+def sanitize_tab_name(name, existing_names):
+    illegal_chars = r'[\\/*?\[\]:]'
+    clean_name = re.sub(illegal_chars, '', str(name))
+    base_name = clean_name[:31]
+    if base_name not in existing_names:
+        existing_names.add(base_name)
+        return base_name
+    counter = 1
+    while True:
+        suffix = f" ({counter})"
+        max_len = 31 - len(suffix)
+        new_name = f"{clean_name[:max_len]}{suffix}"
+        if new_name not in existing_names:
+            existing_names.add(new_name)
+            return new_name
+        counter += 1
 
 # --- LOAD DATA ---
 @st.cache_data(ttl=3600)
 def load_data():
     source_data = download_file(SOURCE_URL)
     template_data = download_file(TEMPLATE_URL)
-    
     if source_data is None or template_data is None:
         return None, None, None
     
@@ -584,7 +479,6 @@ def load_data():
     temp_wb = load_workbook(template_data)
     temp_sheet = temp_wb.active
     placeholders = get_placeholders(temp_sheet)
-    
     template_data.seek(0)
     return df, placeholders, template_data.getvalue()
 
@@ -601,33 +495,17 @@ template_sheet = template_wb.active
 
 # --- CONTROLS ROW ---
 trade_areas = sorted(df["TRADE AREA"].dropna().unique())
-
 col1, col2, col3, col4, col5, col6 = st.columns([1.5, 1.5, 0.6, 0.7, 0.7, 0.6])
 
 with col1:
-    selected_ta = st.selectbox(
-        "Trade Area",
-        options=trade_areas,
-        index=0 if trade_areas else None,
-        key="ta_select"
-    )
+    selected_ta = st.selectbox("Trade Area", options=trade_areas, index=0 if trade_areas else None, key="ta_select")
 
 with col2:
     if selected_ta:
-        sites_in_ta = df[df["TRADE AREA"] == selected_ta]["SITE NAME"].dropna().unique()
-        sites_in_ta = sorted(sites_in_ta)
-        selected_site = st.selectbox(
-            "Site Name",
-            options=sites_in_ta,
-            index=0 if len(sites_in_ta) > 0 else None,
-            key="site_select"
-        )
+        sites_in_ta = sorted(df[df["TRADE AREA"] == selected_ta]["SITE NAME"].dropna().unique())
+        selected_site = st.selectbox("Site Name", options=sites_in_ta, index=0 if len(sites_in_ta) > 0 else None, key="site_select")
     else:
-        selected_site = st.selectbox(
-            "Site Name",
-            options=[],
-            key="site_select"
-        )
+        selected_site = st.selectbox("Site Name", options=[], key="site_select")
 
 with col3:
     if st.button("Refresh", use_container_width=True):
@@ -639,11 +517,9 @@ with col4:
         site_data = df[(df["TRADE AREA"] == selected_ta) & (df["SITE NAME"] == selected_site)]
         if not site_data.empty:
             row = site_data.iloc[0]
-            
             template_data.seek(0)
             wb = load_workbook(template_data)
             base_sheet = wb.active
-            
             for row_cells in base_sheet.iter_rows():
                 for cell in row_cells:
                     if isinstance(cell.value, str) and "{{" in cell.value:
@@ -654,20 +530,21 @@ with col4:
                                 raw_data_val = row.get(ph.upper(), "")
                                 if pd.isna(raw_data_val) or raw_data_val is None:
                                     raw_data_val = ""
-                                val_str = str(raw_data_val)
+                                if isinstance(raw_data_val, float) and raw_data_val.is_integer():
+                                    val_str = str(int(raw_data_val))
+                                elif hasattr(raw_data_val, 'strftime'):
+                                    val_str = raw_data_val.strftime('%B %d, %Y')
+                                else:
+                                    val_str = str(raw_data_val)
                                 new_val = re.sub(target_regex, val_str, new_val)
                         cell.value = new_val.strip() if new_val else ""
             
             wb_buffer = io.BytesIO()
             wb.save(wb_buffer)
             safe_filename = f"{selected_site}_{selected_ta}".replace("/", "-").replace("\\", "-")
-            
             st.download_button(
-                "Site Report",
-                data=wb_buffer.getvalue(),
-                file_name=f"{safe_filename}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True
+                "Site Report", data=wb_buffer.getvalue(), file_name=f"{safe_filename}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True
             )
 
 with col5:
@@ -686,7 +563,6 @@ with col5:
                     safe_tab_name = sanitize_tab_name(site_name, existing_tabs)
                     new_sheet = wb.copy_worksheet(base_sheet)
                     new_sheet.title = safe_tab_name
-                    
                     for row_cells in new_sheet.iter_rows():
                         for cell in row_cells:
                             if isinstance(cell.value, str) and "{{" in cell.value:
@@ -697,7 +573,12 @@ with col5:
                                         raw_data_val = row.get(ph.upper(), "")
                                         if pd.isna(raw_data_val) or raw_data_val is None:
                                             raw_data_val = ""
-                                        val_str = str(raw_data_val)
+                                        if isinstance(raw_data_val, float) and raw_data_val.is_integer():
+                                            val_str = str(int(raw_data_val))
+                                        elif hasattr(raw_data_val, 'strftime'):
+                                            val_str = raw_data_val.strftime('%B %d, %Y')
+                                        else:
+                                            val_str = str(raw_data_val)
                                         new_val = re.sub(target_regex, val_str, new_val)
                                 cell.value = new_val.strip() if new_val else ""
                 
@@ -705,14 +586,10 @@ with col5:
                 wb_buffer = io.BytesIO()
                 wb.save(wb_buffer)
                 safe_filename = str(selected_ta).replace("/", "-").replace("\\", "-")
-                
                 st.download_button(
-                    "Download",
-                    data=wb_buffer.getvalue(),
-                    file_name=f"{safe_filename}.xlsx",
+                    "Download", data=wb_buffer.getvalue(), file_name=f"{safe_filename}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True,
-                    key="ta_download"
+                    use_container_width=True, key="ta_download"
                 )
 
 with col6:
@@ -723,14 +600,12 @@ with col6:
 if selected_ta and selected_site:
     try:
         site_data = df[(df["TRADE AREA"] == selected_ta) & (df["SITE NAME"] == selected_site)]
-        
         if site_data.empty:
             st.warning("No data found for the selected site.")
         else:
             template_data.seek(0)
             wb = load_workbook(template_data)
             base_sheet = wb.active
-            
             row = site_data.iloc[0]
             
             for row_cells in base_sheet.iter_rows():
@@ -744,7 +619,12 @@ if selected_ta and selected_site:
                                 raw_data_val = row.get(ph.upper(), "")
                                 if pd.isna(raw_data_val) or raw_data_val is None:
                                     raw_data_val = ""
-                                val_str = str(raw_data_val)
+                                if isinstance(raw_data_val, float) and raw_data_val.is_integer():
+                                    val_str = str(int(raw_data_val))
+                                elif hasattr(raw_data_val, 'strftime'):
+                                    val_str = raw_data_val.strftime('%B %d, %Y')
+                                else:
+                                    val_str = str(raw_data_val)
                                 new_val = re.sub(target_regex, val_str, new_val)
                                 if val_str.strip() != "":
                                     has_injected = True
@@ -758,8 +638,7 @@ if selected_ta and selected_site:
             html_content = render_excel_to_html(wb)
             html_content += render_additional_sections(row, placeholders)
             
-            full_layout_html = f'<div class="excel-container">{html_content}</div>'
-            st.markdown(full_layout_html, unsafe_allow_html=True)
+            st.markdown(f'<div class="excel-container">{html_content}</div>', unsafe_allow_html=True)
             
     except Exception as e:
         st.error(f"Error: {str(e)}")
