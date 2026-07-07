@@ -434,8 +434,8 @@ if "TRADE AREA" not in df.columns or "SITE NAME" not in df.columns:
     st.error("Data must contain 'TRADE AREA' and 'SITE NAME' columns.")
     st.stop()
 
-# Calculate total unique sites
-total_sites = df["SITE NAME"].nunique()
+# Calculate total records (all rows including duplicates)
+total_records = len(df)
 
 # Check for TRADE AREA NO column for unique count
 trade_area_no_col = None
@@ -483,12 +483,12 @@ col1, col2, col3 = st.columns([0.8, 1.4, 0.8])
 
 # --- COLUMN 1: METRICS ---
 with col1:
-    st.markdown("### Stats")
+    st.markdown("### Records")
     
     st.markdown(f"""
     <div class="metric-card">
-        <div class="metric-value">{total_sites}</div>
-        <div class="metric-label">Total Sites</div>
+        <div class="metric-value">{total_records}</div>
+        <div class="metric-label">Total Records</div>
     </div>
     <div class="metric-card">
         <div class="metric-value">{unique_trade_areas_count}</div>
