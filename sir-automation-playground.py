@@ -11,6 +11,7 @@ import os
 import hashlib
 from openpyxl import load_workbook
 import streamlit.components.v1 as components
+import base64
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(
@@ -41,11 +42,6 @@ st.markdown("""
     button[title="View source"] {display: none !important;}
     .stAppDeployButton {display: none !important;}
     div[data-testid="stStatusWidget"] {display: none !important;}
-
-    /* Hide password visibility toggle (eye icon) */
-    button[title="Show password text"] {display: none !important;}
-    button[title="Hide password text"] {display: none !important;}
-    [data-testid="stTextInput"] button[kind="secondary"] {display: none !important;}
     
     .block-container {
         padding-top: 1rem !important;
@@ -100,6 +96,41 @@ st.markdown("""
         padding: 0.75rem 1rem;
         border-radius: 12px;
         margin-bottom: 1rem;
+    }
+    
+    /* Hide the password visibility text and show icon instead */
+    div[data-testid="stTextInput"] button {
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        min-height: unset !important;
+        height: auto !important;
+        width: auto !important;
+        padding: 4px 8px !important;
+        font-size: 18px !important;
+        color: #5f6368 !important;
+    }
+    div[data-testid="stTextInput"] button:hover {
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+    div[data-testid="stTextInput"] button svg {
+        width: 20px !important;
+        height: 20px !important;
+    }
+    div[data-testid="stTextInput"] button span {
+        display: none !important;
+    }
+    div[data-testid="stTextInput"] button::before {
+        content: "👁️";
+        font-size: 18px;
+    }
+    
+    /* Login container styling */
+    .login-container {
+        max-width: 400px;
+        margin: 0 auto;
+        padding: 20px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -207,6 +238,11 @@ def generate_trade_area_report(df, trade_area, template_bytes, placeholders):
     wb_buffer = io.BytesIO()
     wb.save(wb_buffer)
     return wb_buffer
+
+# Function to create download link directly
+def get_download_link(data, filename, label):
+    b64 = base64.b64encode(data).decode()
+    return f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="{filename}" style="text-decoration: none; width: 100%; display: block;">{label}</a>'
 
 # --- COMPLETE HTML BLUEPRINT WITH DYNAMIC REMARKS ROW HEIGHT ---
 HTML_FRAMEWORK = """
@@ -723,17 +759,30 @@ with col2:
     selected_site_display = st.selectbox("Site Name", options=sites_in_ta, index=0, label_visibility="collapsed")
 
 with col3:
+    # Single step export - direct download when button is clicked
     if selected_ta and selected_ta != "Select Trade Area...":
-        export_key = f"export_{selected_ta}"
-        # Pre-generate the report so it's ready for download
-        wb_buffer = generate_trade_area_report(df, selected_ta, template_bytes_raw, placeholders)
-        st.download_button(
-            label="📥 Export All Sites", 
-            data=wb_buffer.getvalue(), 
-            file_name=f"{selected_ta}_Full_Report.xlsx", 
-            use_container_width=True,
-            key=export_key
-        )
+        if st.button("📥 Export All Sites", use_container_width=True):
+            with st.spinner("Generating and preparing download..."):
+                wb_buffer = generate_trade_area_report(df, selected_ta, template_bytes_raw, placeholders)
+                # Use st.download_button with a placeholder that gets triggered immediately
+                st.download_button(
+                    label="✅ Download Report", 
+                    data=wb_buffer.getvalue(), 
+                    file_name=f"{selected_ta}_Full_Report.xlsx", 
+                    use_container_width=True,
+                    key=f"download_{selected_ta}"
+                )
+                # Auto-trigger the download button using JavaScript
+                st.markdown(f"""
+                <script>
+                    setTimeout(function() {{
+                        const downloadBtn = document.querySelector('button[data-testid="baseButton-secondary"][kind="secondary"]');
+                        if (downloadBtn) {{
+                            downloadBtn.click();
+                        }}
+                    }}, 100);
+                </script>
+                """, unsafe_allow_html=True)
 
 # --- DIRECT HTML VIEW LAYOUT ---
 if selected_ta != "Select Trade Area..." and selected_site_display != "Select Site...":
