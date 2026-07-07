@@ -49,10 +49,10 @@ st.markdown("""
     div[data-testid="stStatusWidget"] {display: none !important;}
     
     .block-container {
-        padding-top: 0.5rem !important;
-        padding-bottom: 0.5rem !important;
-        padding-left: 0.5rem !important;
-        padding-right: 0.5rem !important;
+        padding-top: 0.05rem !important;
+        padding-bottom: 0.05rem !important;
+        padding-left: 0.3rem !important;
+        padding-right: 0.3rem !important;
         max-width: 100% !important;
     }
     
@@ -88,7 +88,11 @@ st.markdown("""
         font-size: 0.7rem !important;
     }
     .stSelectbox label {
-        display: none !important;
+        color: #333333 !important;
+        font-weight: 400 !important;
+        font-size: 0.65rem !important;
+        margin-bottom: 0 !important;
+        padding-bottom: 0 !important;
     }
     
     .stMarkdown, .stMarkdown * {
@@ -100,7 +104,7 @@ st.markdown("""
     }
     
     div[data-testid="stHorizontalBlock"] {
-        gap: 0.3rem !important;
+        gap: 0.2rem !important;
         align-items: center !important;
     }
     
@@ -140,8 +144,8 @@ st.markdown("""
         padding: 0.2rem;
         border: 1px solid #e8e8e8;
         overflow: auto;
-        margin-top: 0.5rem;
-        width: 100%;
+        height: calc(100vh - 80px);
+        margin-top: 0.1rem;
     }
     
     .excel-container table {
@@ -176,13 +180,12 @@ st.markdown("""
     }
     
     .info-text {
-        font-size: 0.7rem;
-        color: #333;
-        text-align: right;
+        font-size: 0.65rem;
+        color: #666;
+        text-align: center;
         margin: 0;
         padding: 0;
         line-height: 24px;
-        font-weight: 500;
     }
     
     /* Section headers in the report */
@@ -431,9 +434,46 @@ def render_excel_to_html(workbook, sheet_name=None):
     html += '</table>'
     return html
 
+@st.cache_data(ttl=3600)
+def load_data():
+    source_data = download_file(SOURCE_URL)
+    template_data = download_file(TEMPLATE_URL)
+    
+    if source_data is None or template_data is None:
+        return None, None, None, None, None
+    
+    df = pd.read_excel(source_data)
+    df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
+    df.columns = df.columns.str.strip().str.upper()
+    
+    template_wb = load_workbook(template_data)
+    template_sheet = template_wb.active
+    placeholders = get_placeholders(template_sheet)
+    
+    return df, template_wb, template_sheet, placeholders, template_data
+
+def sanitize_tab_name(name, existing_names):
+    illegal_chars = r'[\\/*?\[\]:]'
+    clean_name = re.sub(illegal_chars, '', str(name))
+    base_name = clean_name[:31]
+    if base_name not in existing_names:
+        existing_names.add(base_name)
+        return base_name
+    counter = 1
+    while True:
+        suffix = f" ({counter})"
+        max_len = 31 - len(suffix)
+        new_name = f"{clean_name[:max_len]}{suffix}"
+        if new_name not in existing_names:
+            existing_names.add(new_name)
+            return new_name
+        counter += 1
+
 def render_additional_sections(row, placeholders):
+    """Render the additional sections that appear to be missing from the template"""
     html = ''
     
+    # Helper to get value from row
     def get_val(ph):
         val = row.get(ph.upper(), '')
         if pd.isna(val) or val is None:
@@ -579,14 +619,16 @@ if df is None or template_wb is None:
 # --- CONTROLS ROW ---
 trade_areas = sorted(df["TRADE AREA"].dropna().unique())
 
-col1, col2, col3, col4, col5, col6 = st.columns([1.5, 1.5, 0.6, 0.7, 0.7, 0.6])
+# Create columns for controls
+col1, col2, col3, col4, col5, col6, col7 = st.columns([1.2, 1.2, 0.6, 0.7, 0.7, 0.5, 0.3])
 
 with col1:
     selected_ta = st.selectbox(
         "Trade Area",
         options=trade_areas,
         index=0 if trade_areas else None,
-        key="ta_select"
+        key="ta_select",
+        label_visibility="collapsed"
     )
 
 with col2:
@@ -597,21 +639,25 @@ with col2:
             "Site Name",
             options=sites_in_ta,
             index=0 if len(sites_in_ta) > 0 else None,
-            key="site_select"
+            key="site_select",
+            label_visibility="collapsed"
         )
     else:
         selected_site = st.selectbox(
             "Site Name",
             options=[],
-            key="site_select"
+            key="site_select",
+            label_visibility="collapsed"
         )
 
 with col3:
+    st.markdown("<p style='margin:0;padding:0;'>&nbsp;</p>", unsafe_allow_html=True)
     if st.button("Refresh", use_container_width=True):
         st.cache_data.clear()
         st.rerun()
 
 with col4:
+    st.markdown("<p style='margin:0;padding:0;'>&nbsp;</p>", unsafe_allow_html=True)
     if selected_ta and selected_site:
         site_data = df[(df["TRADE AREA"] == selected_ta) & (df["SITE NAME"] == selected_site)]
         if not site_data.empty:
@@ -648,6 +694,7 @@ with col4:
             )
 
 with col5:
+    st.markdown("<p style='margin:0;padding:0;'>&nbsp;</p>", unsafe_allow_html=True)
     if selected_ta:
         if st.button("Trade Report", use_container_width=True):
             with st.spinner("Generating..."):
@@ -696,6 +743,9 @@ with col6:
     total_sites = len(df["SITE NAME"].dropna().unique())
     st.markdown(f"<p class='info-text'>Sites: {total_sites}</p>", unsafe_allow_html=True)
 
+with col7:
+    st.markdown("<p style='margin:0;padding:0;'>&nbsp;</p>", unsafe_allow_html=True)
+
 # --- REPORT VIEWER ---
 if selected_ta and selected_site:
     try:
@@ -710,6 +760,7 @@ if selected_ta and selected_site:
             
             row = site_data.iloc[0]
             
+            # Populate template with data
             for row_cells in base_sheet.iter_rows():
                 for cell in row_cells:
                     if isinstance(cell.value, str) and "{{" in cell.value:
@@ -732,13 +783,16 @@ if selected_ta and selected_site:
                         else:
                             cell.value = new_val.strip() if new_val else ""
             
-            # Formulate the entire wrapper and content together to avoid broken container nodes
+            # Render the main template
             html_content = render_excel_to_html(wb)
+            
+            # Add the additional sections
             html_content += render_additional_sections(row, placeholders)
             
-            full_layout_html = f'<div class="excel-container">{html_content}</div>'
-            st.markdown(full_layout_html, unsafe_allow_html=True)
-            
+            st.markdown('<div class="excel-container">', unsafe_allow_html=True)
+            st.markdown(html_content, unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+    
     except Exception as e:
         st.error(f"Error: {str(e)}")
 else:
