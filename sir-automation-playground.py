@@ -304,14 +304,38 @@ if df is None or template_bytes_raw is None:
 template_data = io.BytesIO(template_bytes_raw)
 
 # --- CONTROLS ROW ---
+# Create display names with Site No and Site Name
+def get_display_name(row):
+    site_no = row.get("SITE NO", "")
+    site_name = row.get("SITE NAME", "")
+    if pd.isna(site_no) or site_no == "":
+        return str(site_name)
+    try:
+        site_no_int = int(float(site_no))
+        return f"{site_no_int} - {site_name}"
+    except:
+        return f"{site_no} - {site_name}"
+
+# Create a mapping from display name to actual site name
+df["DISPLAY_NAME"] = df.apply(get_display_name, axis=1)
+display_to_site = dict(zip(df["DISPLAY_NAME"], df["SITE NAME"]))
+
 trade_areas = sorted(df["TRADE AREA"].dropna().unique())
-col1, col2, col3, col4, col5, col6 = st.columns([1.5, 1.5, 0.6, 0.7, 0.7, 0.6])
+
+col1, col2, col3, col4, col5, col6 = st.columns([1.5, 1.8, 0.6, 0.7, 0.7, 0.6])
 
 with col1:
     selected_ta = st.selectbox("Trade Area", options=trade_areas, index=0 if trade_areas else None, key="ta_select")
+
 with col2:
-    sites_in_ta = sorted(df[df["TRADE AREA"] == selected_ta]["SITE NAME"].dropna().unique()) if selected_ta else []
-    selected_site = st.selectbox("Site Name", options=sites_in_ta, index=0 if sites_in_ta else None, key="site_select")
+    if selected_ta:
+        ta_df = df[df["TRADE AREA"] == selected_ta]
+        display_options = sorted(ta_df["DISPLAY_NAME"].dropna().unique())
+    else:
+        display_options = []
+    selected_display = st.selectbox("Site Name", options=display_options, index=0 if display_options else None, key="site_select")
+    selected_site = display_to_site.get(selected_display, "") if selected_display else ""
+
 with col3:
     if st.button("Refresh", use_container_width=True):
         st.cache_data.clear()
@@ -335,10 +359,14 @@ if selected_ta and selected_site:
                         target_regex = r"\{\{\s*" + re.escape(ph) + r"(\s*:.*?)?\}\}"
                         if re.search(target_regex, new_val):
                             raw_data_val = site_row_data.get(ph.upper(), "")
-                            if pd.isna(raw_data_val) or raw_data_val is None: raw_data_val = ""
-                            if isinstance(raw_data_val, float) and raw_data_val.is_integer(): val_str = str(int(raw_data_val))
-                            elif hasattr(raw_data_val, 'strftime'): val_str = raw_data_val.strftime('%B %d, %Y')
-                            else: val_str = str(raw_data_val)
+                            if pd.isna(raw_data_val) or raw_data_val is None: 
+                                raw_data_val = ""
+                            elif isinstance(raw_data_val, float) and raw_data_val.is_integer(): 
+                                val_str = str(int(raw_data_val))
+                            elif hasattr(raw_data_val, 'strftime'): 
+                                val_str = raw_data_val.strftime('%B %d, %Y')
+                            else: 
+                                val_str = str(raw_data_val)
                             new_val = re.sub(target_regex, val_str, new_val)
                     cell.value = new_val.strip() if new_val else ""
         
@@ -347,14 +375,10 @@ if selected_ta and selected_site:
         site_excel_bytes = ex_buf.getvalue()
 
 with col4:
-    if site_excel_bytes:
-        safe_filename = f"{selected_site}_{selected_ta}".replace("/", "-").replace("\\", "-")
-        st.download_button("Download Site Report", data=site_excel_bytes, file_name=f"{safe_filename}.xlsx", use_container_width=True)
-
-with col5:
+    # Single Export button - downloads entire trade area report
     if selected_ta:
-        if st.button("Download Trade Area Report", use_container_width=True):
-            with st.spinner("Generating..."):
+        if st.button("Export", use_container_width=True):
+            with st.spinner("Generating Trade Area Report..."):
                 ta_data = df[df["TRADE AREA"] == selected_ta]
                 template_data.seek(0)
                 wb = load_workbook(template_data)
@@ -363,7 +387,9 @@ with col5:
                 existing_tabs = set()
                 for _, r_row in ta_data.iterrows():
                     s_name = r_row.get("SITE NAME", "Unknown")
-                    safe_tab_name = sanitize_tab_name(s_name, existing_tabs)
+                    # Use display name for tab
+                    display_name = get_display_name(r_row)
+                    safe_tab_name = sanitize_tab_name(display_name, existing_tabs)
                     new_sheet = wb.copy_worksheet(base_sheet)
                     new_sheet.title = safe_tab_name
                     for row_cells in new_sheet.iter_rows():
@@ -374,16 +400,43 @@ with col5:
                                     target_regex = r"\{\{\s*" + re.escape(ph) + r"(\s*:.*?)?\}\}"
                                     if re.search(target_regex, new_val):
                                         raw_data_val = r_row.get(ph.upper(), "")
-                                        if pd.isna(raw_data_val) or raw_data_val is None: raw_data_val = ""
-                                        if isinstance(raw_data_val, float) and raw_data_val.is_integer(): val_str = str(int(raw_data_val))
-                                        elif hasattr(raw_data_val, 'strftime'): val_str = r_row.get(ph.upper(), "").strftime('%B %d, %Y')
-                                        else: val_str = str(raw_data_val)
+                                        if pd.isna(raw_data_val) or raw_data_val is None: 
+                                            raw_data_val = ""
+                                        elif isinstance(raw_data_val, float) and raw_data_val.is_integer(): 
+                                            val_str = str(int(raw_data_val))
+                                        elif hasattr(raw_data_val, 'strftime'): 
+                                            val_str = r_row.get(ph.upper(), "").strftime('%B %d, %Y')
+                                        else: 
+                                            val_str = str(raw_data_val)
                                         new_val = re.sub(target_regex, val_str, new_val)
                                 cell.value = new_val.strip() if new_val else ""
                 wb.remove(base_sheet)
                 wb_buffer = io.BytesIO()
                 wb.save(wb_buffer)
-                st.download_button("Download Bulk", data=wb_buffer.getvalue(), file_name="Trade_Report.xlsx", use_container_width=True)
+                safe_filename = f"{selected_ta}_Trade_Report".replace("/", "-").replace("\\", "-")
+                st.download_button(
+                    label="Download Trade Area Report",
+                    data=wb_buffer.getvalue(),
+                    file_name=f"{safe_filename}.xlsx",
+                    use_container_width=True,
+                    key="export_download"
+                )
+
+# Also keep individual download as hidden/optional - but since we have Export, we can use it for individual too
+# Actually let's add individual download as a secondary option in the Export button's dropdown or just use the main Export
+# We'll just keep the Export button to download the whole trade area
+
+with col5:
+    # Individual site download
+    if site_excel_bytes and selected_site:
+        safe_filename = f"{selected_display}".replace("/", "-").replace("\\", "-")
+        st.download_button(
+            label="⬇️ Site", 
+            data=site_excel_bytes, 
+            file_name=f"{safe_filename}.xlsx", 
+            use_container_width=True,
+            key="site_download"
+        )
 
 with col6:
     st.markdown(f"<p class='info-text'>Sites: {len(df['SITE NAME'].dropna().unique())}</p>", unsafe_allow_html=True)
