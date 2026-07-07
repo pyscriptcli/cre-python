@@ -26,7 +26,7 @@ if not os.path.exists(_config_file):
     with open(_config_file, "w", encoding="utf-8") as f:
         f.write("[theme]\nbase=\"light\"\n")
 
-# --- CUSTOM GOOGLE WORKSPACE / GOOGLE SHEETS EMBED CSS ---
+# --- CUSTOM GOOGLE WORKSPACE UI CSS ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto:wght@300;400;500;700&display=swap');
@@ -49,7 +49,7 @@ st.markdown("""
         max-width: 100% !important;
     }
     
-    /* Google Workspace UI Buttons */
+    /* Action Controls styling */
     .stButton > button, .stDownloadButton > button {
         background-color: #0b57d0 !important;
         color: #ffffff !important;
@@ -69,7 +69,6 @@ st.markdown("""
         box-shadow: 0 1px 3px 0 rgba(60,64,67,0.3), 0 4px 8px 3px rgba(60,64,67,0.15) !important;
     }
     
-    /* Document Control Dropdowns */
     .stSelectbox label { 
         font-size: 0.75rem !important; 
         font-weight: 500 !important;
@@ -97,7 +96,7 @@ st.markdown("""
         margin-bottom: 1rem;
     }
     
-    /* Spreadsheet Rendering Blueprint Area */
+    /* Spreadsheet Embed Area Styling */
     .excel-container {
         background-color: #ffffff !important;
         border-radius: 8px;
@@ -171,12 +170,10 @@ def sanitize_tab_name(name, existing_names):
         counter += 1
 
 def parse_site_number(site_display_str):
-    """Processes string text patterns to allow true natural sequencing logic."""
     match = re.match(r"^(\d+)", site_display_str)
     return int(match.group(1)) if match else float('inf')
 
 def generate_trade_area_report(df, trade_area, template_bytes, placeholders):
-    """Generates multi-tab spreadsheet dynamically upon explicit user execution request."""
     ta_data = df[df["TRADE AREA"] == trade_area]
     wb = load_workbook(io.BytesIO(template_bytes))
     base_sheet = wb.active
@@ -206,7 +203,7 @@ def generate_trade_area_report(df, trade_area, template_bytes, placeholders):
                     new_val = re.sub(r"\{\{.*?\}\}", "", new_val)
                     cell.value = new_val.strip() if new_val else ""
                     
-        # Apply row auto fit cleanly conditional to string context sizing constraints
+        # Conditional row auto-fitting thresholds
         for row in new_sheet.iter_rows():
             max_len = max([len(str(cell.value or '')) for cell in row])
             if max_len > 45: 
@@ -217,126 +214,370 @@ def generate_trade_area_report(df, trade_area, template_bytes, placeholders):
     wb.save(wb_buffer)
     return wb_buffer
 
-# --- RAW BLUEPRINT DESIGN LAYOUT (-2pt Font Compressed Base Style Sheet) ---
+# --- OPTIMIZED HTML VISUAL BLUEPRINT (-2pt Font Compressed) ---
 RAW_TEMPLATE_HTML = """
 <style type="text/css">
-    .ritz .waffle a { color: #15c; }
-    .ritz .waffle .s0 {border-bottom:1px SOLID #bfbfbf;border-right:1px SOLID #bfbfbf;background-color:#800000;text-align:center;font-weight:700;color:#ffffff;font-family:'Google Sans',Arial;font-size:12pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:6px 3px;}
-    .ritz .waffle .s1 {border-bottom:1px SOLID #bfbfbf;border-right:1px SOLID #bfbfbf;background-color:#f0f4f9;text-align:left;font-weight:700;color:#1f1f1f;font-family:'Google Sans',Arial;font-size:10pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:4px 6px;}
-    .ritz .waffle .s2 {border-bottom:1px SOLID #e1e3e1;background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:9pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:4px 6px;}
-    .ritz .waffle .s3 {border-bottom:1px SOLID #e1e3e1;border-right:1px SOLID #e1e3e1;background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:9pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:4px 6px;}
-    .ritz .waffle .s4 {border-right:1px SOLID #e1e3e1;background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:9pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:4px 6px;}
-    .ritz .waffle .s5 {background-color:#ffffff;text-align:left;color:#444746;font-family:Arial;font-size:9pt;vertical-align:middle;white-space:normal;word-break:break-word;direction:ltr;padding:6px 8px;}
-    .ritz .waffle .s6 {border:1px SOLID #c4c7c5;background-color:#f8f9fa;text-align:left;color:#1f1f1f;font-family:Arial;font-size:9pt;font-weight:500;vertical-align:middle;white-space:normal;word-break:break-word;direction:ltr;padding:6px 8px;}
-    .ritz .waffle .s7 {background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:9pt;vertical-align:middle;white-space:normal;word-break:break-word;direction:ltr;padding:6px 8px;}
-    .ritz .waffle .s8 {border:1px SOLID #c4c7c5;background-color:#f8f9fa;text-align:left;color:#000000;font-family:Arial;font-size:9pt;vertical-align:middle;white-space:normal;word-break:break-word;direction:ltr;padding:6px 8px;}
-    .ritz .waffle .s9 {border-bottom:1px SOLID transparent;border-right:1px SOLID transparent;background-color:#ffffff;text-align:left;color:#b3261e;font-family:Arial;font-size:9pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:4px 6px;}
-    .ritz .waffle .s10{border:1px SOLID #c4c7c5;background-color:#f8f9fa;text-align:left;color:#000000;font-family:Arial;font-size:9pt;vertical-align:middle;white-space:normal;word-break:break-word;direction:ltr;padding:6px 8px;}
-    .ritz .waffle .s11{background-color:#e1e3e1;text-align:left;color:#000000;font-family:Arial;font-size:9pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:4px 6px;}
-    .ritz .waffle .s12{border-bottom:1px SOLID #000000;background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:9pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:4px 6px;}
-    .ritz .waffle .s13{border-bottom:1px SOLID #000000;border-right:1px SOLID #e1e3e1;background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:9pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:4px 6px;}
-    .ritz .waffle .s14{background-color:#e1e3e1;text-align:left;font-weight:bold;color:#b3261e;font-family:Arial;font-size:9pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:4px 6px;}
-    .ritz .waffle .s15{background-color:#f8f9fa;text-align:left;color:#000000;font-family:Arial;font-size:9pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:4px 6px;}
-    .ritz .waffle .s16{border-right:1px SOLID #000000;background-color:#f8f9fa;text-align:left;color:#000000;font-family:Arial;font-size:9pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:4px 6px;}
-    .ritz .waffle .s17{background-color:#f8f9fa;text-align:left;color:#b3261e;font-family:Arial;font-size:9pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:4px 6px;}
-    .ritz .waffle .s18{border-bottom:1px SOLID transparent;border-right:1px SOLID transparent;background-color:#f8f9fa;text-align:left;color:#000000;font-family:Arial;font-size:9pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:4px 6px;}
-    .ritz .waffle .s19{border-bottom:1px SOLID transparent;border-right:1px SOLID transparent;background-color:#f8f9fa;text-align:left;color:#b3261e;font-family:Arial;font-size:9pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:4px 6px;}
-    .ritz .waffle .s20{border-bottom:1px SOLID transparent;border-right:1px SOLID #000000;background-color:#f8f9fa;text-align:left;color:#000000;font-family:Arial;font-size:9pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:4px 6px;}
-    .ritz .waffle .s21{border-bottom:1px SOLID #000000;background-color:#f8f9fa;text-align:left;color:#000000;font-family:Arial;font-size:9pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:4px 6px;}
-    .ritz .waffle .s22{border-bottom:1px SOLID #000000;border-right:1px SOLID #000000;background-color:#f8f9fa;text-align:left;color:#000000;font-family:Arial;font-size:9pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:4px 6px;}
-    .ritz .waffle .s23{background-color:#ffffff;text-align:left;font-weight:bold;color:#1f1f1f;font-family:'Google Sans',Arial;font-size:10pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:4px 6px;}
-    .ritz .waffle .s24{border-bottom:1px SOLID transparent;border-right:1px SOLID transparent;background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:9pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:4px 6px;}
-    .ritz .waffle .s25{background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:9pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:4px 6px;}
-    .ritz .waffle td { border: 1px solid #e1e3e1; }
+    .ritz .waffle a { color: inherit; }
+    .ritz .waffle td { padding: 4px 6px !important; font-family: Arial, sans-serif; }
+    .ritz .waffle .s0 {border-bottom:1px SOLID #bfbfbf;border-right:1px SOLID #bfbfbf;background-color:#800000;text-align:center;font-weight:bold;color:#ffffff;font-size:10pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s1 {border-bottom:1px SOLID #bfbfbf;border-right:1px SOLID #bfbfbf;background-color:#f0f4f9;text-align:left;font-weight:bold;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s2 {background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s3 {border-right:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s4 {border-bottom:1px SOLID transparent;background-color:#f8f9fa;border:1px SOLID #c4c7c5;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:normal;word-break:break-word;direction:ltr;}
+    .ritz .waffle .s5 {background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s6 {border-bottom:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s7 {border-bottom:1px SOLID #bfbfbf;border-right:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s8 {border-bottom:1px SOLID transparent;background-color:#ffffff;text-align:left;color:#b3261e;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s9 {border-bottom:1px SOLID transparent;border-right:1px SOLID #bfbfbf;background-color:#f8f9fa;border:1px SOLID #c4c7c5;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:normal;word-break:break-word;direction:ltr;}
+    .ritz .waffle .s10{background-color:#e1e3e1;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s11{border-bottom:1px SOLID #000000;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s12{border-bottom:1px SOLID #000000;border-right:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s13{background-color:#e1e3e1;text-align:left;font-weight:bold;color:#b3261e;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s14{background-color:#f8f9fa;text-align:left;color:#b3261e;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s15{border-bottom:1px SOLID transparent;background-color:#f8f9fa;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s16{border-bottom:1px SOLID transparent;background-color:#f8f9fa;text-align:left;color:#b3261e;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s17{background-color:#f8f9fa;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s18{border-bottom:1px SOLID transparent;border-right:1px SOLID #bfbfbf;background-color:#f8f9fa;text-align:left;color:#b3261e;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s19{border-bottom:1px SOLID #000000;background-color:#f8f9fa;text-align:left;color:#b3261e;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s20{border-bottom:1px SOLID #000000;background-color:#f8f9fa;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s21{border-bottom:1px SOLID #000000;border-right:1px SOLID #bfbfbf;background-color:#f8f9fa;text-align:left;color:#b3261e;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s22{background-color:#ffffff;text-align:left;font-weight:bold;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s23{border-right:none;border-bottom:1px SOLID transparent;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s24{border-left:none;border-bottom:1px SOLID transparent;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s25{border-left:none;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
 </style>
 <div class="ritz grid-container" dir="ltr">
 <table class="waffle" cellspacing="0" cellpadding="0" style="table-layout: fixed; width: 100%;">
     <colgroup>
-        <col style="width:14%;"><col style="width:14%;"><col style="width:6%;"><col style="width:6%;"><col style="width:6%;"><col style="width:6%;"><col style="width:9%;"><col style="width:1%;"><col style="width:1%;"><col style="width:9%;"><col style="width:17%;"><col style="width:6%;"><col style="width:6%;"><col style="width:6%;"><col style="width:6%;"><col style="width:1%;">
+        <col style="width:16%;"><col style="width:7%;"><col style="width:6%;"><col style="width:7%;"><col style="width:7%;"><col style="width:7%;"><col style="width:6%;"><col style="width:1%;"><col style="width:11%;"><col style="width:13%;"><col style="width:7%;"><col style="width:7%;"><col style="width:7%;"><col style="width:9%;"><col style="width:2%;">
     </colgroup>
     <tbody>
-        <tr style="height: 32px;"><td class="s0" dir="ltr" colspan="16">SITE INFORMATION REPORT</td></tr>
-        <tr style="height: 24px;"><td class="s1" dir="ltr" colspan="8">General Information</td><td class="s1"></td><td class="s1" dir="ltr" colspan="7">Location</td></tr>
-        <tr style="height: 19px;"><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td><td class="s4"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td></tr>
-        <tr style="height: 19px;"><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s4"></td><td class="s4"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s4"></td></tr>
-        <tr style="height: 24px;"><td class="s5" dir="ltr">Trade Area Name</td><td class="s5"></td><td class="s6" dir="ltr" colspan="5">_TRADE_AREA_</td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Site Name</td><td class="s6" dir="ltr" colspan="5">_SITE_NAME_</td></tr>
-        <tr style="height: 24px;"><td class="s5" dir="ltr">Site Name:</td><td class="s5"></td><td class="s6" dir="ltr" colspan="5">_SITE_NAME_</td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Unit #, Bldg/St # and St Name</td><td class="s6" dir="ltr" colspan="5">_UNIT_BLDG_ST_NAME_</td></tr>
-        <tr style="height: 24px;"><td class="s5" dir="ltr">Site Number:</td><td class="s5"></td><td class="s6" dir="ltr" colspan="5">_SITE_NO_</td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Barangay/District Name</td><td class="s6" dir="ltr" colspan="5">_BARANGAY_DISTRICT_NAME_</td></tr>
-        <tr style="height: 24px;"><td class="s5" dir="ltr">Date Started</td><td class="s5"></td><td class="s6" dir="ltr" colspan="5">_TIMESTAMP_</td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">City/Municipality</td><td class="s6" dir="ltr" colspan="5">_CITY_MUNICIPALITY_</td></tr>
-        <tr style="height: 24px;"><td class="s7" dir="ltr" colspan="2">Date Report Submitted</td><td class="s7" dir="ltr" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Region</td><td class="s6" dir="ltr" colspan="5">_REGION_</td></tr>
-        <tr style="height: 24px;"><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Postal Code</td><td class="s6" dir="ltr" colspan="5">_POSTAL_CODE_</td></tr>
-        <tr style="height: 19px;"><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td><td class="s4"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td></tr>
-        <tr style="height: 24px;"><td class="s1" dir="ltr" colspan="8">Terms</td><td class="s4"></td><td class="s1" dir="ltr" colspan="7">Rates</td></tr>
-        <tr style="height: 19px;"><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s4"></td><td class="s4"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s4"></td></tr>
-        <tr style="height: 24px;"><td class="s5" dir="ltr">Site Availability Date</td><td class="s5"></td><td class="s8" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s9" dir="ltr" colspan="2">Monthly Rental Rate (Php)</td><td class="s10" dir="ltr" colspan="5">_MONTHLY_RENTAL_RATE_</td></tr>
-        <tr style="height: 24px;"><td class="s5" dir="ltr">COL Start Date</td><td class="s5"></td><td class="s8" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s9" dir="ltr" colspan="2">Percentage Rent</td><td class="s10" colspan="5"></td></tr>
-        <tr style="height: 24px;"><td class="s5" dir="ltr">COL End Date</td><td class="s5"></td><td class="s8" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s9" dir="ltr" colspan="2">Minimum Guaranteed Rent</td><td class="s10" colspan="5"></td></tr>
-        <tr style="height: 24px;"><td class="s5" dir="ltr">Lease Terms</td><td class="s5"></td><td class="s8" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s9" dir="ltr" colspan="2">Annual Escalation Rate (%)</td><td class="s10" dir="ltr" colspan="5">_ESCALATION_</td></tr>
-        <tr style="height: 24px;"><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td><td class="s4"></td><td class="s9" dir="ltr" colspan="2">Advance Rental (Php)</td><td class="s10" dir="ltr" colspan="5">_ADVANCE_RENTAL_</td></tr>
-        <tr style="height: 24px;"><td class="s1" dir="ltr" colspan="8">Technical Info</td><td class="s4"></td><td class="s9" dir="ltr" colspan="2">Security Deposit Amount (Php)</td><td class="s10" dir="ltr" colspan="5">_SECURITY_DEPOSIT_</td></tr>
-        <tr style="height: 24px;"><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s4"></td><td class="s4"></td><td class="s9" dir="ltr" colspan="2">CUSA Dues</td><td class="s10" dir="ltr" colspan="5">_CUSA_</td></tr>
-        <tr style="height: 24px;"><td class="s7" dir="ltr" colspan="2">Lot /Floor Area (in sqm)</td><td class="s6" dir="ltr" colspan="5">_LOT_FLOOR_AREA_SQM_</td><td class="s4"></td><td class="s4"></td><td class="s9" dir="ltr" colspan="2">Estimated Revenue Per Mo.</td><td class="s8" colspan="5"></td></tr>
-        <tr style="height: 19px;"><td class="s5" dir="ltr">Frontage (in m)</td><td class="s5"></td><td class="s8" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td></tr>
-        <tr style="height: 19px;"><td class="s5" dir="ltr">Depth (in m)</td><td class="s5"></td><td class="s8" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s2"></td><td class="s1" dir="ltr" colspan="7">Provisions</td></tr>
-        <tr style="height: 24px;"><td class="s7" dir="ltr" colspan="2">Floor to Slab Height (in m) - if Bldg</td><td class="s8" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s4"></td></tr>
-        <tr style="height: 24px;"><td class="s7" dir="ltr" colspan="2">No. of Storeys (If Bldg Lessee)</td><td class="s8" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Tenant is the Owner</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
-        <tr style="height: 24px;"><td class="s7" dir="ltr" colspan="2">Type of Structure(if Bldg Lessee)</td><td class="s8" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Lease Type</td><td class="s6" dir="ltr" colspan="4">_LEASE_TYPE_</td><td class="s4"></td></tr>
-        <tr style="height: 24px;"><td class="s5" dir="ltr">Soil Profile</td><td class="s5"></td><td class="s8" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Principal COL</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
-        <tr style="height: 24px;"><td class="s5" dir="ltr">Supply Access:</td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Sub-Lease Provison</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
-        <tr style="height: 24px;"><td class="s5" dir="ltr">Power</td><td class="s11"></td><td class="s5" dir="ltr">Aircon</td><td class="s11"></td><td class="s7" dir="ltr" colspan="2">LPG Fire Pro</td><td class="s11"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Pre-Term/Partial Term</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
-        <tr style="height: 24px;"><td class="s5" dir="ltr">Water</td><td class="s11"></td><td class="s5" dir="ltr">Exhaust</td><td class="s11"></td><td class="s7" dir="ltr" colspan="2">Drainage TP</td><td class="s11"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Tripartite Agreement</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
-        <tr style="height: 19px;"><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td><td class="s4"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td></tr>
-        <tr style="height: 24px;"><td class="s1" dir="ltr" colspan="8">Lessor and Tenant Details</td><td class="s4"></td><td class="s1" dir="ltr" colspan="7">If with Sub-Lessor/ Sub-Lessee</td></tr>
-        <tr style="height: 19px;"><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s4"></td><td class="s4"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s4"></td></tr>
-        <tr style="height: 24px;"><td class="s5" dir="ltr">Name of Lessor</td><td class="s5"></td><td class="s6" dir="ltr" colspan="5">_LESSOR_</td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Name of Sub-Lessor</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
-        <tr style="height: 24px;"><td class="s5" dir="ltr">Contact No.</td><td class="s5"></td><td class="s6" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Contact No.</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
-        <tr style="height: 24px;"><td class="s5" dir="ltr">E-mail Address</td><td class="s5"></td><td class="s6" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">E-mail Address</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
-        <tr style="height: 24px;"><td class="s5" dir="ltr">Type of Ownership</td><td class="s5"></td><td class="s6" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Type of Ownership</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
-        <tr style="height: 24px;"><td class="s5" dir="ltr">Company Name</td><td class="s5"></td><td class="s6" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Company Name</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
-        <tr style="height: 24px;"><td class="s7" dir="ltr" colspan="2">Developer Account Name</td><td class="s6" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Developer Account Name</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
-        <tr style="height: 24px;"><td class="s5" dir="ltr">Business Address</td><td class="s5"></td><td class="s6" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Business Address</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
-        <tr style="height: 24px;"><td class="s7" dir="ltr" colspan="2">Name of Authorized Representative</td><td class="s6" dir="ltr" colspan="5">_CONTACT_PERSON_SOURCE_</td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Name of Authorized Representative</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
-        <tr style="height: 24px;"><td class="s7" dir="ltr" colspan="2">Residence Address of Authorized Representative</td><td class="s6" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Residence Address of Authorized Representative</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
-        <tr style="height: 24px;"><td class="s5" dir="ltr">Contact No.</td><td class="s5"></td><td class="s6" dir="ltr" colspan="5">_CONTACT_NUMBER_</td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Contact No.</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
-        <tr style="height: 24px;"><td class="s5" dir="ltr">E-mail Address</td><td class="s5"></td><td class="s6" dir="ltr" colspan="5">_EMAIL_ADDRESS_</td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">E-mail Address</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
-        <tr style="height: 19px;"><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s4"></td><td class="s4"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s4"></td></tr>
-        <tr style="height: 24px;"><td class="s5" dir="ltr">Name of Lessee</td><td class="s5"></td><td class="s8" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Name of Sub-Lessee</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
-        <tr style="height: 24px;"><td class="s5" dir="ltr">Position</td><td class="s5"></td><td class="s8" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Position</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
-        <tr style="height: 24px;"><td class="s5" dir="ltr">Contact No.</td><td class="s5"></td><td class="s8" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Contact No.</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
-        <tr style="height: 24px;"><td class="s5" dir="ltr">E-mail Address</td><td class="s5"></td><td class="s8" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">E-mail Address</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
-        <tr style="height: 24px;"><td class="s7" dir="ltr" colspan="2">Name of Authorized Representative</td><td class="s8" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Name of Authorized Representative</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
-        <tr style="height: 24px;"><td class="s5" dir="ltr">Business Address</td><td class="s5"></td><td class="s8" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Business Address</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
-        <tr style="height: 19px;"><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td><td class="s4"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td></tr>
-        <tr style="height: 20px;"><td class="s14" dir="ltr" colspan="16">Regulatory</td></tr>
-        <tr style="height: 24px;">
-            <td class="s17" dir="ltr">Setback Requirement</td><td class="s15"></td><td class="s15"></td><td class="s15"></td><td class="s15"></td><td class="s15"></td><td class="s15"></td>
-            <td class="s18"></td><td class="s18"></td>
-            <td class="s19" dir="ltr">Perm Traffic Re-Routing</td><td class="s15"></td><td class="s15"></td><td class="s15"></td>
-            <td class="s17" dir="ltr">Future Development</td><td class="s15"></td><td class="s16"></td>
+        <tr style="height: 24px;"><td class="s0" colspan="15">SITE INFORMATION REPORT</td></tr>
+        <tr style="height: 20px;"><td class="s1" colspan="7">General Information</td><td class="s1"></td><td class="s1" colspan="7">Location</td></tr>
+        <tr style="height: 9px;"><td class="s2" colspan="7"></td><td class="s3"></td><td class="s2" colspan="6"></td><td class="s3"></td></tr>
+        
+        <tr style="height: 22px;">
+            <td class="s2" colspan="2">Trade Area Name</td>
+            <td class="s4" colspan="5">_TRADE_AREA_</td>
+            <td class="s3"></td>
+            <td class="s5" colspan="2">Site Name</td>
+            <td class="s4" colspan="5">_SITE_NAME_</td>
         </tr>
-        <tr style="height: 24px;">
-            <td class="s17" dir="ltr">Road Widening</td><td class="s15"></td><td class="s15"></td><td class="s15"></td><td class="s15"></td><td class="s15"></td><td class="s15"></td>
-            <td class="s18"></td><td class="s18"></td>
-            <td class="s19" dir="ltr">Perm Road Closure</td><td class="s15"></td><td class="s15"></td><td class="s15"></td>
-            <td class="s17" dir="ltr">Zoning Clearance</td><td class="s15"></td><td class="s16"></td>
+        <tr style="height: 22px;">
+            <td class="s2" colspan="2">Site Name:</td>
+            <td class="s4" colspan="5">_SITE_NAME_</td>
+            <td class="s3"></td>
+            <td class="s5" colspan="2">Unit #, Bldg/St # and St Name</td>
+            <td class="s4" colspan="5">_UNIT_BLDG_ST_NAME_</td>
         </tr>
-        <tr style="height: 24px;">
-            <td class="s17" dir="ltr">Pedestrian Overpass</td><td class="s21"></td><td class="s21"></td><td class="s21"></td><td class="s21"></td><td class="s21"></td><td class="s21"></td>
-            <td class="s21"></td><td class="s21"></td>
-            <td class="s21" dir="ltr">Infrastructure Programs</td><td class="s21"></td><td class="s21"></td><td class="s21"></td>
-            <td class="s21" dir="ltr">Gas Station</td><td class="s21"></td><td class="s22"></td>
+        <tr style="height: 22px;">
+            <td class="s2" colspan="2">Site Number:</td>
+            <td class="s4" colspan="5">_SITE_NO_</td>
+            <td class="s3"></td>
+            <td class="s5" colspan="2">Barangay/District Name</td>
+            <td class="s4" colspan="5">_BARANGAY_DISTRICT_NAME_</td>
         </tr>
-        <tr style="height: 19px;"><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td><td class="s4"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td></tr>
-        <tr style="height: 20px;"><td class="s23" dir="ltr" colspan="16">Site Acquirability:</td></tr>
-        <tr style="height: 24px;"><td class="s5" dir="ltr">Confidence Level</td><td class="s11" colspan="5"></td><td class="s5"></td><td class="s4"></td><td class="s4"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s4"></td></tr>
-        <tr style="height: 24px;"><td class="s5" dir="ltr">Site Availability</td><td class="s24" colspan="5">_SITE_AVAILABILITY_CLASS_</td><td class="s5"></td><td class="s4"></td><td class="s4"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s4"></td></tr>
-        <tr style="height: 24px;"><td class="s5" dir="ltr">Other Remarks:</td><td class="s25" colspan="5">_REMARKS_</td><td class="s5"></td><td class="s4"></td><td class="s4"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s4"></td></tr>
+        <tr style="height: 22px;">
+            <td class="s2" colspan="2">Date Started</td>
+            <td class="s4" colspan="5">_TIMESTAMP_</td>
+            <td class="s3"></td>
+            <td class="s5" colspan="2">City/Municipality</td>
+            <td class="s4" colspan="5">_CITY_MUNICIPALITY_</td>
+        </tr>
+        <tr style="height: 22px;">
+            <td class="s5" colspan="2">Date Report Submitted</td>
+            <td class="s4" colspan="5">_DATE_OF_REPORT_</td>
+            <td class="s3"></td>
+            <td class="s5" colspan="2">Region</td>
+            <td class="s4" colspan="5">_REGION_</td>
+        </tr>
+        <tr style="height: 22px;">
+            <td class="s2" colspan="2"></td><td class="s2" colspan="5"></td>
+            <td class="s3"></td>
+            <td class="s5" colspan="2">Postal Code</td>
+            <td class="s4" colspan="5">_POSTAL_CODE_</td>
+        </tr>
+        
+        <tr style="height: 9px;"><td class="s6" colspan="7"></td><td class="s3"></td><td class="s6" colspan="6"></td><td class="s7"></td></tr>
+        <tr style="height: 20px;"><td class="s1" colspan="7">Terms</td><td class="s3"></td><td class="s1" colspan="7">Rates</td></tr>
+        <tr style="height: 9px;"><td class="s2" colspan="7"></td><td class="s3"></td><td class="s2" colspan="6"></td><td class="s3"></td></tr>
+        
+        <tr style="height: 22px;">
+            <td class="s2" colspan="2">Site Availability Date</td>
+            <td class="s4" colspan="5">_SITE_AVAILABILITY_DATE_</td>
+            <td class="s3"></td>
+            <td class="s8" colspan="2">Monthly Rental Rate (Php)</td>
+            <td class="s4" colspan="5">_MONTHLY_RENTAL_RATE_</td>
+        </tr>
+        <tr style="height: 22px;">
+            <td class="s2" colspan="2">COL Start Date</td>
+            <td class="s4" colspan="5">_COL_START_DATE_</td>
+            <td class="s3"></td>
+            <td class="s8" colspan="2">Percentage Rent</td>
+            <td class="s4" colspan="5"></td>
+        </tr>
+        <tr style="height: 22px;">
+            <td class="s2" colspan="2">COL End Date</td>
+            <td class="s4" colspan="5">_COL_END_DATE_</td>
+            <td class="s3"></td>
+            <td class="s8" colspan="2">Minimum Guaranteed Rent</td>
+            <td class="s4" colspan="5"></td>
+        </tr>
+        <tr style="height: 22px;">
+            <td class="s2" colspan="2">Lease Terms</td>
+            <td class="s4" colspan="5">_LEASE_TERMS_</td>
+            <td class="s3"></td>
+            <td class="s8" colspan="2">Annual Escalation Rate (%)</td>
+            <td class="s4" colspan="5">_ESCALATION_</td>
+        </tr>
+        <tr style="height: 22px;">
+            <td class="s6" colspan="7"></td>
+            <td class="s3"></td>
+            <td class="s8" colspan="2">Advance Rental (Php)</td>
+            <td class="s4" colspan="5">_ADVANCE_RENTAL_</td>
+        </tr>
+        
+        <tr style="height: 20px;"><td class="s1" colspan="7">Technical Info</td><td class="s3"></td><td class="s8" colspan="2">Security Deposit Amount (Php)</td><td class="s4" colspan="5">_SECURITY_DEPOSIT_</td></tr>
+        <tr style="height: 9px;"><td class="s2" colspan="7"></td><td class="s3"></td><td class="s8" colspan="2">CUSA Dues</td><td class="s4" colspan="5">_CUSA_</td></tr>
+        
+        <tr style="height: 22px;">
+            <td class="s5" colspan="2">Lot /Floor Area (in sqm)</td>
+            <td class="s4" colspan="5">_LOT_FLOOR_AREA_SQM_</td>
+            <td class="s3"></td>
+            <td class="s8" colspan="2">Estimated Revenue Per Mo.</td>
+            <td class="s4" colspan="5"></td>
+        </tr>
+        <tr style="height: 22px;">
+            <td class="s2" colspan="2">Frontage (in m)</td>
+            <td class="s4" colspan="5">_FRONTAGE_</td>
+            <td class="s3"></td>
+            <td class="s6" colspan="6"></td><td class="s7"></td>
+        </tr>
+        <tr style="height: 22px;">
+            <td class="s2" colspan="2">Depth (in m)</td>
+            <td class="s4" colspan="5"></td>
+            <td class="s3"></td>
+            <td class="s1" colspan="7">Provisions</td>
+        </tr>
+        <tr style="height: 22px;">
+            <td class="s5" colspan="2">Floor to Slab Height (in m) - if Bldg</td>
+            <td class="s4" colspan="5"></td>
+            <td class="s3"></td>
+            <td class="s2" colspan="6"></td><td class="s3"></td>
+        </tr>
+        <tr style="height: 22px;">
+            <td class="s5" colspan="2">No. of Storeys (If Bldg Lessee)</td>
+            <td class="s4" colspan="5"></td>
+            <td class="s3"></td>
+            <td class="s5" colspan="2">Tenant is the Owner</td>
+            <td class="s9" colspan="5"></td>
+        </tr>
+        <tr style="height: 22px;">
+            <td class="s5" colspan="2">Type of Structure(if Bldg Lessee)</td>
+            <td class="s4" colspan="5"></td>
+            <td class="s3"></td>
+            <td class="s5" colspan="2">Lease Type</td>
+            <td class="s9" colspan="5">_LEASE_TYPE_</td>
+        </tr>
+        <tr style="height: 22px;">
+            <td class="s2" colspan="2">Soil Profile</td>
+            <td class="s4" colspan="5"></td>
+            <td class="s3"></td>
+            <td class="s5" colspan="2">Principal COL</td>
+            <td class="s9" colspan="5"></td>
+        </tr>
+        <tr style="height: 22px;">
+            <td class="s2" colspan="2">Supply Access:</td>
+            <td class="s2" colspan="5"></td>
+            <td class="s3"></td>
+            <td class="s5" colspan="2">Sub-Lease Provison</td>
+            <td class="s9" colspan="5"></td>
+        </tr>
+        <tr style="height: 22px;">
+            <td class="s2">Power</td><td class="s10"></td>
+            <td class="s2">Aircon</td><td class="s10"></td>
+            <td class="s5" colspan="2">LPG Fire Pro</td><td class="s10"></td>
+            <td class="s3"></td>
+            <td class="s5" colspan="2">Pre-Term/Partial Term</td>
+            <td class="s9" colspan="5"></td>
+        </tr>
+        <tr style="height: 22px;">
+            <td class="s2">Water</td><td class="s10"></td>
+            <td class="s2">Exhaust</td><td class="s10"></td>
+            <td class="s5" colspan="2">Drainage TP</td><td class="s10"></td>
+            <td class="s3"></td>
+            <td class="s5" colspan="2">Tripartite Agreement</td>
+            <td class="s9" colspan="5"></td>
+        </tr>
+        
+        <tr style="height: 9px;"><td class="s6" colspan="7"></td><td class="s3"></td><td class="s6" colspan="6"></td><td class="s7"></td></tr>
+        <tr style="height: 20px;"><td class="s1" colspan="7">Lessor and Tenant Details</td><td class="s3"></td><td class="s1" colspan="7">If with Sub-Lessor/ Sub-Lessee</td></tr>
+        <tr style="height: 9px;"><td class="s2" colspan="7"></td><td class="s3"></td><td class="s2" colspan="6"></td><td class="s3"></td></tr>
+        
+        <tr style="height: 22px;">
+            <td class="s2" colspan="2">Name of Lessor</td>
+            <td class="s4" colspan="5">_LESSOR_</td>
+            <td class="s3"></td>
+            <td class="s5" colspan="2">Name of Sub-Lessor</td>
+            <td class="s9" colspan="5"></td>
+        </tr>
+        <tr style="height: 22px;">
+            <td class="s2" colspan="2">Contact No.</td>
+            <td class="s4" colspan="5"></td>
+            <td class="s3"></td>
+            <td class="s5" colspan="2">Contact No.</td>
+            <td class="s9" colspan="5"></td>
+        </tr>
+        <tr style="height: 22px;">
+            <td class="s2" colspan="2">E-mail Address</td>
+            <td class="s4" colspan="5"></td>
+            <td class="s3"></td>
+            <td class="s5" colspan="2">E-mail Address</td>
+            <td class="s9" colspan="5"></td>
+        </tr>
+        <tr style="height: 22px;">
+            <td class="s2" colspan="2">Type of Ownership</td>
+            <td class="s4" colspan="5"></td>
+            <td class="s3"></td>
+            <td class="s5" colspan="2">Type of Ownership</td>
+            <td class="s9" colspan="5"></td>
+        </tr>
+        <tr style="height: 22px;">
+            <td class="s2" colspan="2">Company Name</td>
+            <td class="s4" colspan="5"></td>
+            <td class="s3"></td>
+            <td class="s5" colspan="2">Company Name</td>
+            <td class="s9" colspan="5"></td>
+        </tr>
+        <tr style="height: 22px;">
+            <td class="s5" colspan="2">Developer Account Name</td>
+            <td class="s4" colspan="5"></td>
+            <td class="s3"></td>
+            <td class="s5" colspan="2">Developer Account Name</td>
+            <td class="s9" colspan="5"></td>
+        </tr>
+        <tr style="height: 22px;">
+            <td class="s2" colspan="2">Business Address</td>
+            <td class="s4" colspan="5"></td>
+            <td class="s3"></td>
+            <td class="s5" colspan="2">Business Address</td>
+            <td class="s9" colspan="5"></td>
+        </tr>
+        <tr style="height: 22px;">
+            <td class="s5" colspan="2">Name of Authorized Representative</td>
+            <td class="s4" colspan="5">_CONTACT_PERSON_SOURCE_</td>
+            <td class="s3"></td>
+            <td class="s5" colspan="2">Name of Authorized Representative</td>
+            <td class="s9" colspan="5"></td>
+        </tr>
+        <tr style="height: 22px;">
+            <td class="s5" colspan="2">Residence Address of Authorized Representative</td>
+            <td class="s4" colspan="5"></td>
+            <td class="s3"></td>
+            <td class="s5" colspan="2">Residence Address of Authorized Representative</td>
+            <td class="s9" colspan="5"></td>
+        </tr>
+        <tr style="height: 22px;">
+            <td class="s2" colspan="2">Contact No.</td>
+            <td class="s4" colspan="5">_CONTACT_NUMBER_</td>
+            <td class="s3"></td>
+            <td class="s5" colspan="2">Contact No.</td>
+            <td class="s9" colspan="5"></td>
+        </tr>
+        <tr style="height: 22px;">
+            <td class="s2" colspan="2">E-mail Address</td>
+            <td class="s4" colspan="5">_EMAIL_ADDRESS_</td>
+            <td class="s3"></td>
+            <td class="s5" colspan="2">E-mail Address</td>
+            <td class="s9" colspan="5"></td>
+        </tr>
+        
+        <tr style="height: 9px;"><td class="s2" colspan="7"></td><td class="s3"></td><td class="s2" colspan="2"></td><td class="s3" colspan="5"></td></tr>
+        
+        <tr style="height: 22px;">
+            <td class="s2" colspan="2">Name of Lessee</td>
+            <td class="s4" colspan="5"></td>
+            <td class="s3"></td>
+            <td class="s5" colspan="2">Name of Sub-Lessee</td>
+            <td class="s9" colspan="5"></td>
+        </tr>
+        <tr style="height: 22px;">
+            <td class="s2" colspan="2">Position</td>
+            <td class="s4" colspan="5"></td>
+            <td class="s3"></td>
+            <td class="s5" colspan="2">Position</td>
+            <td class="s9" colspan="5"></td>
+        </tr>
+        <tr style="height: 22px;">
+            <td class="s2" colspan="2">Contact No.</td>
+            <td class="s4" colspan="5"></td>
+            <td class="s3"></td>
+            <td class="s5" colspan="2">Contact No.</td>
+            <td class="s9" colspan="5"></td>
+        </tr>
+        <tr style="height: 22px;">
+            <td class="s2" colspan="2">E-mail Address</td>
+            <td class="s4" colspan="5"></td>
+            <td class="s3"></td>
+            <td class="s5" colspan="2">E-mail Address</td>
+            <td class="s9" colspan="5"></td>
+        </tr>
+        <tr style="height: 22px;">
+            <td class="s5" colspan="2">Name of Authorized Representative</td>
+            <td class="s4" colspan="5"></td>
+            <td class="s3"></td>
+            <td class="s5" colspan="2">Name of Authorized Representative</td>
+            <td class="s9" colspan="5"></td>
+        </tr>
+        <tr style="height: 22px;">
+            <td class="s2" colspan="2">Business Address</td>
+            <td class="s4" colspan="5"></td>
+            <td class="s3"></td>
+            <td class="s5" colspan="2">Business Address</td>
+            <td class="s9" colspan="5"></td>
+        </tr>
+        
+        <tr style="height: 9px;"><td class="s11" colspan="7"></td><td class="s12"></td><td class="s11" colspan="6"></td><td class="s12"></td></tr>
+        <tr style="height: 20px;"><td class="s13" colspan="15">Regulatory</td></tr>
+        
+        <tr style="height: 22px;">
+            <td class="s14">Setback Requirement</td><td class="s15" colspan="4"></td>
+            <td class="s16" colspan="2">Perm Traffic Re-Routing</td><td class="s17"></td>
+            <td class="s15" colspan="2"></td>
+            <td class="s18" colspan="5">Future Development</td>
+        </tr>
+        <tr style="height: 22px;">
+            <td class="s14">Road Widening</td><td class="s15" colspan="4"></td>
+            <td class="s16" colspan="2">Perm Road Closure</td><td class="s17"></td>
+            <td class="s15" colspan="2"></td>
+            <td class="s18" colspan="5">Zoning Clearance</td>
+        </tr>
+        <tr style="height: 22px;">
+            <td class="s19">Pedestrian Overpass</td><td class="s20" colspan="4"></td>
+            <td class="s19" colspan="2">Infrastructure Programs</td><td class="s20"></td>
+            <td class="s20" colspan="2"></td>
+            <td class="s21" colspan="5">Gas Station</td>
+        </tr>
+        
+        <tr style="height: 9px;"><td class="s2" colspan="14"></td><td class="s3"></td></tr>
+        <tr style="height: 20px;"><td class="s22">Site Acquirability:</td><td class="s2" colspan="13"></td><td class="s3"></td></tr>
+        <tr style="height: 22px;"><td class="s2">Confidence Level</td><td class="s4" colspan="2"></td><td class="s2" colspan="11"></td><td class="s3"></td></tr>
+        <tr style="height: 22px;">
+            <td class="s2">Site Availability</td>
+            <td class="s23" colspan="2"><div style="width:184px;left:-1px">_SITE_AVAILABILITY_CLASS_</div></td>
+            <td class="s24"></td><td class="s25"></td><td class="s2" colspan="9"></td><td class="s3"></td>
+        </tr>
+        <tr style="height: 22px;">
+            <td class="s6">Other Remarks:</td>
+            <td class="s5" colspan="7">_REMARKS_</td>
+            <td class="s6" colspan="6"></td><td class="s7"></td>
+        </tr>
     </tbody>
 </table>
 </div>
 """
 
-# --- LOAD DATA ---
+# --- LOAD DATA Assets ---
 @st.cache_data(ttl=3600)
 def load_data():
     source_data = download_file(SOURCE_URL)
@@ -391,7 +632,6 @@ with col3:
 
 with col4:
     if selected_ta and selected_ta != "Select Trade Area...":
-        # Action only occurs on button context initialization to maintain lightweight rendering speed
         if st.button("Generate Multi-Tab Report", use_container_width=True):
             with st.spinner("Compiling Excel Workbook..."):
                 wb_buffer = generate_trade_area_report(df, selected_ta, template_bytes_raw, placeholders)
@@ -402,7 +642,7 @@ with col4:
                     use_container_width=True
                 )
 
-# --- DIRECT HTML VIEW BLUEPRINT INJECTION LAYER ---
+# --- DIRECT HTML VIEW LAYOUT ---
 if selected_ta != "Select Trade Area..." and selected_site_display != "Select Site...":
     site_data = df[df["SITE_DISPLAY"] == selected_site_display]
     if not site_data.empty:
@@ -420,18 +660,27 @@ if selected_ta != "Select Trade Area..." and selected_site_display != "Select Si
             rendered_view = rendered_view.replace("_SITE_NAME_", process_val("SITE NAME"))
             rendered_view = rendered_view.replace("_SITE_NO_", process_val("SITE NO"))
             rendered_view = rendered_view.replace("_TIMESTAMP_", process_val("TIMESTAMP"))
+            rendered_view = rendered_view.replace("_DATE_OF_REPORT_", process_val("DATE OF REPORT"))
             rendered_view = rendered_view.replace("_UNIT_BLDG_ST_NAME_", process_val("UNIT #, BLDG/ST # AND ST NAME"))
             rendered_view = rendered_view.replace("_BARANGAY_DISTRICT_NAME_", process_val("BARANGAY/DISTRICT NAME"))
             rendered_view = rendered_view.replace("_CITY_MUNICIPALITY_", process_val("CITY/MUNICIPALITY"))
             rendered_view = rendered_view.replace("_REGION_", process_val("REGION"))
             rendered_view = rendered_view.replace("_POSTAL_CODE_", process_val("POSTAL CODE"))
+            
+            rendered_view = rendered_view.replace("_SITE_AVAILABILITY_DATE_", process_val("SITE AVAILABILITY DATE"))
             rendered_view = rendered_view.replace("_MONTHLY_RENTAL_RATE_", process_val("MONTHLY RENTAL RATE"))
+            rendered_view = rendered_view.replace("_COL_START_DATE_", process_val("COL START DATE"))
+            rendered_view = rendered_view.replace("_COL_END_DATE_", process_val("COL END DATE"))
+            rendered_view = rendered_view.replace("_LEASE_TERMS_", process_val("LEASE TERMS"))
             rendered_view = rendered_view.replace("_ESCALATION_", process_val("ESCALATION"))
             rendered_view = rendered_view.replace("_ADVANCE_RENTAL_", process_val("ADVANCE RENTAL"))
+            
             rendered_view = rendered_view.replace("_SECURITY_DEPOSIT_", process_val("SECURITY DEPOSIT"))
             rendered_view = rendered_view.replace("_CUSA_", process_val("CUSA"))
             rendered_view = rendered_view.replace("_LOT_FLOOR_AREA_SQM_", process_val("LOT/FLOOR AREA SQM"))
+            rendered_view = rendered_view.replace("_FRONTAGE_", process_val("FRONTAGE"))
             rendered_view = rendered_view.replace("_LEASE_TYPE_", process_val("LEASE TYPE"))
+            
             rendered_view = rendered_view.replace("_LESSOR_", process_val("LESSOR"))
             rendered_view = rendered_view.replace("_CONTACT_PERSON_SOURCE_", process_val("CONTACT PERSON/SOURCE"))
             rendered_view = rendered_view.replace("_CONTACT_NUMBER_", process_val("CONTACT NUMBER"))
@@ -444,6 +693,6 @@ if selected_ta != "Select Trade Area..." and selected_site_display != "Select Si
             st.markdown(f'<div class="excel-container">{rendered_view}</div>', unsafe_allow_html=True)
                 
         except Exception as e:
-            st.error(f"Error compiling visual blueprint frame layer: {str(e)}")
+            st.error(f"Error compiling layout: {str(e)}")
 else:
     st.info("Please select a Trade Area and a Site to view the specific report.")
