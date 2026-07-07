@@ -10,14 +10,6 @@ from copy import copy
 import os
 import hashlib
 from openpyxl import load_workbook
-import base64
-import streamlit.components.v1 as components
-
-# ReportLab libraries needed to draw a highly precise PDF grid layout from raw spreadsheet cells
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import letter, landscape
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(
@@ -35,7 +27,7 @@ if not os.path.exists(_config_file):
     with open(_config_file, "w", encoding="utf-8") as f:
         f.write("[theme]\nbase=\"light\"\n")
 
-# --- CUSTOM CSS FOR CLEAN UI CONTROLS ---
+# --- CUSTOM CSS FOR HIGH-CONTRAST DATA PREVIEW ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
@@ -76,12 +68,28 @@ st.markdown("""
     div[data-testid="stHorizontalBlock"] { gap: 0.3rem !important; align-items: center !important; }
     .info-text { font-size: 0.7rem; color: #333; text-align: right; margin: 0; padding: 0; line-height: 24px; font-weight: 500; }
     
-    .pdf-frame-container {
-        border: 1px solid #d0d0d0;
-        margin-top: 0.5rem;
-        background-color: #525659;
-        padding: 4px;
+    /* Document Display Canvas styling layout grid rules */
+    .excel-container {
+        background-color: white !important;
         border-radius: 2px;
+        padding: 0.4rem;
+        border: 1px solid #d0d0d0;
+        overflow: auto;
+        margin-top: 0.5rem;
+        width: 100%;
+    }
+    .excel-container table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 10px;
+        table-layout: fixed; /* Lock columns grid layout tightly */
+    }
+    .excel-container td {
+        padding: 4px 6px;
+        border: 1px solid #a0a0a0; /* High contrast structural wire borders */
+        word-break: break-word !important; /* Force internal vertical wrapping expanding upwards */
+        white-space: normal !important;
+        vertical-align: middle;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -162,99 +170,104 @@ def sanitize_tab_name(name, existing_names):
             return new_name
         counter += 1
 
-# --- REPORTLAB CONVERSION ENGINE (A1:P67 Range Target Matrix) ---
-def generate_pdf_from_range(workbook, sheet_name=None, range_string="A1:P67"):
+# --- HIGH-FIDELITY RANGE HTML CONVERSION GENERATOR Engine (A1:P67) ---
+def render_range_to_html(workbook, sheet_name=None, range_string="A1:P67"):
     ws = workbook[sheet_name] if sheet_name else workbook.active
     min_col, min_row, max_col, max_row = range_boundaries(range_string)
     
-    page_width = 792  # 11 inches landscape
-    page_height = 612 # 8.5 inches landscape
-    margin = 18
-    usable_width = page_width - (margin * 2)
+    # Calculate adaptive column configuration width metrics matching proportions perfectly
+    col_widths = []
+    for c in range(min_col, max_col + 1):
+        w = ws.column_dimensions[get_column_letter(c)].width
+        col_widths.append(w if w else 10)
+    total_width = sum(col_widths)
+    col_pcts = [f"{(w / total_width) * 100}%" for w in col_widths]
     
-    excel_widths = [ws.column_dimensions[get_column_letter(c)].width for c in range(min_col, max_col + 1)]
-    excel_widths = [w if w else 10 for w in excel_widths]
-    sum_widths = sum(excel_widths)
-    pdf_col_widths = [(w / sum_widths) * usable_width for w in excel_widths]
+    html = '<table style="border-collapse: collapse; font-family: \'Roboto\', sans-serif; font-size: 10px; width: 100%; table-layout: fixed;">'
+    html += '<colgroup>'
+    for pct in col_pcts:
+        html += f'<col style="width: {pct};">'
+    html += '</colgroup>'
     
-    pdf_buffer = io.BytesIO()
-    doc = SimpleDocTemplate(
-        pdf_buffer, pagesize=landscape(letter),
-        leftMargin=margin, rightMargin=margin, topMargin=margin, bottomMargin=margin
-    )
-    
-    table_data = []
-    t_styles = [
-        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#B0B0B0')),
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('TOPPADDING', (0,0), (-1,-1), 2),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 2),
-        ('LEFTPADDING', (0,0), (-1,-1), 3),
-        ('RIGHTPADDING', (0,0), (-1,-1), 3),
-    ]
-    
-    for r_idx, r in enumerate(range(min_row, max_row + 1)):
-        row_cells = []
-        for c_idx, c in enumerate(range(min_col, max_col + 1)):
+    # Pre-map cell tracking locations for structural sheet mergers
+    merged_cells = {}
+    for merged_range in ws.merged_cells.ranges:
+        m_min_c, m_min_r, m_max_c, m_max_r = range_boundaries(str(merged_range))
+        if m_min_r >= min_row and m_max_r <= max_row and m_min_c >= min_col and m_max_c <= max_col:
+            for r in range(m_min_r, m_max_r + 1):
+                for c in range(m_min_c, m_max_c + 1):
+                    if r == m_min_r and c == m_min_c:
+                        merged_cells[(r, c)] = {
+                            'rowspan': m_max_r - m_min_r + 1,
+                            'colspan': m_max_c - m_min_c + 1,
+                            'is_master': True
+                        }
+                    else:
+                        merged_cells[(r, c)] = {'is_master': False}
+                        
+    for r in range(min_row, max_row + 1):
+        html += '<tr>'
+        for c in range(min_col, max_col + 1):
+            if (r, c) in merged_cells and not merged_cells[(r, c)].get('is_master', False):
+                continue
+                
             cell = ws.cell(row=r, column=c)
-            val = cell.value if cell.value is not None else ''
+            value = cell.value if cell.value is not None else ''
             
-            if isinstance(val, float) and val.is_integer():
-                val = int(val)
-            elif hasattr(val, 'strftime'):
-                val = val.strftime('%B %d, %Y')
-            val_str = str(val).strip()
+            # Plain Text Cast Configuration Strategy
+            if isinstance(value, float) and value.is_integer():
+                value = int(value)
+            elif hasattr(value, 'strftime'):
+                value = value.strftime('%B %d, %Y')
+            val_str = str(value).strip()
             if re.match(r'^\d+\.0$', val_str):
                 val_str = val_str.split('.')[0]
                 
+            # Parse Hex Styles mapping color contrast models
             bg_hex = '#FFFFFF'
             if cell.fill and cell.fill.fgColor and cell.fill.fgColor.rgb:
                 rgb_str = cell.fill.fgColor.rgb
                 if len(rgb_str) == 8: bg_hex = '#' + rgb_str[2:]
                 elif len(rgb_str) == 6: bg_hex = '#' + rgb_str
-            
+                
             font_hex = '#333333'
-            is_bold = False
+            font_weight = 'normal'
             if cell.font:
-                is_bold = bool(cell.font.bold)
+                if cell.font.bold: font_weight = 'bold'
                 if cell.font.color and cell.font.color.rgb:
                     rgb_f = cell.font.color.rgb
                     if len(rgb_f) == 8: font_hex = '#' + rgb_f[2:]
                     elif len(rgb_f) == 6: font_hex = '#' + rgb_f
-            
-            if bg_hex.lower() in ['#800000', '#8c0000', '#7a0000'] or "SITE INFORMATION REPORT" in val_str.upper():
+                    
+            # Hardcoded manual design adjustments for dark red headers
+            val_upper = val_str.upper()
+            if bg_hex.lower() in ['#800000', '#8c0000', '#7a0000'] or "SITE INFORMATION REPORT" in val_upper:
                 font_hex = '#FFFFFF'
-                is_bold = True
-                align_p = 'center'
+                font_weight = 'bold'
+                h_align = 'center'
+            elif any(header in val_upper for header in ["GENERAL INFORMATION", "LOCATION", "TERMS", "RATES", "TECHNICAL INFO", "PROVISIONS", "LESSOR AND TENANT DETAILS", "IF WITH SUB-LESSOR", "REGULATORY", "SITE ACQUIRABILITY"]):
+                font_hex = '#000000'
+                font_weight = 'bold'
+                h_align = 'left'
             else:
-                align_p = 'left'
+                h_align = 'left'
                 if cell.alignment and cell.alignment.horizontal:
-                    align_p = cell.alignment.horizontal
+                    h_align = cell.alignment.horizontal
+                    
+            style = f'background-color: {bg_hex}; color: {font_hex}; font-weight: {font_weight}; '
+            style += f'text-align: {h_align}; border: 1px solid #a0a0a0; '
+            style += 'white-space: normal !important; word-wrap: break-word !important; word-break: break-word !important;'
             
-            t_styles.append(('BACKGROUND', (c_idx, r_idx), (c_idx, r_idx), colors.HexColor(bg_hex)))
+            rowspan = merged_cells[(r, c)].get('rowspan', 1) if (r, c) in merged_cells else 1
+            colspan = merged_cells[(r, c)].get('colspan', 1) if (r, c) in merged_cells else 1
             
-            p_style = ParagraphStyle(
-                name=f'CellStyle_{r}_{c}', fontName='Helvetica-Bold' if is_bold else 'Helvetica',
-                fontSize=6.5, leading=8, textColor=colors.HexColor(font_hex), alignment=0 if align_p == 'left' else (1 if align_p == 'center' else 2)
-            )
-            row_cells.append(Paragraph(val_str, p_style))
-        table_data.append(row_cells)
-        
-    for merged_range in ws.merged_cells.ranges:
-        m_min_c, m_min_r, m_max_c, m_max_r = range_boundaries(str(merged_range))
-        if m_min_r >= min_row and m_max_r <= max_row and m_min_c >= min_col and m_max_c <= max_col:
-            sc_idx = m_min_c - min_col
-            sr_idx = m_min_r - min_row
-            ec_idx = m_max_c - min_col
-            er_idx = m_max_r - min_row
-            t_styles.append(('SPAN', (sc_idx, sr_idx), (ec_idx, er_idx)))
-            
-    final_table = Table(table_data, colWidths=pdf_col_widths)
-    final_table.setStyle(TableStyle(t_styles))
-    
-    doc.build([final_table])
-    pdf_buffer.seek(0)
-    return pdf_buffer.getvalue()
+            if rowspan > 1 or colspan > 1:
+                html += f'<td style="{style}" rowspan="{rowspan}" colspan="{colspan}">{val_str}</td>'
+            else:
+                html += f'<td style="{style}">{val_str}</td>'
+        html += '</tr>'
+    html += '</table>'
+    return html
 
 # --- LOAD DATA ---
 @st.cache_data(ttl=3600)
@@ -364,32 +377,18 @@ with col5:
 with col6:
     st.markdown(f"<p class='info-text'>Sites: {len(df['SITE NAME'].dropna().unique())}</p>", unsafe_allow_html=True)
 
-# --- INLINE REPORT PDF VIEWER ENGAGEMENT LAYER ---
+# --- DIRECT HTML INJECTION LAYER (Brave Safe) ---
 if site_excel_bytes:
     try:
         active_wb = load_workbook(io.BytesIO(site_excel_bytes))
-        pdf_data_bytes = generate_pdf_from_range(active_wb, range_string="A1:P67")
         
-        # Convert to an fully isolated sandbox data string
-        base64_pdf = base64.b64encode(pdf_data_bytes).decode('utf-8')
+        # Pull range A1:P67 straight from the newly loaded populated openpyxl book
+        range_html_content = render_range_to_html(active_wb, range_string="A1:P67")
         
-        # Wrapping it directly into an explicit iframe string document template
-        html_string = f'''
-            <iframe src="data:application/pdf;base64,{base64_pdf}#toolbar=0&navpanes=0&scrollbar=1" 
-                    width="100%" 
-                    height="800px" 
-                    style="border:none;">
-            </iframe>
-        '''
-        
-        # components.html mounts the element onto a clean decoupled sub-domain. 
-        # This completely tricks Brave Shields, allowing the PDF to bypass any blocking layers.
-        with st.container():
-            st.markdown('<div class="pdf-frame-container">', unsafe_allow_html=True)
-            components.html(html_string, height=810, scrolling=False)
-            st.markdown('</div>', unsafe_allow_html=True)
+        # Direct markdown injection has no base64 string pointers for Brave Shields to track or block
+        st.markdown(f'<div class="excel-container">{range_html_content}</div>', unsafe_allow_html=True)
             
     except Exception as e:
-        st.error(f"Error compiling canvas range mapping stream: {str(e)}")
+        st.error(f"Error rendering grid display framework matrix: {str(e)}")
 else:
     st.info("Select a Trade Area and Site to view the report.")
