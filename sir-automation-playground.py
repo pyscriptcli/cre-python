@@ -78,6 +78,24 @@ st.markdown("""
         margin-top: 0.5rem;
         width: 100%;
     }
+    
+    /* Fix overlapping text in report */
+    .ritz .waffle td {
+        white-space: normal !important;
+        word-wrap: break-word !important;
+        overflow-wrap: break-word !important;
+        max-width: 100% !important;
+    }
+    .ritz .waffle .softmerge-inner {
+        width: auto !important;
+        max-width: 100% !important;
+        white-space: normal !important;
+        word-wrap: break-word !important;
+    }
+    .ritz .waffle .s5, .ritz .waffle .s4, .ritz .waffle .s6, .ritz .waffle .s7 {
+        white-space: normal !important;
+        word-wrap: break-word !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -159,7 +177,7 @@ def sanitize_tab_name(name, existing_names):
             return new_name
         counter += 1
 
-# --- HTML TEMPLATE BLUEPRINT FROM EXPORT DATA (UPDATED WITH CORRECT CSS) ---
+# --- HTML TEMPLATE BLUEPRINT ---
 RAW_TEMPLATE_HTML = """
 <style type="text/css">
     .ritz .waffle a { color: inherit; }
@@ -167,31 +185,32 @@ RAW_TEMPLATE_HTML = """
     .ritz .waffle .s1{border-bottom:1px SOLID #bfbfbf;border-right:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;font-weight:bold;color:#000000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
     .ritz .waffle .s2{background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
     .ritz .waffle .s3{border-right:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
-    .ritz .waffle .s4{border-bottom:1px SOLID transparent;border-right:1px SOLID transparent;background-color:#bfbfbf;text-align:left;color:#000000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
-    .ritz .waffle .s5{border-bottom:1px SOLID transparent;border-right:1px SOLID transparent;background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
-    .ritz .waffle .s6{border-bottom:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
-    .ritz .waffle .s7{border-bottom:1px SOLID #bfbfbf;border-right:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
-    .ritz .waffle .s8{border-bottom:1px SOLID transparent;border-right:1px SOLID transparent;background-color:#ffffff;text-align:left;color:#ff0000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
-    .ritz .waffle .s9{border-bottom:1px SOLID transparent;border-right:1px SOLID #bfbfbf;background-color:#bfbfbf;text-align:left;color:#000000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
-    .ritz .waffle .s10{background-color:#bfbfbf;text-align:left;color:#000000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
-    .ritz .waffle .s11{border-bottom:1px SOLID #000000;background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
-    .ritz .waffle .s12{border-bottom:1px SOLID #000000;border-right:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
-    .ritz .waffle .s13{background-color:#b7b7b7;text-align:left;font-weight:bold;color:#ff0000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
-    .ritz .waffle .s14{background-color:#b7b7b7;text-align:left;color:#ff0000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
-    .ritz .waffle .s15{border-bottom:1px SOLID transparent;border-right:1px SOLID transparent;background-color:#b7b7b7;text-align:left;color:#000000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
-    .ritz .waffle .s16{border-bottom:1px SOLID transparent;border-right:1px SOLID transparent;background-color:#b7b7b7;text-align:left;color:#ff0000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
-    .ritz .waffle .s17{background-color:#b7b7b7;text-align:left;color:#000000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
-    .ritz .waffle .s18{border-bottom:1px SOLID transparent;border-right:1px SOLID #bfbfbf;background-color:#b7b7b7;text-align:left;color:#ff0000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
-    .ritz .waffle .s19{border-bottom:1px SOLID #000000;background-color:#b7b7b7;text-align:left;color:#ff0000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
-    .ritz .waffle .s20{border-bottom:1px SOLID #000000;border-right:1px SOLID transparent;background-color:#b7b7b7;text-align:left;color:#000000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
-    .ritz .waffle .s21{border-bottom:1px SOLID #000000;border-right:1px SOLID transparent;background-color:#b7b7b7;text-align:left;color:#ff0000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
-    .ritz .waffle .s22{border-bottom:1px SOLID #000000;background-color:#b7b7b7;text-align:left;color:#000000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
-    .ritz .waffle .s23{border-bottom:1px SOLID #000000;border-right:1px SOLID #bfbfbf;background-color:#b7b7b7;text-align:left;color:#ff0000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
-    .ritz .waffle .s24{background-color:#ffffff;text-align:left;font-weight:bold;color:#000000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
-    .ritz .waffle .s25{border-right:none;border-bottom:1px SOLID transparent;background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
-    .ritz .waffle .s26{border-left:none;border-bottom:1px SOLID transparent;background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
-    .ritz .waffle .s27{border-left:none;background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
-    .ritz .waffle td { border: 1px solid #d0d0d0; }
+    .ritz .waffle .s4{border-bottom:1px SOLID transparent;border-right:1px SOLID transparent;background-color:#bfbfbf;text-align:left;color:#000000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:normal;direction:ltr;padding:0px 3px 0px 3px;word-wrap:break-word;}
+    .ritz .waffle .s5{border-bottom:1px SOLID transparent;border-right:1px SOLID transparent;background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:normal;direction:ltr;padding:0px 3px 0px 3px;word-wrap:break-word;}
+    .ritz .waffle .s6{border-bottom:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:normal;direction:ltr;padding:0px 3px 0px 3px;word-wrap:break-word;}
+    .ritz .waffle .s7{border-bottom:1px SOLID #bfbfbf;border-right:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:normal;direction:ltr;padding:0px 3px 0px 3px;word-wrap:break-word;}
+    .ritz .waffle .s8{border-bottom:1px SOLID transparent;border-right:1px SOLID transparent;background-color:#ffffff;text-align:left;color:#ff0000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:normal;direction:ltr;padding:0px 3px 0px 3px;word-wrap:break-word;}
+    .ritz .waffle .s9{border-bottom:1px SOLID transparent;border-right:1px SOLID #bfbfbf;background-color:#bfbfbf;text-align:left;color:#000000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:normal;direction:ltr;padding:0px 3px 0px 3px;word-wrap:break-word;}
+    .ritz .waffle .s10{background-color:#bfbfbf;text-align:left;color:#000000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:normal;direction:ltr;padding:0px 3px 0px 3px;word-wrap:break-word;}
+    .ritz .waffle .s11{border-bottom:1px SOLID #000000;background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:normal;direction:ltr;padding:0px 3px 0px 3px;word-wrap:break-word;}
+    .ritz .waffle .s12{border-bottom:1px SOLID #000000;border-right:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:normal;direction:ltr;padding:0px 3px 0px 3px;word-wrap:break-word;}
+    .ritz .waffle .s13{background-color:#b7b7b7;text-align:left;font-weight:bold;color:#ff0000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:normal;direction:ltr;padding:0px 3px 0px 3px;word-wrap:break-word;}
+    .ritz .waffle .s14{background-color:#b7b7b7;text-align:left;color:#ff0000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:normal;direction:ltr;padding:0px 3px 0px 3px;word-wrap:break-word;}
+    .ritz .waffle .s15{border-bottom:1px SOLID transparent;border-right:1px SOLID transparent;background-color:#b7b7b7;text-align:left;color:#000000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:normal;direction:ltr;padding:0px 3px 0px 3px;word-wrap:break-word;}
+    .ritz .waffle .s16{border-bottom:1px SOLID transparent;border-right:1px SOLID transparent;background-color:#b7b7b7;text-align:left;color:#ff0000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:normal;direction:ltr;padding:0px 3px 0px 3px;word-wrap:break-word;}
+    .ritz .waffle .s17{background-color:#b7b7b7;text-align:left;color:#000000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:normal;direction:ltr;padding:0px 3px 0px 3px;word-wrap:break-word;}
+    .ritz .waffle .s18{border-bottom:1px SOLID transparent;border-right:1px SOLID #bfbfbf;background-color:#b7b7b7;text-align:left;color:#ff0000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:normal;direction:ltr;padding:0px 3px 0px 3px;word-wrap:break-word;}
+    .ritz .waffle .s19{border-bottom:1px SOLID #000000;background-color:#b7b7b7;text-align:left;color:#ff0000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:normal;direction:ltr;padding:0px 3px 0px 3px;word-wrap:break-word;}
+    .ritz .waffle .s20{border-bottom:1px SOLID #000000;border-right:1px SOLID transparent;background-color:#b7b7b7;text-align:left;color:#000000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:normal;direction:ltr;padding:0px 3px 0px 3px;word-wrap:break-word;}
+    .ritz .waffle .s21{border-bottom:1px SOLID #000000;border-right:1px SOLID transparent;background-color:#b7b7b7;text-align:left;color:#ff0000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:normal;direction:ltr;padding:0px 3px 0px 3px;word-wrap:break-word;}
+    .ritz .waffle .s22{border-bottom:1px SOLID #000000;background-color:#b7b7b7;text-align:left;color:#000000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:normal;direction:ltr;padding:0px 3px 0px 3px;word-wrap:break-word;}
+    .ritz .waffle .s23{border-bottom:1px SOLID #000000;border-right:1px SOLID #bfbfbf;background-color:#b7b7b7;text-align:left;color:#ff0000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:normal;direction:ltr;padding:0px 3px 0px 3px;word-wrap:break-word;}
+    .ritz .waffle .s24{background-color:#ffffff;text-align:left;font-weight:bold;color:#000000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:normal;direction:ltr;padding:0px 3px 0px 3px;word-wrap:break-word;}
+    .ritz .waffle .s25{border-right:none;border-bottom:1px SOLID transparent;background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:normal;direction:ltr;padding:0px 3px 0px 3px;word-wrap:break-word;}
+    .ritz .waffle .s26{border-left:none;border-bottom:1px SOLID transparent;background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:normal;direction:ltr;padding:0px 3px 0px 3px;word-wrap:break-word;}
+    .ritz .waffle .s27{border-left:none;background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:11pt;vertical-align:middle;white-space:normal;direction:ltr;padding:0px 3px 0px 3px;word-wrap:break-word;}
+    .ritz .waffle td { border: 1px solid #d0d0d0; white-space: normal !important; word-wrap: break-word !important; }
+    .ritz .waffle .softmerge-inner { white-space: normal !important; word-wrap: break-word !important; }
 </style>
 <div class="ritz grid-container" dir="ltr">
 <table class="waffle" cellspacing="0" cellpadding="0" style="table-layout: fixed; width: 100%;">
@@ -295,8 +314,7 @@ if df is None or template_bytes_raw is None:
 
 template_data = io.BytesIO(template_bytes_raw)
 
-# --- CONTROLS ROW ---
-# Create display names with Site No and Site Name
+# --- CONTROLS ROW - 6 columns: blank, trade area, site, refresh, export, blank ---
 def get_display_name(row):
     site_no = row.get("SITE NO", "")
     site_name = row.get("SITE NAME", "")
@@ -308,18 +326,22 @@ def get_display_name(row):
     except:
         return f"{site_no} - {site_name}"
 
-# Create a mapping from display name to actual site name
 df["DISPLAY_NAME"] = df.apply(get_display_name, axis=1)
 display_to_site = dict(zip(df["DISPLAY_NAME"], df["SITE NAME"]))
 
 trade_areas = sorted(df["TRADE AREA"].dropna().unique())
 
-col1, col2, col3 = st.columns([1.5, 1.8, 0.6])
+# 6 columns: blank, trade area, site, refresh, export, blank
+col1, col2, col3, col4, col5, col6 = st.columns([0.5, 2.0, 2.0, 0.7, 0.7, 0.5])
 
 with col1:
-    selected_ta = st.selectbox("Select Trade Area", options=trade_areas, index=0 if trade_areas else None, key="ta_select")
+    # Blank for padding
+    st.write("")
 
 with col2:
+    selected_ta = st.selectbox("Select Trade Area", options=trade_areas, index=0 if trade_areas else None, key="ta_select")
+
+with col3:
     if selected_ta:
         ta_df = df[df["TRADE AREA"] == selected_ta]
         display_options = sorted(ta_df["DISPLAY_NAME"].dropna().unique())
@@ -328,47 +350,12 @@ with col2:
     selected_display = st.selectbox("Select Site", options=display_options, index=0 if display_options else None, key="site_select")
     selected_site = display_to_site.get(selected_display, "") if selected_display else ""
 
-with col3:
+with col4:
     if st.button("Refresh", use_container_width=True):
         st.cache_data.clear()
         st.rerun()
 
-site_excel_bytes = None
-site_row_data = None
-
-if selected_ta and selected_site:
-    site_data = df[(df["TRADE AREA"] == selected_ta) & (df["SITE NAME"] == selected_site)]
-    if not site_data.empty:
-        site_row_data = site_data.iloc[0]
-        template_data.seek(0)
-        wb = load_workbook(template_data)
-        base_sheet = wb.active
-        for row_cells in base_sheet.iter_rows():
-            for cell in row_cells:
-                if isinstance(cell.value, str) and ("{{" in cell.value):
-                    new_val = cell.value
-                    for ph in placeholders:
-                        target_regex = r"\{\{\s*" + re.escape(ph) + r"(\s*:.*?)?\}\}"
-                        if re.search(target_regex, new_val):
-                            raw_data_val = site_row_data.get(ph.upper(), "")
-                            if pd.isna(raw_data_val) or raw_data_val is None: 
-                                raw_data_val = ""
-                            elif isinstance(raw_data_val, float) and raw_data_val.is_integer(): 
-                                val_str = str(int(raw_data_val))
-                            elif hasattr(raw_data_val, 'strftime'): 
-                                val_str = raw_data_val.strftime('%B %d, %Y')
-                            else: 
-                                val_str = str(raw_data_val)
-                            new_val = re.sub(target_regex, val_str, new_val)
-                    cell.value = new_val.strip() if new_val else ""
-        
-        ex_buf = io.BytesIO()
-        wb.save(ex_buf)
-        site_excel_bytes = ex_buf.getvalue()
-
-# --- EXPORT BUTTON (Downloads entire Trade Area Report) ---
-col4, col5 = st.columns([0.6, 5.4])
-with col4:
+with col5:
     if selected_ta:
         if st.button("Export", use_container_width=True):
             with st.spinner("Generating Trade Area Report..."):
@@ -414,10 +401,46 @@ with col4:
                     key="export_download"
                 )
 
-# --- DIRECT BLU-PRINT HTML RE-BUILD INJECTION LAYER ---
+with col6:
+    # Blank for padding
+    st.write("")
+
+site_excel_bytes = None
+site_row_data = None
+
+if selected_ta and selected_site:
+    site_data = df[(df["TRADE AREA"] == selected_ta) & (df["SITE NAME"] == selected_site)]
+    if not site_data.empty:
+        site_row_data = site_data.iloc[0]
+        template_data.seek(0)
+        wb = load_workbook(template_data)
+        base_sheet = wb.active
+        for row_cells in base_sheet.iter_rows():
+            for cell in row_cells:
+                if isinstance(cell.value, str) and ("{{" in cell.value):
+                    new_val = cell.value
+                    for ph in placeholders:
+                        target_regex = r"\{\{\s*" + re.escape(ph) + r"(\s*:.*?)?\}\}"
+                        if re.search(target_regex, new_val):
+                            raw_data_val = site_row_data.get(ph.upper(), "")
+                            if pd.isna(raw_data_val) or raw_data_val is None: 
+                                raw_data_val = ""
+                            elif isinstance(raw_data_val, float) and raw_data_val.is_integer(): 
+                                val_str = str(int(raw_data_val))
+                            elif hasattr(raw_data_val, 'strftime'): 
+                                val_str = raw_data_val.strftime('%B %d, %Y')
+                            else: 
+                                val_str = str(raw_data_val)
+                            new_val = re.sub(target_regex, val_str, new_val)
+                    cell.value = new_val.strip() if new_val else ""
+        
+        ex_buf = io.BytesIO()
+        wb.save(ex_buf)
+        site_excel_bytes = ex_buf.getvalue()
+
+# --- RENDER REPORT ---
 if site_row_data is not None:
     try:
-        # Data parsing formatter utilities matching explicit key bounds
         def process_val(key_string):
             val = site_row_data.get(key_string.upper(), "")
             if pd.isna(val) or val is None:
@@ -428,7 +451,6 @@ if site_row_data is not None:
                 return val.strftime('%B %d, %Y')
             return str(val).strip()
 
-        # Dynamic string binding layer injecting row cells safely straight into the blueprint
         rendered_view = RAW_TEMPLATE_HTML
         rendered_view = rendered_view.replace("_TRADE_AREA_", process_val("TRADE AREA"))
         rendered_view = rendered_view.replace("_SITE_NAME_", process_val("SITE NAME"))
