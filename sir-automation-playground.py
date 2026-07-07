@@ -96,6 +96,20 @@ st.markdown("""
         border-radius: 12px;
         margin-bottom: 1rem;
     }
+
+    /* Hide any visible label text from collapsed inputs */
+    div[data-testid="stTextInput"] label {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        height: 0 !important;
+        overflow: hidden !important;
+    }
+
+    /* Login page styling */
+    div[data-testid="stTextInput"] > div {
+        margin-top: 0 !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -111,8 +125,10 @@ if not st.session_state.authenticated:
     r1_col1, r1_col2, r1_col3 = st.columns([1, 1.2, 1])
     with r1_col2:
         st.markdown("<h3 style='text-align: center; margin-top:50px;'>Access Required</h3>", unsafe_allow_html=True)
-        password_input = st.text_input("Enter password:", type="password", label_visibility="collapsed")
-        if st.button("Login", use_container_width=True) or password_input:
+        st.markdown("<p style='text-align: center; color: #666; font-size: 0.85rem; margin-bottom: 20px;'>Enter your access token to continue</p>", unsafe_allow_html=True)
+        password_input = st.text_input("Password", type="password", label_visibility="collapsed", placeholder="Enter password...")
+        login_clicked = st.button("Login", use_container_width=True)
+        if login_clicked:
             if check_password(password_input):
                 st.session_state.authenticated = True
                 st.cache_data.clear()
@@ -682,7 +698,7 @@ with col1:
     selected_ta = st.selectbox("Trade Area", options=trade_areas, index=0, label_visibility="collapsed")
     
 with col2:
-    st.markdown("<p style='font-size:0.75rem; font-weight:500; color:#444746; margin:0;'>Site View</p>", unsafe_allow_html=True)
+    st.markdown("<p style='font-size:0.75rem; font-weight:500; color:#444746; margin:0;'>Site</p>", unsafe_allow_html=True)
     if selected_ta and selected_ta != "Select Trade Area...":
         raw_sites = df[df["TRADE AREA"] == selected_ta]["SITE_DISPLAY"].dropna().unique().tolist()
         sorted_sites = sorted(raw_sites, key=parse_site_number)
@@ -692,19 +708,15 @@ with col2:
     selected_site_display = st.selectbox("Site Name", options=sites_in_ta, index=0, label_visibility="collapsed")
 
 with col3:
-    # Single export button - downloads directly when clicked
     if selected_ta and selected_ta != "Select Trade Area...":
-        export_key = f"export_{selected_ta}"
-        if st.button("📥 Export All Sites", use_container_width=True, key=export_key):
-            with st.spinner("Generating Excel report..."):
-                wb_buffer = generate_trade_area_report(df, selected_ta, template_bytes_raw, placeholders)
-                st.download_button(
-                    label="✅ Download Report", 
-                    data=wb_buffer.getvalue(), 
-                    file_name=f"{selected_ta}_Full_Report.xlsx", 
-                    use_container_width=True,
-                    key=f"download_{selected_ta}"
-                )
+        wb_buffer = generate_trade_area_report(df, selected_ta, template_bytes_raw, placeholders)
+        st.download_button(
+            label="Export All Sites", 
+            data=wb_buffer.getvalue(), 
+            file_name=f"{selected_ta}_Full_Report.xlsx", 
+            use_container_width=True,
+            key=f"export_{selected_ta}"
+        )
 
 # --- DIRECT HTML VIEW LAYOUT ---
 if selected_ta != "Select Trade Area..." and selected_site_display != "Select Site...":
