@@ -66,7 +66,6 @@ st.markdown("""
     }
     .stSelectbox > div > div > div { padding-top: 0 !important; padding-bottom: 0 !important; font-size: 0.7rem !important; }
     div[data-testid="stHorizontalBlock"] { gap: 0.3rem !important; align-items: center !important; }
-    .info-text { font-size: 0.7rem; color: #333; text-align: right; margin: 0; padding: 0; line-height: 24px; font-weight: 500; }
     
     /* Document Display Container */
     .excel-container {
@@ -145,7 +144,6 @@ if not st.session_state.authenticated:
 # --- CONFIGURATION ---
 SOURCE_URL = "https://docs.google.com/spreadsheets/d/14nhO9u7zJRcOoux8I7l2IzwU7iQZNW9fRX6TCip47CE/export?format=xlsx"
 TEMPLATE_URL = "https://docs.google.com/spreadsheets/d/1uS3xmnPi0o4c_EayQtURYDSMMPRDRGSb/export?format=xlsx"
-DRIVE_FOLDER_URL = "https://drive.google.com/drive/folders/13sLmXzxQvV12_ypTBRG2QW1yVIHaanba"
 
 # --- HELPER FUNCTIONS ---
 @st.cache_data(ttl=3600)
@@ -201,7 +199,6 @@ def sanitize_tab_name(name, existing_names):
         counter += 1
 
 def transform_to_direct_download(drive_url):
-    """Converts a standard Google Drive sharing link into a direct rendering asset URL stream."""
     url_str = str(drive_url).strip()
     if "drive.google.com" in url_str:
         file_id_match = re.search(r'/d/([a-zA-Z0-9-_]+)', url_str)
@@ -213,43 +210,12 @@ def transform_to_direct_download(drive_url):
     return url_str
 
 def parse_link_cell(cell_value):
-    """Splits comma-separated lists of URLs if multiple photos/docs exist in one row."""
     if pd.isna(cell_value) or not str(cell_value).strip():
         return []
     return [url.strip() for url in str(cell_value).split(",") if url.strip()]
 
-# --- HTML TEMPLATE BLUEPRINT DEFINITION ---
+# --- HTML TEMPLATE BLUEPRINT ---
 RAW_TEMPLATE_HTML = """
-<style type="text/css">
-    .ritz .waffle a { color: inherit; }
-    .ritz .waffle .s0{border-bottom:1px SOLID #bfbfbf;border-right:1px SOLID #bfbfbf;background-color:#800000;text-align:center;font-weight:bold;color:#ffffff;font-family:Arial;font-size:14pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
-    .ritz .waffle .s1{border-bottom:1px SOLID #bfbfbf;border-right:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;font-weight:bold;color:#000000;font-family:Arial;font-size:14pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
-    .ritz .waffle .s2{border-bottom:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:14pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
-    .ritz .waffle .s3{border-bottom:1px SOLID #bfbfbf;border-right:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:14pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
-    .ritz .waffle .s4{border-right:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:14pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
-    .ritz .waffle .s5{background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:14pt;vertical-align:middle;white-space:normal;word-break:break-word;direction:ltr;padding:4px 6px;}
-    .ritz .waffle .s6{border:1px SOLID #a0a0a0;background-color:#bfbfbf;text-align:left;color:#000000;font-family:Arial;font-size:12pt;vertical-align:middle;white-space:normal;word-break:break-word;direction:ltr;padding:4px 6px;}
-    .ritz .waffle .s7{background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:14pt;vertical-align:middle;white-space:normal;word-break:break-word;direction:ltr;padding:4px 6px;}
-    .ritz .waffle .s8{border:1px SOLID #a0a0a0;background-color:#bfbfbf;text-align:left;color:#000000;font-family:Arial;font-size:14pt;vertical-align:middle;white-space:normal;word-break:break-word;direction:ltr;padding:4px 6px;}
-    .ritz .waffle .s9{border-bottom:1px SOLID transparent;border-right:1px SOLID transparent;background-color:#ffffff;text-align:left;color:#ff0000;font-family:Arial;font-size:14pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
-    .ritz .waffle .s10{border:1px SOLID #a0a0a0;background-color:#bfbfbf;text-align:left;color:#000000;font-family:Arial;font-size:13pt;vertical-align:middle;white-space:normal;word-break:break-word;direction:ltr;padding:4px 6px;}
-    .ritz .waffle .s11{background-color:#bfbfbf;text-align:left;color:#000000;font-family:Arial;font-size:14pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
-    .ritz .waffle .s12{border-bottom:1px SOLID #000000;background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:14pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
-    .ritz .waffle .s13{border-bottom:1px SOLID #000000;border-right:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:14pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
-    .ritz .waffle .s14{background-color:#b7b7b7;text-align:left;font-weight:bold;color:#ff0000;font-family:Arial;font-size:14pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
-    .ritz .waffle .s15{background-color:#b7b7b7;text-align:left;color:#000000;font-family:Arial;font-size:14pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
-    .ritz .waffle .s16{border-right:1px SOLID #000000;background-color:#b7b7b7;text-align:left;color:#000000;font-family:Arial;font-size:14pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
-    .ritz .waffle .s17{background-color:#b7b7b7;text-align:left;color:#ff0000;font-family:Arial;font-size:14pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
-    .ritz .waffle .s18{border-bottom:1px SOLID transparent;border-right:1px SOLID transparent;background-color:#b7b7b7;text-align:left;color:#000000;font-family:Arial;font-size:14pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
-    .ritz .waffle .s19{border-bottom:1px SOLID transparent;border-right:1px SOLID transparent;background-color:#b7b7b7;text-align:left;color:#ff0000;font-family:Arial;font-size:14pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
-    .ritz .waffle .s20{border-bottom:1px SOLID transparent;border-right:1px SOLID #000000;background-color:#b7b7b7;text-align:left;color:#000000;font-family:Arial;font-size:14pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
-    .ritz .waffle .s21{border-bottom:1px SOLID #000000;background-color:#b7b7b7;text-align:left;color:#000000;font-family:Arial;font-size:14pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
-    .ritz .waffle .s22{border-bottom:1px SOLID #000000;border-right:1px SOLID #000000;background-color:#b7b7b7;text-align:left;color:#000000;font-family:Arial;font-size:14pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
-    .ritz .waffle .s23{background-color:#ffffff;text-align:left;font-weight:bold;color:#000000;font-family:Arial;font-size:14pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
-    .ritz .waffle .s24{border-bottom:1px SOLID transparent;border-right:1px SOLID transparent;background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:12pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
-    .ritz .waffle .s25{background-color:#ffffff;text-align:left;color:#000000;font-family:Arial;font-size:12pt;vertical-align:middle;white-space:nowrap;direction:ltr;padding:0px 3px 0px 3px;}
-    .ritz .waffle td { border: 1px solid #d0d0d0; }
-</style>
 <div class="ritz grid-container" dir="ltr">
 <table class="waffle" cellspacing="0" cellpadding="0" style="table-layout: fixed; width: 100%;">
     <colgroup>
@@ -367,10 +333,10 @@ trade_areas = sorted(df["TRADE AREA"].dropna().unique())
 col1, col2, col3, col4, col5, col6 = st.columns([1.5, 1.5, 0.6, 0.7, 0.7, 0.6])
 
 with col1:
-    selected_ta = st.selectbox("Trade Area", options=trade_areas, index=0 if trade_areas else None, key="ta_select")
+    selected_ta = st.selectbox("Select Trade Area", options=trade_areas, index=0 if trade_areas else None, key="ta_select")
 with col2:
     sites_in_ta = sorted(df[df["TRADE AREA"] == selected_ta]["SITE NAME"].dropna().unique()) if selected_ta else []
-    selected_site = st.selectbox("Site Name", options=sites_in_ta, index=0 if sites_in_ta else None, key="site_select")
+    selected_site = st.selectbox("Select Site", options=sites_in_ta, index=0 if sites_in_ta else None, key="site_select")
 with col3:
     if st.button("Refresh", use_container_width=True):
         st.cache_data.clear()
@@ -408,11 +374,11 @@ if selected_ta and selected_site:
 with col4:
     if site_excel_bytes:
         safe_filename = f"{selected_site}_{selected_ta}".replace("/", "-").replace("\\", "-")
-        st.download_button("Excel Report", data=site_excel_bytes, file_name=f"{safe_filename}.xlsx", use_container_width=True)
+        st.download_button("Export", data=site_excel_bytes, file_name=f"{safe_filename}.xlsx", use_container_width=True)
 
 with col5:
     if selected_ta:
-        if st.button("Trade Report", use_container_width=True):
+        if st.button("Export All", use_container_width=True):
             with st.spinner("Generating..."):
                 ta_data = df[df["TRADE AREA"] == selected_ta]
                 template_data.seek(0)
@@ -445,12 +411,12 @@ with col5:
                 st.download_button("Download Bulk", data=wb_buffer.getvalue(), file_name="Trade_Report.xlsx", use_container_width=True)
 
 with col6:
-    st.markdown(f"<p class='info-text'>Sites: {len(df['SITE NAME'].dropna().unique())}</p>", unsafe_allow_html=True)
+    # Intentionally empty: element tracking metric text block removed as requested
+    pass
 
 
 # --- DYNAMIC MULTI-VIEW INTERFACE ROUTER ---
 if site_excel_bytes and site_row_data is not None:
-    # Router Tabs initialization
     tab1, tab2, tab3 = st.tabs(["PROPERTY DETAILS", "PROPERTY PHOTOS", "PROPERTY DOCS"])
     
     # --- TAB 1: PROPERTY DETAILS ---
@@ -495,21 +461,25 @@ if site_excel_bytes and site_row_data is not None:
     with tab2:
         st.markdown(f"### Photos for {selected_site}")
         
-        # Pull links directly out of the PHOTOS column for the selected row data row
         raw_photos = site_row_data.get("PHOTOS", "")
         photo_links = parse_link_cell(raw_photos)
         
         if photo_links:
-            # Build an image card display column structure dynamically
             img_cols = st.columns(min(len(photo_links), 3))
             for idx, raw_url in enumerate(photo_links):
                 target_col = img_cols[idx % 3]
                 with target_col:
                     direct_download_url = transform_to_direct_download(raw_url)
+                    
+                    # Generate dynamic hierarchy folder mapping reference matching exact specified layout string
+                    folder_path_reference = f"trs.sitesourcing/Property Photos & Docs/({selected_ta}) {selected_site}/Photos/"
+                    
                     st.markdown(
                         f'<div class="asset-card">'
                         f'<img src="{direct_download_url}" width="100%" style="border-radius:2px; max-height:280px; object-fit:cover;">'
-                        f'<div class="asset-title">Photo Asset {idx + 1}</div>'
+                        f'<div class="asset-title" style="word-break:break-all; font-size:10px; color:#555; margin-top:8px;">'
+                        f'Location: {folder_path_reference}SITE-TA1-SN1.PROPERTY PHOTOS 1.{idx + 1:06d}.jpg'
+                        f'</div>'
                         f'</div>', 
                         unsafe_allow_html=True
                     )
@@ -520,7 +490,6 @@ if site_excel_bytes and site_row_data is not None:
     with tab3:
         st.markdown(f"### Documents for {selected_site}")
         
-        # Pull links directly out of the DOCS column for the selected row data row
         raw_docs = site_row_data.get("DOCS", "")
         doc_links = parse_link_cell(raw_docs)
         
@@ -530,11 +499,14 @@ if site_excel_bytes and site_row_data is not None:
                 target_col = doc_cols[idx % 2]
                 with target_col:
                     direct_download_url = transform_to_direct_download(raw_url)
-                    # For documents, provide a clean download interaction interface card block
+                    
+                    folder_path_reference = f"trs.sitesourcing/Property Photos & Docs/({selected_ta}) {selected_site}/Docs/"
+                    
                     st.markdown(
                         f'<div class="asset-card" style="text-align:left; padding:15px;">'
                         f'<strong>Document Attachment {idx + 1}</strong><br>'
-                        f'<span style="font-size:0.75rem; color:#666; word-break:break-all;">Source: {raw_url}</span><br><br>'
+                        f'<span style="font-size:0.7rem; color:#666; word-break:break-all;">Path: {folder_path_reference}</span><br>'
+                        f'<span style="font-size:0.7rem; color:#888; word-break:break-all;">Source URL: {raw_url}</span><br><br>'
                         f'<a href="{direct_download_url}" target="_blank" style="text-decoration:none;">'
                         f'<button style="background-color:#e8e8e8; border:1px solid #d0d0d0; padding:4px 8px; font-size:0.75rem; border-radius:2px; cursor:pointer; width:100%; text-align:center; color:#333;">'
                         f'Download / View Document'
