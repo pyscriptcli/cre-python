@@ -10,6 +10,7 @@ from copy import copy
 import os
 import hashlib
 from openpyxl import load_workbook
+from urllib.parse import urlparse, parse_qs
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(
@@ -219,6 +220,35 @@ def parse_link_cell(cell_value):
     if pd.isna(cell_value) or not str(cell_value).strip():
         return []
     return [url.strip() for url in str(cell_value).split(",") if url.strip()]
+
+def extract_file_id_from_drive_url(url):
+    """Extract file ID from various Google Drive URL formats"""
+    url_str = str(url).strip()
+    
+    # Check for /d/ pattern
+    file_id_match = re.search(r'/d/([a-zA-Z0-9-_]+)', url_str)
+    if file_id_match:
+        return file_id_match.group(1)
+    
+    # Check for id= pattern
+    id_param_match = re.search(r'id=([a-zA-Z0-9-_]+)', url_str)
+    if id_param_match:
+        return id_param_match.group(1)
+    
+    # Check for file/d/ pattern
+    file_id_match = re.search(r'file/d/([a-zA-Z0-9-_]+)', url_str)
+    if file_id_match:
+        return file_id_match.group(1)
+    
+    return None
+
+def get_direct_image_url(drive_url):
+    """Get a URL that will display the image directly"""
+    file_id = extract_file_id_from_drive_url(drive_url)
+    if file_id:
+        # Try thumbnail first (works for images)
+        return f"https://drive.google.com/thumbnail?id={file_id}"
+    return transform_to_direct_download(drive_url)
 
 # --- HTML TEMPLATE BLUEPRINT DEFINITION ---
 RAW_TEMPLATE_HTML = """
@@ -484,31 +514,91 @@ if site_excel_bytes and site_row_data is not None:
     with tab2:
         st.markdown(f"### Photos for {selected_site}")
         
-        raw_photos = site_row_data.get("PHOTOS", "")
+        # Try multiple possible column names for photos
+        photo_column_names = ["PHOTOS", "PHOTO", "PHOTO LINKS", "IMAGE", "IMAGES", "PICTURES"]
+        raw_photos = ""
+        found_column = None
+        
+        for col_name in photo_column_names:
+            if col_name in site_row_data.index:
+                raw_photos = site_row_data.get(col_name, "")
+                if raw_photos and str(raw_photos).strip():
+                    found_column = col_name
+                    break
+        
+        # If still no photos found, check all columns for any that might contain links
+        if not raw_photos or not str(raw_photos).strip():
+            for col_name in site_row_data.index:
+                val = site_row_data.get(col_name, "")
+                if isinstance(val, str) and ("drive.google.com" in val or "http" in val):
+                    # Check if it looks like a photo link
+                    if any(ext in val.lower() for ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp', 'photo', 'image', 'picture']):
+                        raw_photos = val
+                        found_column = col_name
+                        break
+        
         photo_links = parse_link_cell(raw_photos)
+        
+        # Debug info
+        if found_column:
+            st.info(f"📷 Found photos in column: '{found_column}'")
+        else:
+            st.info("ℹ️ No photos column found. Please check the data source.")
+            # Show available columns for debugging
+            with st.expander("Show available columns in data"):
+                st.write(list(site_row_data.index))
         
         if photo_links:
             img_cols = st.columns(min(len(photo_links), 3))
             for idx, raw_url in enumerate(photo_links):
                 target_col = img_cols[idx % 3]
                 with target_col:
-                    direct_download_url = transform_to_direct_download(raw_url)
+                    # Try to get a direct image URL
+                    direct_url = get_direct_image_url(raw_url)
+                    
                     st.markdown(
                         f'<div class="asset-card">'
-                        f'<img src="{direct_download_url}" width="100%" style="border-radius:2px; max-height:280px; object-fit:cover;">'
-                        f'<div class="asset-title">Photo Asset {idx + 1}</div>'
+                        f'<img src="{direct_url}" width="100%" style="border-radius:2px; max-height:280px; object-fit:cover;" '
+                        f'onerror="this.onerror=null; this.src=\'{transform_to_direct_download(raw_url)}\';">'
+                        f'<div class="asset-title">Photo {idx + 1}</div>'
+                        f'<a href="{transform_to_direct_download(raw_url)}" target="_blank" style="font-size:0.6rem; color:#0066cc;">View Full Size</a>'
                         f'</div>', 
                         unsafe_allow_html=True
                     )
         else:
-            st.warning("No unique property photo links populated in data row columns for this site.")
+            st.warning("No photo links found for this site.")
 
     # --- TAB 3: PROPERTY DOCS ---
     with tab3:
         st.markdown(f"### Documents for {selected_site}")
         
-        raw_docs = site_row_data.get("DOCS", "")
+        # Try multiple possible column names for docs
+        doc_column_names = ["DOCS", "DOC", "DOCUMENTS", "DOCUMENT LINKS", "FILES", "ATTACHMENTS"]
+        raw_docs = ""
+        found_column = None
+        
+        for col_name in doc_column_names:
+            if col_name in site_row_data.index:
+                raw_docs = site_row_data.get(col_name, "")
+                if raw_docs and str(raw_docs).strip():
+                    found_column = col_name
+                    break
+        
+        # If still no docs found, check all columns for any that might contain document links
+        if not raw_docs or not str(raw_docs).strip():
+            for col_name in site_row_data.index:
+                val = site_row_data.get(col_name, "")
+                if isinstance(val, str) and ("drive.google.com" in val or "http" in val):
+                    # Check if it looks like a document link
+                    if any(ext in val.lower() for ext in ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', 'document', 'file']):
+                        raw_docs = val
+                        found_column = col_name
+                        break
+        
         doc_links = parse_link_cell(raw_docs)
+        
+        if found_column:
+            st.info(f"📄 Found documents in column: '{found_column}'")
         
         if doc_links:
             doc_cols = st.columns(min(len(doc_links), 2))
@@ -518,18 +608,18 @@ if site_excel_bytes and site_row_data is not None:
                     direct_download_url = transform_to_direct_download(raw_url)
                     st.markdown(
                         f'<div class="asset-card" style="text-align:left; padding:15px;">'
-                        f'<strong>Document Attachment {idx + 1}</strong><br>'
+                        f'<strong>Document {idx + 1}</strong><br>'
                         f'<span style="font-size:0.75rem; color:#666; word-break:break-all;">Source URL: {raw_url}</span><br><br>'
                         f'<a href="{direct_download_url}" target="_blank" style="text-decoration:none;">'
                         f'<button style="background-color:#e8e8e8; border:1px solid #d0d0d0; padding:4px 8px; font-size:0.75rem; border-radius:2px; cursor:pointer; width:100%; text-align:center; color:#333;">'
-                        f'Download / View Document'
+                        f'📄 Download / View Document'
                         f'</button>'
                         f'</a>'
                         f'</div>', 
                         unsafe_allow_html=True
                     )
         else:
-            st.warning("No property attachment document links populated in data row columns for this site.")
+            st.warning("No document links found for this site.")
 
 else:
     st.info("Select a Trade Area and Site to view the report.")
