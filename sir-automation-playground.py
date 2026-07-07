@@ -49,10 +49,10 @@ st.markdown("""
     div[data-testid="stStatusWidget"] {display: none !important;}
     
     .block-container {
-        padding-top: 0.05rem !important;
-        padding-bottom: 0.05rem !important;
-        padding-left: 0.3rem !important;
-        padding-right: 0.3rem !important;
+        padding-top: 0.5rem !important;
+        padding-bottom: 0.5rem !important;
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
         max-width: 100% !important;
     }
     
@@ -88,11 +88,7 @@ st.markdown("""
         font-size: 0.7rem !important;
     }
     .stSelectbox label {
-        color: #333333 !important;
-        font-weight: 400 !important;
-        font-size: 0.65rem !important;
-        margin-bottom: 0 !important;
-        padding-bottom: 0 !important;
+        display: none !important;
     }
     
     .stMarkdown, .stMarkdown * {
@@ -104,7 +100,7 @@ st.markdown("""
     }
     
     div[data-testid="stHorizontalBlock"] {
-        gap: 0.2rem !important;
+        gap: 0.3rem !important;
         align-items: center !important;
     }
     
@@ -144,8 +140,8 @@ st.markdown("""
         padding: 0.2rem;
         border: 1px solid #e8e8e8;
         overflow: auto;
-        height: calc(100vh - 80px);
-        margin-top: 0.1rem;
+        margin-top: 0.5rem;
+        width: 100%;
     }
     
     .excel-container table {
@@ -180,12 +176,34 @@ st.markdown("""
     }
     
     .info-text {
-        font-size: 0.65rem;
-        color: #666;
-        text-align: center;
+        font-size: 0.7rem;
+        color: #333;
+        text-align: right;
         margin: 0;
         padding: 0;
         line-height: 24px;
+        font-weight: 500;
+    }
+    
+    /* Section headers in the report */
+    .section-header {
+        background-color: #f0f0f0 !important;
+        font-weight: bold !important;
+        font-size: 11px !important;
+        padding: 4px 6px !important;
+    }
+    
+    .label-cell {
+        background-color: #f8f8f8 !important;
+        font-weight: 500 !important;
+        font-size: 10px !important;
+        padding: 2px 4px !important;
+    }
+    
+    .value-cell {
+        background-color: white !important;
+        font-size: 10px !important;
+        padding: 2px 4px !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -413,40 +431,142 @@ def render_excel_to_html(workbook, sheet_name=None):
     html += '</table>'
     return html
 
-@st.cache_data(ttl=3600)
-def load_data():
-    source_data = download_file(SOURCE_URL)
-    template_data = download_file(TEMPLATE_URL)
+def render_additional_sections(row, placeholders):
+    html = ''
     
-    if source_data is None or template_data is None:
-        return None, None, None, None, None
+    def get_val(ph):
+        val = row.get(ph.upper(), '')
+        if pd.isna(val) or val is None:
+            return ''
+        return str(val)
     
-    df = pd.read_excel(source_data)
-    df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
-    df.columns = df.columns.str.strip().str.upper()
+    # Lessor and Tenant Details
+    html += '''
+    <h4 style="margin: 8px 0 4px 0; font-size: 11px; font-weight: 600; color: #333;">Lessor and Tenant Details</h4>
+    <table style="border-collapse: collapse; width: 100%; font-size: 10px; border: 1px solid #d0d0d0;">
+    '''
     
-    template_wb = load_workbook(template_data)
-    template_sheet = template_wb.active
-    placeholders = get_placeholders(template_sheet)
+    lessor_fields = [
+        ('Name of Lessor', 'LESSOR'),
+        ('Contact No.', 'CONTACT NO'),
+        ('E-mail Address', 'EMAIL ADDRESS'),
+        ('Type of Ownership', 'TYPE OF OWNERSHIP'),
+        ('Company Name', 'COMPANY NAME'),
+        ('Developer Account Name', 'DEVELOPER ACCOUNT NAME'),
+        ('Business Address', 'BUSINESS ADDRESS'),
+        ('Name of Authorized Representative', 'CONTACT PERSON/SOURCE'),
+        ('Residence Address of Authorized Representative', 'RESIDENCE ADDRESS'),
+        ('Contact No.', 'CONTACT NUMBER'),
+        ('E-mail Address', 'EMAIL ADDRESS'),
+        ('Name of Lessee', 'LESSEE'),
+        ('Position', 'POSITION'),
+        ('Contact No.', 'CONTACT NO'),
+        ('E-mail Address', 'EMAIL ADDRESS'),
+        ('Name of Authorized Representative', 'AUTHORIZED REPRESENTATIVE'),
+        ('Business Address', 'BUSINESS ADDRESS')
+    ]
     
-    return df, template_wb, template_sheet, placeholders, template_data
-
-def sanitize_tab_name(name, existing_names):
-    illegal_chars = r'[\\/*?\[\]:]'
-    clean_name = re.sub(illegal_chars, '', str(name))
-    base_name = clean_name[:31]
-    if base_name not in existing_names:
-        existing_names.add(base_name)
-        return base_name
-    counter = 1
-    while True:
-        suffix = f" ({counter})"
-        max_len = 31 - len(suffix)
-        new_name = f"{clean_name[:max_len]}{suffix}"
-        if new_name not in existing_names:
-            existing_names.add(new_name)
-            return new_name
-        counter += 1
+    for label, ph in lessor_fields:
+        val = get_val(ph)
+        html += f'''
+        <tr>
+            <td style="background-color: #f8f8f8; padding: 2px 4px; border: 1px solid #d0d0d0; font-weight: 500; width: 35%;">{label}</td>
+            <td style="padding: 2px 4px; border: 1px solid #d0d0d0; width: 65%;">{val}</td>
+        </tr>
+        '''
+    
+    html += '</table>'
+    
+    # If with Sub-Lessor/Sub-Lessee
+    html += '''
+    <h4 style="margin: 8px 0 4px 0; font-size: 11px; font-weight: 600; color: #333;">If with Sub-Lessor/ Sub-Lessee</h4>
+    <table style="border-collapse: collapse; width: 100%; font-size: 10px; border: 1px solid #d0d0d0;">
+    '''
+    
+    sub_lessor_fields = [
+        ('Name of Sub-Lessor', 'SUB-LESSOR'),
+        ('Contact No.', 'CONTACT NO'),
+        ('E-mail Address', 'EMAIL ADDRESS'),
+        ('Type of Ownership', 'TYPE OF OWNERSHIP'),
+        ('Company Name', 'COMPANY NAME'),
+        ('Developer Account Name', 'DEVELOPER ACCOUNT NAME'),
+        ('Business Address', 'BUSINESS ADDRESS'),
+        ('Name of Authorized Representative', 'AUTHORIZED REPRESENTATIVE'),
+        ('Residence Address of Authorized Representative', 'RESIDENCE ADDRESS'),
+        ('Contact No.', 'CONTACT NUMBER'),
+        ('E-mail Address', 'EMAIL ADDRESS'),
+        ('Name of Sub-Lessee', 'SUB-LESSEE'),
+        ('Position', 'POSITION'),
+        ('Contact No.', 'CONTACT NO'),
+        ('E-mail Address', 'EMAIL ADDRESS'),
+        ('Name of Authorized Representative', 'AUTHORIZED REPRESENTATIVE'),
+        ('Business Address', 'BUSINESS ADDRESS')
+    ]
+    
+    for label, ph in sub_lessor_fields:
+        val = get_val(ph)
+        html += f'''
+        <tr>
+            <td style="background-color: #f8f8f8; padding: 2px 4px; border: 1px solid #d0d0d0; font-weight: 500; width: 35%;">{label}</td>
+            <td style="padding: 2px 4px; border: 1px solid #d0d0d0; width: 65%;">{val}</td>
+        </tr>
+        '''
+    
+    html += '</table>'
+    
+    # Regulatory
+    html += '''
+    <h4 style="margin: 8px 0 4px 0; font-size: 11px; font-weight: 600; color: #333;">Regulatory</h4>
+    <table style="border-collapse: collapse; width: 100%; font-size: 10px; border: 1px solid #d0d0d0;">
+    '''
+    
+    regulatory_fields = [
+        ('Setback Requirement', 'SETBACK REQUIREMENT'),
+        ('Road Widening', 'ROAD WIDENING'),
+        ('Pedestrian Overpass', 'PEDESTRIAN OVERPASS'),
+        ('Perm Traffic Re-Routing', 'PERM TRAFFIC RE-ROUTING'),
+        ('Perm Road Closure', 'PERM ROAD CLOSURE'),
+        ('Infrastructure Programs', 'INFRASTRUCTURE PROGRAMS'),
+        ('Future Development', 'FUTURE DEVELOPMENT'),
+        ('Zoning Clearance', 'ZONING CLEARANCE'),
+        ('Gas Station', 'GAS STATION')
+    ]
+    
+    for label, ph in regulatory_fields:
+        val = get_val(ph)
+        html += f'''
+        <tr>
+            <td style="background-color: #f8f8f8; padding: 2px 4px; border: 1px solid #d0d0d0; font-weight: 500; width: 35%;">{label}</td>
+            <td style="padding: 2px 4px; border: 1px solid #d0d0d0; width: 65%;">{val}</td>
+        </tr>
+        '''
+    
+    html += '</table>'
+    
+    # Site Acquirability
+    html += '''
+    <h4 style="margin: 8px 0 4px 0; font-size: 11px; font-weight: 600; color: #333;">Site Acquirability</h4>
+    <table style="border-collapse: collapse; width: 100%; font-size: 10px; border: 1px solid #d0d0d0;">
+    '''
+    
+    acquirability_fields = [
+        ('Confidence Level', 'CONFIDENCE LEVEL'),
+        ('Site Availability', 'SITE AVAILABILITY CLASS'),
+        ('Other Remarks:', 'REMARKS')
+    ]
+    
+    for label, ph in acquirability_fields:
+        val = get_val(ph)
+        html += f'''
+        <tr>
+            <td style="background-color: #f8f8f8; padding: 2px 4px; border: 1px solid #d0d0d0; font-weight: 500; width: 35%;">{label}</td>
+            <td style="padding: 2px 4px; border: 1px solid #d0d0d0; width: 65%;">{val}</td>
+        </tr>
+        '''
+    
+    html += '</table>'
+    
+    return html
 
 # --- LOAD DATA ---
 with st.spinner("Loading..."):
@@ -459,16 +579,14 @@ if df is None or template_wb is None:
 # --- CONTROLS ROW ---
 trade_areas = sorted(df["TRADE AREA"].dropna().unique())
 
-# Create columns for controls - using more compact columns
-col1, col2, col3, col4, col5, col6, col7 = st.columns([1.2, 1.2, 0.6, 0.7, 0.7, 0.5, 0.3])
+col1, col2, col3, col4, col5, col6 = st.columns([1.5, 1.5, 0.6, 0.7, 0.7, 0.6])
 
 with col1:
     selected_ta = st.selectbox(
         "Trade Area",
         options=trade_areas,
         index=0 if trade_areas else None,
-        key="ta_select",
-        label_visibility="collapsed"
+        key="ta_select"
     )
 
 with col2:
@@ -479,25 +597,21 @@ with col2:
             "Site Name",
             options=sites_in_ta,
             index=0 if len(sites_in_ta) > 0 else None,
-            key="site_select",
-            label_visibility="collapsed"
+            key="site_select"
         )
     else:
         selected_site = st.selectbox(
             "Site Name",
             options=[],
-            key="site_select",
-            label_visibility="collapsed"
+            key="site_select"
         )
 
 with col3:
-    st.markdown("<p style='margin:0;padding:0;'>&nbsp;</p>", unsafe_allow_html=True)
     if st.button("Refresh", use_container_width=True):
         st.cache_data.clear()
         st.rerun()
 
 with col4:
-    st.markdown("<p style='margin:0;padding:0;'>&nbsp;</p>", unsafe_allow_html=True)
     if selected_ta and selected_site:
         site_data = df[(df["TRADE AREA"] == selected_ta) & (df["SITE NAME"] == selected_site)]
         if not site_data.empty:
@@ -534,7 +648,6 @@ with col4:
             )
 
 with col5:
-    st.markdown("<p style='margin:0;padding:0;'>&nbsp;</p>", unsafe_allow_html=True)
     if selected_ta:
         if st.button("Trade Report", use_container_width=True):
             with st.spinner("Generating..."):
@@ -583,9 +696,6 @@ with col6:
     total_sites = len(df["SITE NAME"].dropna().unique())
     st.markdown(f"<p class='info-text'>Sites: {total_sites}</p>", unsafe_allow_html=True)
 
-with col7:
-    st.markdown("<p style='margin:0;padding:0;'>&nbsp;</p>", unsafe_allow_html=True)
-
 # --- REPORT VIEWER ---
 if selected_ta and selected_site:
     try:
@@ -622,11 +732,13 @@ if selected_ta and selected_site:
                         else:
                             cell.value = new_val.strip() if new_val else ""
             
+            # Formulate the entire wrapper and content together to avoid broken container nodes
             html_content = render_excel_to_html(wb)
-            st.markdown('<div class="excel-container">', unsafe_allow_html=True)
-            st.markdown(html_content, unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-    
+            html_content += render_additional_sections(row, placeholders)
+            
+            full_layout_html = f'<div class="excel-container">{html_content}</div>'
+            st.markdown(full_layout_html, unsafe_allow_html=True)
+            
     except Exception as e:
         st.error(f"Error: {str(e)}")
 else:
