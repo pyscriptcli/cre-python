@@ -333,7 +333,7 @@ def load_data():
     temp_wb = load_workbook(template_data)
     placeholders = get_placeholders(temp_wb.active)
     template_data.seek(0)
-    return df, placeholders, template_bytes_raw == template_data.getvalue() or template_data.getvalue()
+    return df, placeholders, template_data.getvalue()
 
 with st.spinner("Loading Data Assets..."):
     df, placeholders, template_bytes_raw = load_data()
@@ -432,7 +432,6 @@ with col6:
 
 # --- DYNAMIC MULTI-VIEW INTERFACE ROUTER ---
 if site_excel_bytes and site_row_data is not None:
-    # Initialize separate layout workflows seamlessly
     tab1, tab2, tab3 = st.tabs(["PROPERTY DETAILS", "PROPERTY PHOTOS", "PROPERTY DOCS"])
     
     # --- TAB 1: PROPERTY DETAILS ---
@@ -476,9 +475,8 @@ if site_excel_bytes and site_row_data is not None:
     # --- TAB 2: PROPERTY PHOTOS ---
     with tab2:
         st.markdown(f"### 📸 Photos for {selected_site}")
-        st.info("Files can be managed directly in the [Google Drive Folder]({DRIVE_FOLDER_URL}).")
+        st.info(f"Files can be managed directly in the [Google Drive Folder]({DRIVE_FOLDER_URL}).")
         
-        # Displaying a clean grid interface that maps dynamically to the selected property site
         p_col1, p_col2, p_col3 = st.columns(3)
         with p_col1:
             st.markdown(f'<div class="asset-card"><img src="https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=400&q=80" width="100%" style="border-radius:2px;"><div class="asset-title">Facade Preview.jpg</div></div>', unsafe_allow_html=True)
@@ -490,9 +488,8 @@ if site_excel_bytes and site_row_data is not None:
     # --- TAB 3: PROPERTY DOCS ---
     with tab3:
         st.markdown(f"### 📄 Documents for {selected_site}")
-        st.info("Files can be managed directly in the [Google Drive Folder]({DRIVE_FOLDER_URL}).")
+        st.info(f"Files can be managed directly in the [Google Drive Folder]({DRIVE_FOLDER_URL}).")
         
-        # Displaying a dynamic list matching technical file attachment layers
         d_col1, d_col2 = st.columns(2)
         with d_col1:
             st.markdown("""
@@ -508,11 +505,11 @@ if site_excel_bytes and site_row_data is not None:
         with d_col2:
             st.markdown("""
             <div class="asset-card" style="text-align:left; padding:15px;">
-                <strong>Title_Deed_Verification_Cert.pdf</strong><br>
+                <strong>📜 Title_Deed_Verification_Cert.pdf</strong><br>
                 <span style="font-size:0.75rem; color:#666;">Type: PDF Document • Updated: Recent</span>
             </div>
             <div class="asset-card" style="text-align:left; padding:15px;">
-                <strong>Zoning_Clearance_Permit_Signed.pdf</strong><br>
+                <strong>📝 Zoning_Clearance_Permit_Signed.pdf</strong><br>
                 <span style="font-size:0.75rem; color:#666;">Type: PDF Document • Updated: Recent</span>
             </div>
             """, unsafe_allow_html=True)
