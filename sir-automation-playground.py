@@ -613,9 +613,9 @@ HTML_FRAMEWORK = """
             <td class="s23" colspan="2"><div style="width:184px;left:-1px">_SITE_AVAILABILITY_CLASS_</div></td>
             <td class="s24"></td><td class="s25"></td><td class="s2" colspan="10"></td><td class="s3"></td>
         </tr>
-        <tr style="height: auto;">
-            <td class="s6">Other Remarks:</td>
-            <td class="s5" colspan="7">_REMARKS_</td>
+        <tr style="height: 120px;">
+            <td class="s6" style="vertical-align: top;">Other Remarks:</td>
+            <td class="s5" colspan="7" style="vertical-align: top; white-space: normal; word-wrap: break-word; overflow-wrap: break-word; line-height: 1.5;">_REMARKS_</td>
             <td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s7"></td>
         </tr>
     </tbody>
@@ -674,18 +674,15 @@ with col2:
     selected_site_display = st.selectbox("Site Name", options=sites_in_ta, index=0, label_visibility="collapsed")
 
 with col3:
-    # Always show the export button when a trade area is selected
     if selected_ta and selected_ta != "Select Trade Area...":
-        if st.button("📥 Export All Sites", use_container_width=True):
-            with st.spinner("Compiling Excel Workbook with all sites..."):
-                wb_buffer = generate_trade_area_report(df, selected_ta, template_bytes_raw, placeholders)
-                st.download_button(
-                    label="✅ Download Report", 
-                    data=wb_buffer.getvalue(), 
-                    file_name=f"{selected_ta}_Full_Report.xlsx", 
-                    use_container_width=True,
-                    key="download_report"
-                )
+        wb_buffer = generate_trade_area_report(df, selected_ta, template_bytes_raw, placeholders)
+        st.download_button(
+            label="Export Report", 
+            data=wb_buffer.getvalue(), 
+            file_name=f"{selected_ta}_Full_Report.xlsx", 
+            use_container_width=True,
+            key="export_report"
+        )
 
 # --- DIRECT HTML VIEW LAYOUT ---
 if selected_ta != "Select Trade Area..." and selected_site_display != "Select Site...":
@@ -741,3 +738,8 @@ if selected_ta != "Select Trade Area..." and selected_site_display != "Select Si
             st.error(f"Error compiling visual matrix framework: {str(e)}")
 else:
     st.info("Please select a Trade Area and a Site to view the specific report.")
+
+
+remove the the export anf the download button should be just one button and one function no other step just one step export 
+
+also just make the remarks row taller so it can accomodate long text
