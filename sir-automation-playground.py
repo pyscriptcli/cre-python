@@ -385,9 +385,18 @@ if site_excel_bytes:
         
         # Encode file stream into data base64 url parameters strings to display inline inside layout wrapper
         base64_pdf = base64.b64encode(pdf_data_bytes).decode('utf-8')
-        pdf_display_iframe = f'<iframe src="data:application/pdf;base64,{base64_pdf}#toolbar=0&navpanes=0&scrollbar=1" width="100%" height="820px" type="application/pdf" style="border:none;"></iframe>'
         
-        st.markdown(f'<div class="pdf-frame-container">{pdf_display_iframe}</div>', unsafe_allow_html=True)
+        # Use an object embed tag configuration instead of an iframe to bypass Brave Shield structural tracking blocks
+        pdf_display_object = f'''
+            <object data="data:application/pdf;base64,{base64_pdf}#toolbar=0&navpanes=0&scrollbar=1" type="application/pdf" width="100%" height="820px">
+                <div style="padding:20px; text-align:center; color:white;">
+                    <p>Brave Shields or your browser settings are blocking the inline PDF container preview.</p>
+                    <a href="data:application/pdf;base64,{base64_pdf}" download="Site_Report.pdf" style="color:#FF4B4B; font-weight:bold; text-decoration:underline;">Click here to download and view the PDF report directly</a>
+                </div>
+            </object>
+        '''
+        
+        st.markdown(f'<div class="pdf-frame-container">{pdf_display_object}</div>', unsafe_allow_html=True)
             
     except Exception as e:
         st.error(f"Error compiling canvas range mapping stream: {str(e)}")
