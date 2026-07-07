@@ -148,14 +148,14 @@ st.markdown("""
         border-collapse: collapse;
         width: 100%;
         font-size: 10px;
-        table-layout: fixed; /* Force structural alignment restriction */
+        table-layout: fixed;
     }
     
     .excel-container td {
-        padding: 2px 4px;
-        border: 1px solid #d0d0d0;
-        word-break: break-word !important; /* Forces wrap on long strings */
-        white-space: normal !important;   /* Allows vertical expansion block */
+        padding: 3px 5px;
+        border: 1px solid #c0c0c0; /* Higher contrast border */
+        word-break: break-word !important;
+        white-space: normal !important;
     }
     
     .footer-overlay {
@@ -248,7 +248,7 @@ def clone_cell_styles(source_cell, target_cell):
     if source_cell.alignment:
         target_cell.alignment = Alignment(
             horizontal=source_cell.alignment.horizontal, vertical=source_cell.alignment.vertical,
-            text_rotation=source_cell.alignment.text_rotation, wrap_text=True, # Force True internally
+            text_rotation=source_cell.alignment.text_rotation, wrap_text=True,
             shrink_to_fit=source_cell.alignment.shrink_to_fit, indent=source_cell.alignment.indent
         )
     if source_cell.border:
@@ -366,7 +366,7 @@ def render_excel_to_html(workbook, sheet_name=None):
                 v_align = cell.alignment.vertical or 'middle'
             
             style = f'background-color: {bg_color}; color: {font_color}; font-weight: {font_weight}; font-size: {font_size}; '
-            style += f'text-align: {h_align}; vertical-align: {v_align}; padding: 3px 4px; border: 1px solid #d0d0d0; '
+            style += f'text-align: {h_align}; vertical-align: {v_align}; padding: 3px 5px; border: 1px solid #c0c0c0; '
             style += 'white-space: normal !important; word-wrap: break-word !important; word-break: break-word !important;'
             
             rowspan = merged_cells[(row, col)].get('rowspan', 1) if (row, col) in merged_cells else 1
@@ -398,53 +398,91 @@ def render_additional_sections(row, placeholders):
             return val_str.split('.')[0]
         return val_str
 
-    def make_table(title, fields):
-        t_html = f'<h4 style="margin: 14px 0 4px 0; font-size: 11px; font-weight: 600; color: #333;">{title}</h4>'
-        t_html += '<table style="border-collapse: collapse; width: 100%; font-size: 10px; border: 1px solid #d0d0d0; margin-bottom: 10px; table-layout: fixed;">'
-        for label, ph in fields:
-            val = get_val(ph)
-            t_html += f'''
-            <tr>
-                <td style="background-color: #f8f8f8; padding: 3px 4px; border: 1px solid #d0d0d0; font-weight: 500; width: 35%; text-align: left; white-space: normal; word-break: break-word;">{label}</td>
-                <td style="padding: 3px 4px; border: 1px solid #d0d0d0; width: 65%; text-align: left; background-color: white; white-space: normal; word-break: break-word;">{val}</td>
-            </tr>
-            '''
+    # Accurate side-by-side cloned matrix renderer matching the exact screenshot blueprint layout
+    def make_cloned_split_table(title, left_fields, right_fields):
+        t_html = f'<h4 style="margin: 14px 0 4px 0; font-size: 11px; font-weight: 600; color: #333; text-align: left;">{title}</h4>'
+        t_html += '<table style="border-collapse: collapse; width: 100%; font-size: 10px; border: 1px solid #c0c0c0; margin-bottom: 10px; table-layout: fixed;">'
+        
+        max_len = max(len(left_fields), len(right_fields))
+        for i in range(max_len):
+            t_html += '<tr>'
+            
+            # Left Columns Matrix
+            if i < len(left_fields):
+                lbl_l, ph_l = left_fields[i]
+                val_l = get_val(ph_l)
+                t_html += f'<td style="background-color: #f8f8f8; color: #333333; padding: 4px 6px; border: 1px solid #c0c0c0; font-weight: 500; width: 18%; text-align: left; white-space: normal; word-break: break-word;">{lbl_l}</td>'
+                t_html += f'<td style="background-color: #e0e0e0; color: #333333; padding: 4px 6px; border: 1px solid #c0c0c0; width: 28%; text-align: left; white-space: normal; word-break: break-word;">{val_l}</td>'
+            else:
+                t_html += '<td style="background-color: #f8f8f8; border: 1px solid #c0c0c0; width: 18%;"></td>'
+                t_html += '<td style="background-color: #e0e0e0; border: 1px solid #c0c0c0; width: 28%;"></td>'
+            
+            # Spacer Column Gap Middle
+            t_html += '<td style="background-color: white; border: 1px solid #c0c0c0; width: 8%;"></td>'
+            
+            # Right Columns Matrix
+            if i < len(right_fields):
+                lbl_r, ph_r = right_fields[i]
+                val_r = get_val(ph_r)
+                t_html += f'<td style="background-color: #f8f8f8; color: #333333; padding: 4px 6px; border: 1px solid #c0c0c0; font-weight: 500; width: 18%; text-align: left; white-space: normal; word-break: break-word;">{lbl_r}</td>'
+                t_html += f'<td style="background-color: #e0e0e0; color: #333333; padding: 4px 6px; border: 1px solid #c0c0c0; width: 28%; text-align: left; white-space: normal; word-break: break-word;">{val_r}</td>'
+            else:
+                t_html += '<td style="background-color: #f8f8f8; border: 1px solid #c0c0c0; width: 18%;"></td>'
+                t_html += '<td style="background-color: #e0e0e0; border: 1px solid #c0c0c0; width: 28%;"></td>'
+                
+            t_html += '</tr>'
+            
         t_html += '</table>'
         return t_html
 
-    # Sections setup
-    lessor_fields = [
+    # Cloned structural arrays tracking left vs right layout grids
+    lessor_left = [
         ('Name of Lessor', 'LESSOR'), ('Contact No.', 'CONTACT NO'), ('E-mail Address', 'EMAIL ADDRESS'),
-        ('Type of Ownership', 'TYPE OF OWNERSHIP'), ('Company Name', 'COMPANY NAME'), ('Developer Account Name', 'DEVELOPER ACCOUNT NAME'),
-        ('Business Address', 'BUSINESS ADDRESS'), ('Name of Authorized Representative', 'CONTACT PERSON/SOURCE'),
+        ('Type of Ownership', 'TYPE OF OWNERSHIP'), ('Company Name', 'COMPANY NAME'),
+        ('Developer Account Name', 'DEVELOPER ACCOUNT NAME'), ('Business Address', 'BUSINESS ADDRESS'),
+        ('Name of Authorized Representative', 'CONTACT PERSON/SOURCE')
+    ]
+    lessor_right = [
         ('Residence Address of Authorized Representative', 'RESIDENCE ADDRESS'), ('Contact No.', 'CONTACT NUMBER'),
         ('E-mail Address', 'EMAIL ADDRESS'), ('Name of Lessee', 'LESSEE'), ('Position', 'POSITION'),
-        ('Contact No.', 'CONTACT NO'), ('E-mail Address', 'EMAIL ADDRESS'), ('Name of Authorized Representative', 'AUTHORIZED REPRESENTATIVE'),
-        ('Business Address', 'BUSINESS ADDRESS')
+        ('Contact No.', 'CONTACT NO'), ('E-mail Address', 'EMAIL ADDRESS'), 
+        ('Name of Authorized Representative', 'AUTHORIZED REPRESENTATIVE'), ('Business Address', 'BUSINESS ADDRESS')
     ]
-    sub_lessor_fields = [
+    
+    sub_left = [
         ('Name of Sub-Lessor', 'SUB-LESSOR'), ('Contact No.', 'CONTACT NO'), ('E-mail Address', 'EMAIL ADDRESS'),
-        ('Type of Ownership', 'TYPE OF OWNERSHIP'), ('Company Name', 'COMPANY NAME'), ('Developer Account Name', 'DEVELOPER ACCOUNT NAME'),
-        ('Business Address', 'BUSINESS ADDRESS'), ('Name of Authorized Representative', 'AUTHORIZED REPRESENTATIVE'),
+        ('Type of Ownership', 'TYPE OF OWNERSHIP'), ('Company Name', 'COMPANY NAME'),
+        ('Developer Account Name', 'DEVELOPER ACCOUNT NAME'), ('Business Address', 'BUSINESS ADDRESS'),
+        ('Name of Authorized Representative', 'AUTHORIZED REPRESENTATIVE')
+    ]
+    sub_right = [
         ('Residence Address of Authorized Representative', 'RESIDENCE ADDRESS'), ('Contact No.', 'CONTACT NUMBER'),
         ('E-mail Address', 'EMAIL ADDRESS'), ('Name of Sub-Lessee', 'SUB-LESSEE'), ('Position', 'POSITION'),
-        ('Contact No.', 'CONTACT NO'), ('E-mail Address', 'EMAIL ADDRESS'), ('Name of Authorized Representative', 'AUTHORIZED REPRESENTATIVE'),
-        ('Business Address', 'BUSINESS ADDRESS')
+        ('Contact No.', 'CONTACT NO'), ('E-mail Address', 'EMAIL ADDRESS'),
+        ('Name of Authorized Representative', 'AUTHORIZED REPRESENTATIVE'), ('Business Address', 'BUSINESS ADDRESS')
     ]
-    regulatory_fields = [
-        ('Setback Requirement', 'SETBACK REQUIREMENT'), ('Road Widening', 'ROAD WIDENING'), ('Pedestrian Overpass', 'PEDESTRIAN OVERPASS'),
-        ('Perm Traffic Re-Routing', 'PERM TRAFFIC RE-ROUTING'), ('Perm Road Closure', 'PERM ROAD CLOSURE'),
+
+    regulatory_left = [
+        ('Setback Requirement', 'SETBACK REQUIREMENT'), ('Road Widening', 'ROAD WIDENING'), 
+        ('Pedestrian Overpass', 'PEDESTRIAN OVERPASS'), ('Perm Traffic Re-Routing', 'PERM TRAFFIC RE-ROUTING'),
+        ('Perm Road Closure', 'PERM ROAD CLOSURE')
+    ]
+    regulatory_right = [
         ('Infrastructure Programs', 'INFRASTRUCTURE PROGRAMS'), ('Future Development', 'FUTURE DEVELOPMENT'),
         ('Zoning Clearance', 'ZONING CLEARANCE'), ('Gas Station', 'GAS STATION')
     ]
-    acquirability_fields = [
-        ('Confidence Level', 'CONFIDENCE LEVEL'), ('Site Availability', 'SITE AVAILABILITY CLASS'), ('Other Remarks:', 'REMARKS')
+
+    acquirability_left = [
+        ('Confidence Level', 'CONFIDENCE LEVEL'), ('Site Availability', 'SITE AVAILABILITY CLASS')
+    ]
+    acquirability_right = [
+        ('Other Remarks:', 'REMARKS')
     ]
 
-    html += make_table('Lessor and Tenant Details', lessor_fields)
-    html += make_table('If with Sub-Lessor/ Sub-Lessee', sub_lessor_fields)
-    html += make_table('Regulatory', regulatory_fields)
-    html += make_table('Site Acquirability', acquirability_fields)
+    html += make_cloned_split_table('Lessor and Tenant Details', lessor_left, lessor_right)
+    html += make_cloned_split_table('If with Sub-Lessor/ Sub-Lessee', sub_left, sub_right)
+    html += make_cloned_split_table('Regulatory', regulatory_left, regulatory_right)
+    html += make_cloned_split_table('Site Acquirability', acquirability_left, acquirability_right)
     return html
 
 def sanitize_tab_name(name, existing_names):
@@ -638,6 +676,7 @@ if selected_ta and selected_site:
             html_content = render_excel_to_html(wb)
             html_content += render_additional_sections(row, placeholders)
             
+            # Encapsulating everything into a single layout call fixes the raw HTML display bug
             st.markdown(f'<div class="excel-container">{html_content}</div>', unsafe_allow_html=True)
             
     except Exception as e:
