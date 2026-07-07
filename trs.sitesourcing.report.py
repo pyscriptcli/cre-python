@@ -55,9 +55,9 @@ st.markdown("""
     }
     
     .stButton > button {
-        background-color: #333333 !important;
-        color: white !important;
-        border: none !important;
+        background-color: #e8e8e8 !important;
+        color: #333333 !important;
+        border: 1px solid #d0d0d0 !important;
         border-radius: 3px !important;
         padding: 0.4rem 0.6rem !important;
         font-weight: 500 !important;
@@ -69,17 +69,18 @@ st.markdown("""
         visibility: visible !important;
     }
     .stButton > button:hover {
-        background-color: #1a1a1a !important;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        background-color: #f5f5f5 !important;
+        border-color: #b0b0b0 !important;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
     }
     .stButton > button:active {
-        background-color: #000000 !important;
+        background-color: #d0d0d0 !important;
     }
     
     .stDownloadButton > button {
-        background-color: #555555 !important;
-        color: white !important;
-        border: none !important;
+        background-color: #e8e8e8 !important;
+        color: #333333 !important;
+        border: 1px solid #d0d0d0 !important;
         border-radius: 3px !important;
         padding: 0.4rem 0.6rem !important;
         font-weight: 500 !important;
@@ -90,34 +91,35 @@ st.markdown("""
         visibility: visible !important;
     }
     .stDownloadButton > button:hover {
-        background-color: #3d3d3d !important;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        background-color: #f5f5f5 !important;
+        border-color: #b0b0b0 !important;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
     }
     
     .stButton button p, .stButton button span {
-        color: white !important;
+        color: #333333 !important;
         opacity: 1 !important;
     }
     .stDownloadButton button p, .stDownloadButton button span {
-        color: white !important;
+        color: #333333 !important;
         opacity: 1 !important;
     }
     
     div[data-testid="stContainer"] {
-        background-color: white !important;
+        background-color: #fafafa !important;
         border-radius: 4px;
         padding: 0.6rem;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        border: 1px solid #e0e0e0;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        border: 1px solid #e8e8e8;
     }
     
     h1, h2, h3, h4, h5, h6, p, label, span, div {
-        color: #1a1a1a !important;
+        color: #333333 !important;
     }
     
     .stCheckbox label {
         font-weight: 400;
-        color: #1a1a1a !important;
+        color: #333333 !important;
         font-size: 0.8rem;
     }
     .stCheckbox label:hover {
@@ -127,36 +129,36 @@ st.markdown("""
         margin-bottom: 0.1rem;
     }
     .stCheckbox > div {
-        background-color: white !important;
+        background-color: #fafafa !important;
     }
     
     .stProgress > div > div {
-        background-color: #333333 !important;
+        background-color: #999999 !important;
     }
     
     hr {
-        border-color: #888888 !important;
-        opacity: 0.15;
+        border-color: #cccccc !important;
+        opacity: 0.2;
         margin: 0.4rem 0;
     }
     
     .metric-card {
-        background-color: white !important;
+        background-color: #f5f5f5 !important;
         border-radius: 4px;
         padding: 0.4rem;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        border-left: 3px solid #333333;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        border-left: 3px solid #999999;
         text-align: center;
         margin-bottom: 0.3rem;
     }
     .metric-value {
         font-size: 1.1rem;
         font-weight: 500;
-        color: #1a1a1a !important;
+        color: #333333 !important;
         font-family: 'Roboto', sans-serif;
     }
     .metric-label {
-        color: #1a1a1a !important;
+        color: #666666 !important;
         font-size: 0.6rem;
         font-weight: 400;
         text-transform: uppercase;
@@ -168,7 +170,7 @@ st.markdown("""
         max-height: 280px;
         overflow-y: auto;
         padding-right: 4px;
-        background-color: white !important;
+        background-color: #fafafa !important;
     }
     .checkbox-container::-webkit-scrollbar {
         width: 4px;
@@ -178,7 +180,7 @@ st.markdown("""
         border-radius: 2px;
     }
     .checkbox-container::-webkit-scrollbar-thumb {
-        background: #333333;
+        background: #999999;
         border-radius: 2px;
     }
     
@@ -187,47 +189,47 @@ st.markdown("""
         padding: 0.4rem;
     }
     .stAlert[data-baseweb="notification"] {
-        border-left-color: #333333 !important;
+        border-left-color: #999999 !important;
     }
     
     .stSuccess {
-        background-color: #e8e8e8 !important;
-        color: #1a1a1a !important;
+        background-color: #f0f0f0 !important;
+        color: #333333 !important;
     }
     .stSuccess * {
-        color: #1a1a1a !important;
+        color: #333333 !important;
     }
     
     .stWarning {
-        background-color: #f0f0f0 !important;
-        color: #1a1a1a !important;
+        background-color: #f5f5f0 !important;
+        color: #333333 !important;
     }
     .stWarning * {
-        color: #1a1a1a !important;
+        color: #333333 !important;
     }
     
     .stError {
-        background-color: #f0f0f0 !important;
-        color: #1a1a1a !important;
+        background-color: #f5f0f0 !important;
+        color: #333333 !important;
     }
     .stError * {
-        color: #1a1a1a !important;
+        color: #333333 !important;
     }
     
     .stInfo {
-        background-color: #f0f0f0 !important;
-        color: #1a1a1a !important;
+        background-color: #f0f5f5 !important;
+        color: #333333 !important;
     }
     .stInfo * {
-        color: #1a1a1a !important;
+        color: #333333 !important;
     }
     
     .stSpinner > div {
-        border-color: #333333 !important;
+        border-color: #999999 !important;
     }
     
     .stMarkdown, .stMarkdown * {
-        color: #1a1a1a !important;
+        color: #333333 !important;
     }
     
     /* Watermark masking footer overlay */
@@ -237,9 +239,9 @@ st.markdown("""
         left: 0 !important;
         right: 0 !important;
         height: 35px !important;
-        background-color: white !important;
+        background-color: #fafafa !important;
         z-index: 9999999 !important;
-        box-shadow: 0 -2px 10px rgba(0,0,0,0.05) !important;
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.03) !important;
         border-top: 1px solid #e8e8e8 !important;
         pointer-events: none !important;
     }
@@ -432,6 +434,9 @@ if "TRADE AREA" not in df.columns or "SITE NAME" not in df.columns:
     st.error("Data must contain 'TRADE AREA' and 'SITE NAME' columns.")
     st.stop()
 
+# Calculate total unique sites
+total_sites = df["SITE NAME"].nunique()
+
 # Check for TRADE AREA NO column for unique count
 trade_area_no_col = None
 for col in df.columns:
@@ -482,8 +487,8 @@ with col1:
     
     st.markdown(f"""
     <div class="metric-card">
-        <div class="metric-value">{len(df)}</div>
-        <div class="metric-label">Records</div>
+        <div class="metric-value">{total_sites}</div>
+        <div class="metric-label">Total Sites</div>
     </div>
     <div class="metric-card">
         <div class="metric-value">{unique_trade_areas_count}</div>
