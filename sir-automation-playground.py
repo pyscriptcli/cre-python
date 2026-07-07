@@ -10,7 +10,6 @@ from copy import copy
 import os
 import hashlib
 from openpyxl import load_workbook
-import streamlit.components.v1 as components
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(
@@ -27,7 +26,7 @@ if not os.path.exists(_config_file):
     with open(_config_file, "w", encoding="utf-8") as f:
         f.write("[theme]\nbase=\"light\"\n")
 
-# --- CUSTOM GOOGLE WORKSPACE UI CSS ---
+# --- CUSTOM GOOGLE WORKSPACE UI & CONDENSED SPREADSHEET CSS ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto:wght@300;400;500;700&display=swap');
@@ -95,6 +94,61 @@ st.markdown("""
         padding: 0.75rem 1rem;
         border-radius: 12px;
         margin-bottom: 1rem;
+    }
+    
+    /* Spreadsheet Embed Area Styling */
+    .excel-container {
+        background-color: #ffffff !important;
+        border-radius: 8px;
+        padding: 1rem;
+        border: 1px solid #c4c7c5;
+        box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);
+        overflow-x: auto;
+        margin-top: 0.5rem;
+        width: 100%;
+    }
+
+    /* Embedded Sheet Specific Styling Rule Overrides (-2pt applied globally) */
+    .ritz .waffle a { color: inherit; }
+    .ritz .waffle td { padding: 4px 6px !important; font-family: Arial, sans-serif !important; }
+    .ritz .waffle .s0 {border-bottom:1px SOLID #bfbfbf;border-right:1px SOLID #bfbfbf;background-color:#800000;text-align:center;font-weight:bold;color:#ffffff;font-size:10pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s1 {border-bottom:1px SOLID #bfbfbf;border-right:1px SOLID #bfbfbf;background-color:#f0f4f9;text-align:left;font-weight:bold;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s2 {background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s3 {border-right:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s4 {border-bottom:1px SOLID transparent;background-color:#f8f9fa;border:1px SOLID #c4c7c5;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:normal;word-break:break-word;direction:ltr;}
+    .ritz .waffle .s5 {background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s6 {border-bottom:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s7 {border-bottom:1px SOLID #bfbfbf;border-right:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s8 {border-bottom:1px SOLID transparent;background-color:#ffffff;text-align:left;color:#b3261e;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s9 {border-bottom:1px SOLID transparent;border-right:1px SOLID #bfbfbf;background-color:#f8f9fa;border:1px SOLID #c4c7c5;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:normal;word-break:break-word;direction:ltr;}
+    .ritz .waffle .s10{background-color:#e1e3e1;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s11{border-bottom:1px SOLID #000000;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s12{border-bottom:1px SOLID #000000;border-right:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s13{background-color:#e1e3e1;text-align:left;font-weight:bold;color:#b3261e;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s14{background-color:#f8f9fa;text-align:left;color:#b3261e;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s15{border-bottom:1px SOLID transparent;background-color:#f8f9fa;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s16{border-bottom:1px SOLID transparent;background-color:#f8f9fa;text-align:left;color:#b3261e;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s17{background-color:#f8f9fa;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s18{border-bottom:1px SOLID transparent;border-right:1px SOLID #bfbfbf;background-color:#f8f9fa;text-align:left;color:#b3261e;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s19{border-bottom:1px SOLID #000000;background-color:#f8f9fa;text-align:left;color:#b3261e;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s20{border-bottom:1px SOLID #000000;background-color:#f8f9fa;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s21{border-bottom:1px SOLID #000000;border-right:1px SOLID #bfbfbf;background-color:#f8f9fa;text-align:left;color:#b3261e;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s22{background-color:#ffffff;text-align:left;font-weight:bold;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s23{border-right:none;border-bottom:1px SOLID transparent;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s24{border-left:none;border-bottom:1px SOLID transparent;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s25{border-left:none;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    
+    /* Fix for table display */
+    .waffle {
+        border-collapse: collapse;
+        width: 100%;
+    }
+    .waffle td {
+        border: 1px solid #bfbfbf;
+        padding: 4px 6px;
+    }
+    .grid-container {
+        overflow-x: auto;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -202,46 +256,10 @@ def generate_trade_area_report(df, trade_area, template_bytes, placeholders):
     wb.save(wb_buffer)
     return wb_buffer
 
-# --- RAW COMPACT SPREADSHEET FRAMEWORK TEMPLATE ---
-HTML_FRAMEWORK = """
-<!DOCTYPE html>
-<html>
-<head>
-    <style type="text/css">
-        body {{ margin: 0; padding: 0; background-color: #ffffff; }}
-        .ritz .waffle a {{ color: inherit; }}
-        .ritz .waffle td {{ padding: 4px 6px !important; font-family: Arial, sans-serif !important; border: 1px solid #e1e3e1; }}
-        .ritz .waffle .s0 {{border-bottom:1px SOLID #bfbfbf;border-right:1px SOLID #bfbfbf;background-color:#800000;text-align:center;font-weight:bold;color:#ffffff;font-size:10pt;vertical-align:middle;white-space:nowrap;direction:ltr;}}
-        .ritz .waffle .s1 {{border-bottom:1px SOLID #bfbfbf;border-right:1px SOLID #bfbfbf;background-color:#f0f4f9;text-align:left;font-weight:bold;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}}
-        .ritz .waffle .s2 {{background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}}
-        .ritz .waffle .s3 {{border-right:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}}
-        .ritz .waffle .s4 {{border-bottom:1px SOLID transparent;background-color:#f8f9fa;border:1px SOLID #c4c7c5;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:normal;word-break:break-word;direction:ltr;}}
-        .ritz .waffle .s5 {{background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}}
-        .ritz .waffle .s6 {{border-bottom:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}}
-        .ritz .waffle .s7 {{border-bottom:1px SOLID #bfbfbf;border-right:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}}
-        .ritz .waffle .s8 {{border-bottom:1px SOLID transparent;background-color:#ffffff;text-align:left;color:#b3261e;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}}
-        .ritz .waffle .s9 {{border-bottom:1px SOLID transparent;border-right:1px SOLID #bfbfbf;background-color:#f8f9fa;border:1px SOLID #c4c7c5;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:normal;word-break:break-word;direction:ltr;}}
-        .ritz .waffle .s10{{background-color:#e1e3e1;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}}
-        .ritz .waffle .s11{{border-bottom:1px SOLID #000000;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}}
-        .ritz .waffle .s12{{border-bottom:1px SOLID #000000;border-right:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}}
-        .ritz .waffle .s13{{background-color:#e1e3e1;text-align:left;font-weight:bold;color:#b3261e;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}}
-        .ritz .waffle .s14{{background-color:#f8f9fa;text-align:left;color:#b3261e;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}}
-        .ritz .waffle .s15{{border-bottom:1px SOLID transparent;background-color:#f8f9fa;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}}
-        .ritz .waffle .s16{{border-bottom:1px SOLID transparent;background-color:#f8f9fa;text-align:left;color:#b3261e;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}}
-        .ritz .waffle .s17{{background-color:#f8f9fa;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}}
-        .ritz .waffle .s18{{border-bottom:1px SOLID transparent;border-right:1px SOLID #bfbfbf;background-color:#f8f9fa;text-align:left;color:#b3261e;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}}
-        .ritz .waffle .s19{{border-bottom:1px SOLID #000000;background-color:#f8f9fa;text-align:left;color:#b3261e;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}}
-        .ritz .waffle .s20{{border-bottom:1px SOLID #000000;background-color:#f8f9fa;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}}
-        .ritz .waffle .s21{{border-bottom:1px SOLID #000000;border-right:1px SOLID #bfbfbf;background-color:#f8f9fa;text-align:left;color:#b3261e;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}}
-        .ritz .waffle .s22{{background-color:#ffffff;text-align:left;font-weight:bold;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}}
-        .ritz .waffle .s23{{border-right:none;border-bottom:1px SOLID transparent;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}}
-        .ritz .waffle .s24{{border-left:none;border-bottom:1px SOLID transparent;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}}
-        .ritz .waffle .s25{{border-left:none;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}}
-    </style>
-</head>
-<body>
+# --- RAW BLUEPRINT DESIGN LAYOUT (Cleaned Structural HTML Grid) ---
+RAW_TEMPLATE_HTML = """
 <div class="ritz grid-container" dir="ltr">
-<table class="waffle" cellspacing="0" cellpadding="0" style="table-layout: fixed; width: 100%; border-collapse: collapse;">
+<table class="waffle" cellspacing="0" cellpadding="0">
     <colgroup>
         <col style="width:16%;"><col style="width:7%;"><col style="width:6%;"><col style="width:7%;"><col style="width:7%;"><col style="width:7%;"><col style="width:6%;"><col style="width:1%;"><col style="width:11%;"><col style="width:13%;"><col style="width:7%;"><col style="width:7%;"><col style="width:7%;"><col style="width:9%;"><col style="width:2%;">
     </colgroup>
@@ -569,8 +587,6 @@ HTML_FRAMEWORK = """
     </tbody>
 </table>
 </div>
-</body>
-</html>
 """
 
 # --- LOAD DATA Assets ---
@@ -638,7 +654,7 @@ with col4:
                     use_container_width=True
                 )
 
-# --- DIRECT SANDBOXED EMBED WINDOW RENDER ---
+# --- DIRECT HTML VIEW LAYOUT ---
 if selected_ta != "Select Trade Area..." and selected_site_display != "Select Site...":
     site_data = df[df["SITE_DISPLAY"] == selected_site_display]
     if not site_data.empty:
@@ -651,7 +667,7 @@ if selected_ta != "Select Trade Area..." and selected_site_display != "Select Si
                 if hasattr(val, 'strftime'): return val.strftime('%B %d, %Y')
                 return str(val).strip()
 
-            rendered_view = HTML_FRAMEWORK
+            rendered_view = RAW_TEMPLATE_HTML
             rendered_view = rendered_view.replace("_TRADE_AREA_", process_val("TRADE AREA"))
             rendered_view = rendered_view.replace("_SITE_NAME_", process_val("SITE NAME"))
             rendered_view = rendered_view.replace("_SITE_NO_", process_val("SITE NO"))
@@ -684,10 +700,11 @@ if selected_ta != "Select Trade Area..." and selected_site_display != "Select Si
             rendered_view = rendered_view.replace("_SITE_AVAILABILITY_CLASS_", process_val("SITE AVAILABILITY CLASS"))
             rendered_view = rendered_view.replace("_REMARKS_", process_val("REMARKS"))
             
+            # Remove any remaining placeholders
             rendered_view = re.sub(r"_[A-Z0-9_]+_", "", rendered_view)
             
-            # Isolated HTML Rendering container 
-            components.html(rendered_view, height=850, scrolling=True)
+            # Display the rendered HTML
+            st.markdown(rendered_view, unsafe_allow_html=True)
                 
         except Exception as e:
             st.error(f"Error compiling layout: {str(e)}")
