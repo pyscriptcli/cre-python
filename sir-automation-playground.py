@@ -166,6 +166,9 @@ def parse_site_number(site_display_str):
 def generate_trade_area_report(df, trade_area, template_bytes, placeholders):
     ta_data = df[df["TRADE AREA"] == trade_area]
     wb = load_workbook(io.BytesIO(template_bytes))
+    
+    # Store standard tabs to safely purge them after formatting site data
+    original_sheets = wb.sheetnames
     base_sheet = wb.active
     base_sheet.title = "TEMPLATE_TO_DELETE"
     existing_tabs = set()
@@ -198,12 +201,18 @@ def generate_trade_area_report(df, trade_area, template_bytes, placeholders):
             if max_len > 45: 
                 new_sheet.row_dimensions[row[0].row].height = None
 
-    wb.remove(base_sheet)
+    # Hard-remove original sheets and template tabs cleanly before shipping
+    if "TEMPLATE_TO_DELETE" in wb.sheetnames:
+        wb.remove(wb["TEMPLATE_TO_DELETE"])
+    for sheet_name in original_sheets:
+        if sheet_name in wb.sheetnames and sheet_name != "TEMPLATE_TO_DELETE":
+            wb.remove(wb[sheet_name])
+            
     wb_buffer = io.BytesIO()
     wb.save(wb_buffer)
-    return wb_buffer
+    return wb_buffer.getvalue()
 
-# --- COMPLETE HTML BLUEPRINT WITH WRAP-TEXT LOGIC INJECTED ---
+# --- COMPLETE HTML BLUEPRINT ---
 HTML_FRAMEWORK = """
 <!DOCTYPE html>
 <html>
@@ -221,18 +230,12 @@ HTML_FRAMEWORK = """
         .ritz .waffle .s1 {border-bottom:1px SOLID #bfbfbf;border-right:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;font-weight:bold;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
         .ritz .waffle .s2 {background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
         .ritz .waffle .s3 {border-right:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
-        
-        /* DATA CELLS: Modified white-space rule to dynamically wrap text and break long string boundaries safely */
         .ritz .waffle .s4 {border-bottom:1px SOLID transparent;background-color:#f8f9fa;border:1px SOLID #c4c7c5;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:normal;word-wrap:break-word;word-break:break-word;direction:ltr;}
-        
         .ritz .waffle .s5 {background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
         .ritz .waffle .s6 {border-bottom:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
         .ritz .waffle .s7 {border-bottom:1px SOLID #bfbfbf;border-right:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
         .ritz .waffle .s8 {border-bottom:1px SOLID transparent;background-color:#ffffff;text-align:left;color:#ff0000;font-size:8pt;white-space:nowrap;direction:ltr;}
-        
-        /* MULTI-LINE DATA REMARKS CELLS: Enabled wrapping and auto stretching properties */
         .ritz .waffle .s9 {border-bottom:1px SOLID transparent;border-right:1px SOLID #bfbfbf;background-color:#f8f9fa;border:1px SOLID #c4c7c5;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:normal;word-wrap:break-word;word-break:break-word;direction:ltr;}
-        
         .ritz .waffle .s10{background-color:#bfbfbf;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
         .ritz .waffle .s11{border-bottom:1px SOLID #000000;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
         .ritz .waffle .s12{border-bottom:1px SOLID #000000;border-right:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
@@ -473,15 +476,14 @@ with col2:
 
 with col3:
     if selected_ta and selected_ta != "Select Trade Area...":
-        if st.button("Generate Multi-Tab Report", use_container_width=True):
-            with st.spinner("Compiling Excel Workbook..."):
-                wb_buffer = generate_trade_area_report(df, selected_ta, template_bytes_raw, placeholders)
-                st.download_button(
-                    label="Download Report", 
-                    data=wb_buffer.getvalue(), 
-                    file_name=f"{selected_ta}_Report.xlsx", 
-                    use_container_width=True
-                )
+        # Direct generation triggering handled on download click action 
+        st.download_button(
+            label="Export", 
+            data=generate_trade_area_report(df, selected_ta, template_bytes_raw, placeholders), 
+            file_name=f"{selected_ta}_Report.xlsx", 
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True
+        )
 
 # --- DIRECT HTML VIEW LAYOUT ---
 if selected_ta != "Select Trade Area..." and selected_site_display != "Select Site...":
@@ -534,6 +536,6 @@ if selected_ta != "Select Trade Area..." and selected_site_display != "Select Si
             components.html(rendered_view, height=850, scrolling=True)
                 
         except Exception as e:
-            st.error(f"Error compiling visual matrix framework: {str(e)}")
+            st.error(f"Error compiling layout: {str(e)}")
 else:
     st.info("Please select a Trade Area and a Site to view the specific report.")
