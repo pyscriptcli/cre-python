@@ -61,7 +61,7 @@ st.markdown("""
         font-weight: 500 !important;
         min-height: 40px !important;
         height: 40px !important;
-        width: auto !important;
+        width: 100% !important;
         box-shadow: 0 1px 2px 0 rgba(60,64,67,0.3), 0 1px 3px 1px rgba(60,64,67,0.15) !important;
         transition: background-color 0.2s, box-shadow 0.2s;
     }
@@ -142,7 +142,7 @@ if not st.session_state.authenticated:
                 st.error("Invalid token string provided.")
     st.stop()
 
-# --- CONFIGURATIONSpreadsheets Routing ---
+# --- CONFIGURATION ---
 SOURCE_URL = "https://docs.google.com/spreadsheets/d/14nhO9u7zJRcOoux8I7l2IzwU7iQZNW9fRX6TCip47CE/export?format=xlsx"
 TEMPLATE_URL = "https://docs.google.com/spreadsheets/d/1uS3xmnPi0o4c_EayQtURYDSMMPRDRGSb/export?format=xlsx"
 
@@ -168,8 +168,7 @@ def get_placeholders(sheet):
 
 def sanitize_tab_name(name, existing_names):
     clean_name = re.sub(r'[\\/*?\[\]:]', '', str(name))[:31]
-    if not clean_name:
-        clean_name = "Sheet"
+    if not clean_name: clean_name = "Sheet"
     if clean_name not in existing_names:
         existing_names.add(clean_name)
         return clean_name
@@ -181,7 +180,45 @@ def sanitize_tab_name(name, existing_names):
             return new_name
         counter += 1
 
-# --- HTML DOM COMPONENT ---
+def generate_trade_area_report(df, trade_area, template_bytes, placeholders):
+    """Core engine for batch-building the multi-tab report, with hard regex token stripping."""
+    ta_data = df[df["TRADE AREA"] == trade_area]
+    wb = load_workbook(io.BytesIO(template_bytes))
+    base_sheet = wb.active
+    base_sheet.title = "TEMPLATE_TO_DELETE"
+    existing_tabs = set()
+    
+    for _, r_row in ta_data.iterrows():
+        s_name = r_row.get("SITE NAME", "Unknown")
+        safe_tab_name = sanitize_tab_name(s_name, existing_tabs)
+        new_sheet = wb.copy_worksheet(base_sheet)
+        new_sheet.title = safe_tab_name
+        
+        for row_cells in new_sheet.iter_rows():
+            for cell in row_cells:
+                if isinstance(cell.value, str) and "{{" in cell.value:
+                    new_val = cell.value
+                    # Replace found tokens
+                    for ph in placeholders:
+                        target_regex = r"\{\{\s*" + re.escape(ph) + r"(\s*:.*?)?\}\}"
+                        if re.search(target_regex, new_val):
+                            raw_data_val = r_row.get(ph.upper(), "")
+                            if pd.isna(raw_data_val) or raw_data_val is None: raw_data_val = ""
+                            if isinstance(raw_data_val, float) and raw_data_val.is_integer(): val_str = str(int(raw_data_val))
+                            elif hasattr(raw_data_val, 'strftime'): val_str = r_row.get(ph.upper(), "").strftime('%B %d, %Y')
+                            else: val_str = str(raw_data_val)
+                            new_val = re.sub(target_regex, val_str, new_val)
+                            
+                    # Hard-wipe any remaining {{PLACEHOLDER}} syntax that had no corresponding data
+                    new_val = re.sub(r"\{\{.*?\}\}", "", new_val)
+                    cell.value = new_val.strip() if new_val else ""
+                    
+    wb.remove(base_sheet)
+    wb_buffer = io.BytesIO()
+    wb.save(wb_buffer)
+    return wb_buffer
+
+# --- HTML TEMPLATE BLUEPRINT FROM EXPORT DATA ---
 RAW_TEMPLATE_HTML = """
 <style type="text/css">
     .ritz .waffle a { color: #15c; }
@@ -266,4 +303,151 @@ RAW_TEMPLATE_HTML = """
         <tr style="height: 19px;"><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s4"></td><td class="s4"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s4"></td></tr>
         <tr style="height: 24px;"><td class="s5" dir="ltr">Name of Lessee</td><td class="s5"></td><td class="s8" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Name of Sub-Lessee</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
         <tr style="height: 24px;"><td class="s5" dir="ltr">Position</td><td class="s5"></td><td class="s8" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Position</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
-        <tr style="height: 24px;"><td class="s5" dir="ltr">Contact No.</td><td class="s5"></td><td class="s8" colspan="5"></td><td class="s4">
+        <tr style="height: 24px;"><td class="s5" dir="ltr">Contact No.</td><td class="s5"></td><td class="s8" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Contact No.</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
+        <tr style="height: 24px;"><td class="s5" dir="ltr">E-mail Address</td><td class="s5"></td><td class="s8" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">E-mail Address</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
+        <tr style="height: 24px;"><td class="s7" dir="ltr" colspan="2">Name of Authorized Representative</td><td class="s8" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Name of Authorized Representative</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
+        <tr style="height: 24px;"><td class="s5" dir="ltr">Business Address</td><td class="s5"></td><td class="s8" colspan="5"></td><td class="s4"></td><td class="s4"></td><td class="s7" dir="ltr" colspan="2">Business Address</td><td class="s8" colspan="4"></td><td class="s4"></td></tr>
+        <tr style="height: 19px;"><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td><td class="s4"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td></tr>
+        <tr style="height: 20px;"><td class="s14" dir="ltr" colspan="16">Regulatory</td></tr>
+        <tr style="height: 24px;">
+            <td class="s17" dir="ltr">Setback Requirement</td><td class="s15"></td><td class="s15"></td><td class="s15"></td><td class="s15"></td><td class="s15"></td><td class="s15"></td>
+            <td class="s18"></td><td class="s18"></td>
+            <td class="s19" dir="ltr">Perm Traffic Re-Routing</td><td class="s15"></td><td class="s15"></td><td class="s15"></td>
+            <td class="s17" dir="ltr">Future Development</td><td class="s15"></td><td class="s16"></td>
+        </tr>
+        <tr style="height: 24px;">
+            <td class="s17" dir="ltr">Road Widening</td><td class="s15"></td><td class="s15"></td><td class="s15"></td><td class="s15"></td><td class="s15"></td><td class="s15"></td>
+            <td class="s18"></td><td class="s18"></td>
+            <td class="s19" dir="ltr">Perm Road Closure</td><td class="s15"></td><td class="s15"></td><td class="s15"></td>
+            <td class="s17" dir="ltr">Zoning Clearance</td><td class="s15"></td><td class="s16"></td>
+        </tr>
+        <tr style="height: 24px;">
+            <td class="s17" dir="ltr">Pedestrian Overpass</td><td class="s21"></td><td class="s21"></td><td class="s21"></td><td class="s21"></td><td class="s21"></td><td class="s21"></td>
+            <td class="s21"></td><td class="s21"></td>
+            <td class="s21" dir="ltr">Infrastructure Programs</td><td class="s21"></td><td class="s21"></td><td class="s21"></td>
+            <td class="s21" dir="ltr">Gas Station</td><td class="s21"></td><td class="s22"></td>
+        </tr>
+        <tr style="height: 19px;"><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td><td class="s4"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td></tr>
+        <tr style="height: 20px;"><td class="s23" dir="ltr" colspan="16">Site Acquirability:</td></tr>
+        <tr style="height: 24px;"><td class="s5" dir="ltr">Confidence Level</td><td class="s11" colspan="5"></td><td class="s5"></td><td class="s4"></td><td class="s4"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s4"></td></tr>
+        <tr style="height: 24px;"><td class="s5" dir="ltr">Site Availability</td><td class="s24" colspan="5">_SITE_AVAILABILITY_CLASS_</td><td class="s5"></td><td class="s4"></td><td class="s4"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s4"></td></tr>
+        <tr style="height: 24px;"><td class="s5" dir="ltr">Other Remarks:</td><td class="s25" colspan="5">_REMARKS_</td><td class="s5"></td><td class="s4"></td><td class="s4"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s5"></td><td class="s4"></td></tr>
+    </tbody>
+</table>
+</div>
+"""
+
+# --- LOAD DATA ---
+@st.cache_data(ttl=3600)
+def load_data():
+    source_data = download_file(SOURCE_URL)
+    template_data = download_file(TEMPLATE_URL)
+    if source_data is None or template_data is None: return None, None, None
+    
+    df = pd.read_excel(source_data)
+    df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
+    df.columns = df.columns.str.strip().str.upper()
+    
+    # Establish string formatter for Display Column ensuring Whole Number rendering of SITE NO
+    df["SITE_DISPLAY"] = df.apply(
+        lambda row: f"{int(row['SITE NO'])} - {row['SITE NAME']}" 
+        if pd.notna(row.get('SITE NO')) and isinstance(row.get('SITE NO'), (int, float)) 
+        else f"{row.get('SITE NO', '')} - {row.get('SITE NAME', '')}".strip(" -"), 
+        axis=1
+    )
+    
+    temp_wb = load_workbook(template_data)
+    placeholders = get_placeholders(temp_wb.active)
+    template_data.seek(0)
+    return df, placeholders, template_data.getvalue()
+
+with st.spinner("Loading Data Assets..."):
+    df, placeholders, template_bytes_raw = load_data()
+
+if df is None or template_bytes_raw is None:
+    st.error("Failed to load data. Please check connection profiles.")
+    st.stop()
+
+# --- CONTROLS ROW ---
+trade_areas = ["Select Trade Area..."] + sorted(df["TRADE AREA"].dropna().unique().tolist())
+col1, col2, col3, col4, col5 = st.columns([1.5, 1.5, 0.7, 0.8, 0.5])
+
+with col1:
+    st.markdown("<p style='font-size:0.75rem; font-weight:500; color:#444746; margin:0;'>Trade Area</p>", unsafe_allow_html=True)
+    selected_ta = st.selectbox("Trade Area", options=trade_areas, index=0, label_visibility="collapsed")
+    
+with col2:
+    st.markdown("<p style='font-size:0.75rem; font-weight:500; color:#444746; margin:0;'>Site View</p>", unsafe_allow_html=True)
+    if selected_ta and selected_ta != "Select Trade Area...":
+        sites_in_ta = ["Select Site..."] + sorted(df[df["TRADE AREA"] == selected_ta]["SITE_DISPLAY"].dropna().unique().tolist())
+    else:
+        sites_in_ta = ["Select Site..."]
+    selected_site_display = st.selectbox("Site Name", options=sites_in_ta, index=0, label_visibility="collapsed")
+
+with col3:
+    if st.button("Refresh Cache", use_container_width=True):
+        st.cache_data.clear()
+        st.rerun()
+
+with col4:
+    if selected_ta and selected_ta != "Select Trade Area...":
+        with st.spinner("Generating..."):
+            wb_buffer = generate_trade_area_report(df, selected_ta, template_bytes_raw, placeholders)
+            st.download_button(
+                label="Export", 
+                data=wb_buffer.getvalue(), 
+                file_name=f"{selected_ta}_Report.xlsx", 
+                use_container_width=True
+            )
+
+with col5:
+    st.markdown(f"<p class='info-text'>Total Registry<br><span style='font-size:1.1rem; color:#0b57d0;'>{len(df['SITE NAME'].dropna().unique())} Sites</span></p>", unsafe_allow_html=True)
+
+# --- DIRECT HTML VIEW BLUEPRINT INJECTION LAYER ---
+if selected_ta != "Select Trade Area..." and selected_site_display != "Select Site...":
+    site_data = df[df["SITE_DISPLAY"] == selected_site_display]
+    if not site_data.empty:
+        site_row_data = site_data.iloc[0]
+        try:
+            # Data parsing formatter utilities matching explicit key bounds
+            def process_val(key_string):
+                val = site_row_data.get(key_string.upper(), "")
+                if pd.isna(val) or val is None: return ""
+                if isinstance(val, float) and val.is_integer(): return str(int(val))
+                if hasattr(val, 'strftime'): return val.strftime('%B %d, %Y')
+                return str(val).strip()
+
+            # Dynamic string binding layer injecting row cells safely straight into the blueprint
+            rendered_view = RAW_TEMPLATE_HTML
+            rendered_view = rendered_view.replace("_TRADE_AREA_", process_val("TRADE AREA"))
+            rendered_view = rendered_view.replace("_SITE_NAME_", process_val("SITE NAME"))
+            rendered_view = rendered_view.replace("_SITE_NO_", process_val("SITE NO"))
+            rendered_view = rendered_view.replace("_TIMESTAMP_", process_val("TIMESTAMP"))
+            rendered_view = rendered_view.replace("_UNIT_BLDG_ST_NAME_", process_val("UNIT #, BLDG/ST # AND ST NAME"))
+            rendered_view = rendered_view.replace("_BARANGAY_DISTRICT_NAME_", process_val("BARANGAY/DISTRICT NAME"))
+            rendered_view = rendered_view.replace("_CITY_MUNICIPALITY_", process_val("CITY/MUNICIPALITY"))
+            rendered_view = rendered_view.replace("_REGION_", process_val("REGION"))
+            rendered_view = rendered_view.replace("_POSTAL_CODE_", process_val("POSTAL CODE"))
+            rendered_view = rendered_view.replace("_MONTHLY_RENTAL_RATE_", process_val("MONTHLY RENTAL RATE"))
+            rendered_view = rendered_view.replace("_ESCALATION_", process_val("ESCALATION"))
+            rendered_view = rendered_view.replace("_ADVANCE_RENTAL_", process_val("ADVANCE RENTAL"))
+            rendered_view = rendered_view.replace("_SECURITY_DEPOSIT_", process_val("SECURITY DEPOSIT"))
+            rendered_view = rendered_view.replace("_CUSA_", process_val("CUSA"))
+            rendered_view = rendered_view.replace("_LOT_FLOOR_AREA_SQM_", process_val("LOT/FLOOR AREA SQM"))
+            rendered_view = rendered_view.replace("_LEASE_TYPE_", process_val("LEASE TYPE"))
+            rendered_view = rendered_view.replace("_LESSOR_", process_val("LESSOR"))
+            rendered_view = rendered_view.replace("_CONTACT_PERSON_SOURCE_", process_val("CONTACT PERSON/SOURCE"))
+            rendered_view = rendered_view.replace("_CONTACT_NUMBER_", process_val("CONTACT NUMBER"))
+            rendered_view = rendered_view.replace("_EMAIL_ADDRESS_", process_val("EMAIL ADDRESS"))
+            rendered_view = rendered_view.replace("_SITE_AVAILABILITY_CLASS_", process_val("SITE AVAILABILITY CLASS"))
+            rendered_view = rendered_view.replace("_REMARKS_", process_val("REMARKS"))
+            
+            # Final sweep to remove any remaining placeholder tags if fields were empty
+            rendered_view = re.sub(r"_[A-Z0-9_]+_", "", rendered_view)
+            
+            st.markdown(f'<div class="excel-container">{rendered_view}</div>', unsafe_allow_html=True)
+                
+        except Exception as e:
+            st.error(f"Error compiling visual blueprint frame layer: {str(e)}")
+else:
+    st.info("Please select a Trade Area and a Site to view the specific report.")
