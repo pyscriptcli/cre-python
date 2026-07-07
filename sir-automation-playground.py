@@ -3,20 +3,25 @@ import pandas as pd
 import openpyxl
 from openpyxl.styles import Alignment, PatternFill, Font, Border, Side
 from openpyxl.utils import get_column_letter, range_boundaries
+from openpyxl.utils.dataframe import dataframe_to_rows
 import re
 import io
-import zipfile
 import requests
 from copy import copy
 import os
 import hashlib
+from openpyxl import load_workbook
+import tempfile
+from openpyxl.drawing.image import Image
+import base64
+from io import BytesIO
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(
-    page_title="trs.sitesourcing.report",
-    page_icon="",
+    page_title="trs.sitesourcing.viewer",
+    page_icon="👁️",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
 # --- PROGRAMMATIC LIGHT MODE LOCK ---
@@ -36,25 +41,28 @@ st.markdown("""
         font-family: 'Roboto', 'Segoe UI', sans-serif !important;
     }
     
-    /* Hide Streamlit chrome */
+    /* Strict Hiding */
     #MainMenu {visibility: hidden !important;}
-    footer {visibility: hidden !important; height: 0 !important; padding: 0 !important; margin: 0 !important; overflow: hidden !important;}
+    footer {visibility: hidden !important;}
     header {visibility: hidden !important;}
     button[title="View source"] {display: none !important;}
     .stAppDeployButton {display: none !important;}
     div[data-testid="stStatusWidget"] {display: none !important;}
-    .main-header {display: none !important;}
+    
+    .main-header {
+        display: none !important;
+    }
     
     .block-container {
         padding-top: 0.3rem !important;
-        padding-bottom: 3.5rem !important;
-        max-width: 1200px !important;
+        padding-bottom: 1rem !important;
+        max-width: 1400px !important;
     }
     
     .stButton > button {
-        background-color: #003366 !important;
-        color: white !important;
-        border: none !important;
+        background-color: #e8e8e8 !important;
+        color: #333333 !important;
+        border: 1px solid #d0d0d0 !important;
         border-radius: 3px !important;
         padding: 0.4rem 0.6rem !important;
         font-weight: 500 !important;
@@ -62,211 +70,117 @@ st.markdown("""
         transition: all 0.2s ease;
         width: 100%;
         min-height: 36px;
-        opacity: 1 !important;
-        visibility: visible !important;
     }
     .stButton > button:hover {
-        background-color: #002244 !important;
-        box-shadow: 0 2px 6px rgba(0, 51, 102, 0.3);
-    }
-    .stButton > button:active {
-        background-color: #001a33 !important;
+        background-color: #f5f5f5 !important;
+        border-color: #b0b0b0 !important;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
     }
     
-    .stDownloadButton > button {
-        background-color: #28a745 !important;
-        color: white !important;
-        border: none !important;
-        border-radius: 3px !important;
-        padding: 0.4rem 0.6rem !important;
+    .stSelectbox > div > div {
+        background-color: #fafafa !important;
+        border-color: #d0d0d0 !important;
+        color: #333333 !important;
+    }
+    
+    .stSelectbox label {
+        color: #333333 !important;
         font-weight: 500 !important;
-        font-size: 0.8rem !important;
-        width: 100%;
-        min-height: 36px;
-        opacity: 1 !important;
-        visibility: visible !important;
-    }
-    .stDownloadButton > button:hover {
-        background-color: #218838 !important;
-        box-shadow: 0 2px 6px rgba(40, 167, 69, 0.3);
+        font-size: 0.9rem !important;
     }
     
-    .stButton button p, .stButton button span {
-        color: white !important;
-        opacity: 1 !important;
-    }
-    .stDownloadButton button p, .stDownloadButton button span {
-        color: white !important;
-        opacity: 1 !important;
+    .stMarkdown, .stMarkdown * {
+        color: #333333 !important;
     }
     
-    div[data-testid="stContainer"] {
-        background-color: white !important;
+    .sidebar-section {
+        background-color: #f5f5f5 !important;
         border-radius: 4px;
-        padding: 0.6rem;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        border: 1px solid #e0e0e0;
-    }
-    
-    h1, h2, h3, h4, h5, h6, p, label, span, div {
-        color: #003366 !important;
-    }
-    
-    .stCheckbox label {
-        font-weight: 400;
-        color: #003366 !important;
-        font-size: 0.8rem;
-    }
-    .stCheckbox label:hover {
-        color: #002244 !important;
-    }
-    .stCheckbox {
-        margin-bottom: 0.1rem;
-    }
-    .stCheckbox > div {
-        background-color: white !important;
-    }
-    
-    .stProgress > div > div {
-        background-color: #003366 !important;
-    }
-    
-    hr {
-        border-color: #003366 !important;
-        opacity: 0.15;
-        margin: 0.4rem 0;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        border: 1px solid #e8e8e8;
     }
     
     .metric-card {
-        background-color: white !important;
+        background-color: #f5f5f5 !important;
         border-radius: 4px;
         padding: 0.4rem;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        border-left: 3px solid #003366;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        border-left: 3px solid #999999;
         text-align: center;
         margin-bottom: 0.3rem;
     }
     .metric-value {
         font-size: 1.1rem;
         font-weight: 500;
-        color: #003366 !important;
-        font-family: 'Roboto', sans-serif;
+        color: #333333 !important;
     }
     .metric-label {
-        color: #003366 !important;
+        color: #666666 !important;
         font-size: 0.6rem;
         font-weight: 400;
         text-transform: uppercase;
         letter-spacing: 0.5px;
-        font-family: 'Roboto', sans-serif;
-    }
-    
-    .checkbox-container {
-        max-height: 280px;
-        overflow-y: auto;
-        padding-right: 4px;
-        background-color: white !important;
-    }
-    .checkbox-container::-webkit-scrollbar {
-        width: 4px;
-    }
-    .checkbox-container::-webkit-scrollbar-track {
-        background: #f1f1f1;
-        border-radius: 2px;
-    }
-    .checkbox-container::-webkit-scrollbar-thumb {
-        background: #003366;
-        border-radius: 2px;
     }
     
     .stAlert {
         border-radius: 4px;
         padding: 0.4rem;
     }
-    .stAlert[data-baseweb="notification"] {
-        border-left-color: #003366 !important;
+    
+    /* Excel Viewer Container */
+    .excel-container {
+        background-color: white !important;
+        border-radius: 4px;
+        padding: 1rem;
+        border: 1px solid #e8e8e8;
+        overflow: auto;
+        min-height: 600px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
     }
     
-    .stSuccess {
-        background-color: #d4edda !important;
-        color: #003366 !important;
-    }
-    .stSuccess * {
-        color: #003366 !important;
-    }
-    
-    .stWarning {
-        background-color: #fff3cd !important;
-        color: #003366 !important;
-    }
-    .stWarning * {
-        color: #003366 !important;
+    /* Tab styling */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 2px;
+        background-color: #f5f5f5 !important;
+        border-radius: 4px;
+        padding: 4px;
     }
     
-    .stError {
-        background-color: #f8d7da !important;
-        color: #003366 !important;
-    }
-    .stError * {
-        color: #003366 !important;
-    }
-    
-    .stInfo {
-        background-color: #e8f0fe !important;
-        color: #003366 !important;
-    }
-    .stInfo * {
-        color: #003366 !important;
+    .stTabs [data-baseweb="tab"] {
+        border-radius: 3px !important;
+        padding: 0.4rem 1rem !important;
+        background-color: transparent !important;
+        color: #666666 !important;
+        font-weight: 400 !important;
     }
     
-    .stSpinner > div {
-        border-color: #003366 !important;
+    .stTabs [aria-selected="true"] {
+        background-color: #ffffff !important;
+        color: #333333 !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08) !important;
+        font-weight: 500 !important;
     }
     
-    .stMarkdown, .stMarkdown * {
-        color: #003366 !important;
-    }
-    
-    /* Solid white bottom bar to cover footer watermark */
-    .footer-bar {
+    /* Footer overlay */
+    .footer-overlay {
         position: fixed !important;
         bottom: 0 !important;
         left: 0 !important;
         right: 0 !important;
-        height: 40px !important;
-        background-color: #ffffff !important;
-        z-index: 2147483647 !important;
+        height: 35px !important;
+        background-color: #fafafa !important;
+        z-index: 9999999 !important;
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.03) !important;
+        border-top: 1px solid #e8e8e8 !important;
         pointer-events: none !important;
-    }
-    
-    /* Extra thick bottom-right corner patch */
-    .corner-patch {
-        position: fixed !important;
-        bottom: 0 !important;
-        right: 0 !important;
-        width: 350px !important;
-        height: 60px !important;
-        background-color: #ffffff !important;
-        z-index: 2147483647 !important;
-        pointer-events: none !important;
-    }
-    
-    .stApp {
-        padding-bottom: 40px !important;
-    }
-    .stAppViewContainer {
-        padding-bottom: 40px !important;
-    }
-    .main {
-        padding-bottom: 45px !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# --- SOLID WHITE OVERLAY ELEMENTS (PHYSICAL COVER) ---
+# --- PERSISTENT FOOTER OVERLAY ---
 st.markdown("""
-<div class="footer-bar"></div>
-<div class="corner-patch"></div>
+<div class="footer-overlay"></div>
 """, unsafe_allow_html=True)
 
 # --- LOGIN VERIFICATION LOGIC ---
@@ -305,6 +219,7 @@ SOURCE_URL = "https://docs.google.com/spreadsheets/d/14nhO9u7zJRcOoux8I7l2IzwU7i
 TEMPLATE_URL = "https://docs.google.com/spreadsheets/d/1uS3xmnPi0o4c_EayQtURYDSMMPRDRGSb/export?format=xlsx"
 
 # --- HELPER FUNCTIONS ---
+@st.cache_data(ttl=3600)
 def download_file(url):
     try:
         response = requests.get(url, timeout=30)
@@ -324,23 +239,6 @@ def get_placeholders(sheet):
                     name = match.split(":")[0].strip() if ":" in match else match.strip()
                     placeholders.add(name)
     return sorted(list(placeholders))
-
-def sanitize_tab_name(name, existing_names):
-    illegal_chars = r'[\\/*?\[\]:]'
-    clean_name = re.sub(illegal_chars, '', str(name))
-    base_name = clean_name[:31]
-    if base_name not in existing_names:
-        existing_names.add(base_name)
-        return base_name
-    counter = 1
-    while True:
-        suffix = f" ({counter})"
-        max_len = 31 - len(suffix)
-        new_name = f"{clean_name[:max_len]}{suffix}"
-        if new_name not in existing_names:
-            existing_names.add(new_name)
-            return new_name
-        counter += 1
 
 def clone_cell_styles(source_cell, target_cell):
     if source_cell.font:
@@ -380,17 +278,21 @@ def clone_cell_styles(source_cell, target_cell):
         target_cell.fill = copy(source_cell.fill)
 
 def copy_and_merge_aware_injection(template_ws, target_ws, coord, data_value):
+    """Copy styles and handle merged cells for a single cell injection"""
     if not target_ws:
         return
     target_cell = target_ws[coord]
     template_cell = template_ws[coord]
     target_cell.value = data_value
     clone_cell_styles(template_cell, target_cell)
+    
+    # Handle merged cells
     merged_range_string = None
     for merged_range in template_ws.merged_cells.ranges:
         if template_cell.coordinate in merged_range:
             merged_range_string = str(merged_range)
             break
+    
     if merged_range_string:
         min_col, min_row, max_col, max_row = range_boundaries(merged_range_string)
         overlapping_target_ranges = []
@@ -407,265 +309,356 @@ def copy_and_merge_aware_injection(template_ws, target_ws, coord, data_value):
             target_ws.merge_cells(start_row=min_row, start_column=min_col, end_row=max_row, end_column=max_col)
         except:
             pass
+        
+        # Clone styles for all cells in merged range
         for r in range(min_row, max_row + 1):
             for c in range(min_col, max_col + 1):
                 sub_coord = f"{get_column_letter(c)}{r}"
                 if sub_coord != coord:
                     clone_cell_styles(template_ws[sub_coord], target_ws[sub_coord])
 
-# --- LOAD FILES ---
-def load_files():
+def render_excel_to_html(workbook, sheet_name=None):
+    """Convert Excel worksheet to HTML for display"""
+    if sheet_name is None:
+        ws = workbook.active
+    else:
+        ws = workbook[sheet_name]
+    
+    # Get max row and column
+    max_row = ws.max_row
+    max_col = ws.max_column
+    
+    html = '<table style="border-collapse: collapse; font-family: \'Roboto\', sans-serif; font-size: 12px; width: 100%;">'
+    
+    # Build merged cell map
+    merged_cells = {}
+    for merged_range in ws.merged_cells.ranges:
+        min_col, min_row, max_col, max_row = range_boundaries(str(merged_range))
+        for row in range(min_row, max_row + 1):
+            for col in range(min_col, max_col + 1):
+                if row == min_row and col == min_col:
+                    merged_cells[(row, col)] = {
+                        'rowspan': max_row - min_row + 1,
+                        'colspan': max_col - min_col + 1,
+                        'is_master': True
+                    }
+                else:
+                    merged_cells[(row, col)] = {'is_master': False}
+    
+    # Generate table
+    for row in range(1, max_row + 1):
+        html += '<tr>'
+        for col in range(1, max_col + 1):
+            # Skip cells that are part of a merged range but not the master
+            if (row, col) in merged_cells and not merged_cells[(row, col)].get('is_master', False):
+                continue
+            
+            cell = ws.cell(row, col)
+            value = cell.value if cell.value is not None else ''
+            
+            # Get cell styles
+            bg_color = 'white'
+            if cell.fill and cell.fill.fgColor and cell.fill.fgColor.rgb:
+                bg_color = cell.fill.fgColor.rgb
+                if bg_color.startswith('FF'):
+                    bg_color = '#' + bg_color[2:]
+            
+            font_color = '#333333'
+            font_weight = 'normal'
+            font_size = '12px'
+            if cell.font:
+                if cell.font.color and cell.font.color.rgb:
+                    font_color = cell.font.color.rgb
+                    if font_color.startswith('FF'):
+                        font_color = '#' + font_color[2:]
+                if cell.font.bold:
+                    font_weight = 'bold'
+                if cell.font.size:
+                    font_size = f'{cell.font.size}px'
+            
+            # Get alignment
+            h_align = 'left'
+            v_align = 'middle'
+            wrap_text = False
+            if cell.alignment:
+                h_align = cell.alignment.horizontal or 'left'
+                v_align = cell.alignment.vertical or 'middle'
+                wrap_text = cell.alignment.wrap_text or False
+            
+            # Border
+            border_style = '1px solid #d0d0d0'
+            
+            # Build style
+            style = f'background-color: {bg_color}; color: {font_color}; font-weight: {font_weight}; font-size: {font_size}; '
+            style += f'text-align: {h_align}; vertical-align: {v_align}; padding: 6px 8px; border: {border_style}; '
+            
+            if wrap_text:
+                style += 'white-space: normal; word-wrap: break-word; max-width: 300px; '
+            else:
+                style += 'white-space: nowrap; '
+            
+            # Check if this cell is the master of a merged range
+            rowspan = 1
+            colspan = 1
+            if (row, col) in merged_cells and merged_cells[(row, col)].get('is_master', False):
+                rowspan = merged_cells[(row, col)].get('rowspan', 1)
+                colspan = merged_cells[(row, col)].get('colspan', 1)
+            
+            # Build cell tag
+            if rowspan > 1 or colspan > 1:
+                html += f'<td style="{style}" rowspan="{rowspan}" colspan="{colspan}">{str(value)}</td>'
+            else:
+                html += f'<td style="{style}">{str(value)}</td>'
+        
+        html += '</tr>'
+    
+    html += '</table>'
+    return html
+
+@st.cache_data(ttl=3600)
+def load_data():
+    """Load and cache data from Google Sheets"""
     source_data = download_file(SOURCE_URL)
     template_data = download_file(TEMPLATE_URL)
-    return source_data, template_data
+    
+    if source_data is None or template_data is None:
+        return None, None, None, None, None
+    
+    # Load source data
+    df = pd.read_excel(source_data)
+    df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
+    df.columns = df.columns.str.strip().str.upper()
+    
+    # Load template
+    template_wb = load_workbook(template_data)
+    template_sheet = template_wb.active
+    placeholders = get_placeholders(template_sheet)
+    
+    return df, template_wb, template_sheet, placeholders, template_data
 
 # --- LOAD DATA ---
-with st.spinner("Loading..."):
-    source_data, template_data = load_files()
+with st.spinner("Loading data..."):
+    df, template_wb, template_sheet, placeholders, template_data = load_data()
 
-if source_data is None or template_data is None:
-    st.error("Failed to load files. Make sure they are publicly accessible.")
+if df is None or template_wb is None:
+    st.error("Failed to load data. Please check your internet connection and try again.")
     st.stop()
 
-# --- PROCESS DATA ---
-df = pd.read_excel(source_data)
-df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
-df.columns = df.columns.str.strip().str.upper()
-
-if "TRADE AREA" not in df.columns or "SITE NAME" not in df.columns:
-    st.error("Data must contain 'TRADE AREA' and 'SITE NAME' columns.")
-    st.stop()
-
-trade_area_no_col = None
-for col in df.columns:
-    if "TRADE AREA NO" in col.upper() or "TRADE AREA #" in col.upper():
-        trade_area_no_col = col
-        break
-
-if trade_area_no_col:
-    unique_trade_areas_count = len(df[trade_area_no_col].dropna().unique())
-else:
-    unique_trade_areas_count = len(df["TRADE AREA"].unique())
-
-all_trade_areas = sorted(df["TRADE AREA"].dropna().unique())
-
-trade_area_no_to_name = {}
-if trade_area_no_col:
-    unique_combos = df[[trade_area_no_col, "TRADE AREA"]].drop_duplicates()
-    for _, row in unique_combos.iterrows():
-        key = str(row[trade_area_no_col])
-        value = str(row["TRADE AREA"])
-        trade_area_no_to_name[key] = value
-
-template_wb = openpyxl.load_workbook(template_data)
-template_sheet = template_wb.active
-placeholders = get_placeholders(template_sheet)
-
-if not placeholders:
-    st.warning("No placeholders found in template.")
-    st.stop()
-
-# --- SESSION STATE ---
-if 'zip_data' not in st.session_state:
-    st.session_state.zip_data = None
-if 'selected_tas' not in st.session_state:
-    st.session_state.selected_tas = []
-if 'single_file' not in st.session_state:
-    st.session_state.single_file = None
-
-# --- 3-COLUMN LAYOUT ---
-col1, col2, col3 = st.columns([0.8, 1.4, 0.8])
-
-# --- COLUMN 1: METRICS ---
-with col1:
-    st.markdown("### Stats")
+# --- SIDEBAR ---
+with st.sidebar:
+    st.markdown("### 📊 Viewer Controls")
+    st.markdown("---")
+    
+    # Get unique trade areas
+    trade_areas = sorted(df["TRADE AREA"].dropna().unique())
+    
+    # Check for TRADE AREA NO column
+    trade_area_no_col = None
+    for col in df.columns:
+        if "TRADE AREA NO" in col.upper() or "TRADE AREA #" in col.upper():
+            trade_area_no_col = col
+            break
+    
+    # Trade Area dropdown
+    selected_ta = st.selectbox(
+        "Select Trade Area",
+        options=trade_areas,
+        index=0 if trade_areas else None,
+        key="ta_select"
+    )
+    
+    if selected_ta:
+        # Filter sites for selected trade area
+        sites_in_ta = df[df["TRADE AREA"] == selected_ta]["SITE NAME"].dropna().unique()
+        sites_in_ta = sorted(sites_in_ta)
+        
+        # Site Name dropdown
+        selected_site = st.selectbox(
+            "Select Site",
+            options=sites_in_ta,
+            index=0 if len(sites_in_ta) > 0 else None,
+            key="site_select"
+        )
+        
+        st.markdown("---")
+        
+        # Display information about selected site
+        if selected_site:
+            site_data = df[(df["TRADE AREA"] == selected_ta) & (df["SITE NAME"] == selected_site)]
+            if not site_data.empty:
+                st.markdown("### 📋 Site Details")
+                
+                # Show key fields
+                info_fields = ["SITE NAME", "ADDRESS", "CITY", "STATE", "ZIP", "PHONE"]
+                for field in info_fields:
+                    if field in df.columns:
+                        col_upper = field.upper()
+                        if col_upper in df.columns:
+                            val = site_data[col_upper].iloc[0]
+                            if pd.notna(val) and val != "":
+                                st.markdown(f"**{field}:** {val}")
+                
+                # Show TRADE AREA NO if available
+                if trade_area_no_col:
+                    ta_no = site_data[trade_area_no_col].iloc[0]
+                    if pd.notna(ta_no):
+                        st.markdown(f"**Trade Area #:** {ta_no}")
+    
+    st.markdown("---")
+    st.markdown("### 📈 Statistics")
+    
+    # Stats
+    total_sites = len(df["SITE NAME"].dropna().unique())
+    total_tas = len(trade_areas)
+    total_placeholders = len(placeholders)
     
     st.markdown(f"""
     <div class="metric-card">
-        <div class="metric-value">{len(df)}</div>
-        <div class="metric-label">Records</div>
-    </div>
-    <div class="metric-card">
-        <div class="metric-value">{unique_trade_areas_count}</div>
+        <div class="metric-value">{total_tas}</div>
         <div class="metric-label">Trade Areas</div>
     </div>
     <div class="metric-card">
-        <div class="metric-value">{len(placeholders)}</div>
+        <div class="metric-value">{total_sites}</div>
+        <div class="metric-label">Total Sites</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-value">{total_placeholders}</div>
         <div class="metric-label">Placeholders</div>
     </div>
     """, unsafe_allow_html=True)
-    
-    st.markdown("---")
-    if st.button("Refresh Data", use_container_width=True):
-        st.cache_data.clear()
-        st.cache_resource.clear()
-        if os.path.exists(_config_file):
-            os.remove(_config_file)
-        st.rerun()
 
-# --- COLUMN 2: TRADE AREA SELECTION ---
-with col2:
-    st.markdown("### Select Trade Areas")
-    
-    btn_col1, btn_col2 = st.columns(2)
-    with btn_col1:
-        if st.button("Select All", use_container_width=True):
-            for ta in all_trade_areas:
-                st.session_state[f"ta_{ta}"] = True
-            st.rerun()
-    with btn_col2:
-        if st.button("Clear All", use_container_width=True):
-            for ta in all_trade_areas:
-                st.session_state[f"ta_{ta}"] = False
-            st.rerun()
-    
-    for ta in all_trade_areas:
-        if f"ta_{ta}" not in st.session_state:
-            st.session_state[f"ta_{ta}"] = False
-    
-    st.markdown('<div class="checkbox-container">', unsafe_allow_html=True)
-    for ta in all_trade_areas:
-        st.checkbox(ta, key=f"ta_{ta}")
-    st.markdown('</div>', unsafe_allow_html=True)
+# --- MAIN CONTENT ---
+st.markdown("### 👁️ Report Viewer")
 
-# --- COLUMN 3: ACTIONS ---
-with col3:
-    st.markdown("### Actions")
-    
-    if st.session_state.zip_data is None and st.session_state.single_file is None:
-        if st.button("Generate Reports", use_container_width=True, type="primary"):
-            selected_trade_areas = [ta for ta in all_trade_areas if st.session_state.get(f"ta_{ta}", False)]
+if selected_ta and selected_site:
+    try:
+        # Get the data for the selected site
+        site_data = df[(df["TRADE AREA"] == selected_ta) & (df["SITE NAME"] == selected_site)]
+        
+        if site_data.empty:
+            st.warning("No data found for the selected site.")
+        else:
+            # Create a fresh workbook from template
+            template_data.seek(0)
+            wb = load_workbook(template_data)
+            base_sheet = wb.active
+            base_sheet.title = "Report"
             
-            if not selected_trade_areas:
-                st.warning("Select at least one Trade Area.")
-            else:
-                with st.spinner("Generating..."):
-                    progress_bar = st.progress(0)
-                    
-                    filtered_df = df[df["TRADE AREA"].isin(selected_trade_areas)]
-                    groups = filtered_df.groupby("TRADE AREA")
-                    total_groups = len(groups)
-                    
-                    if len(selected_trade_areas) == 1:
-                        selected_ta = selected_trade_areas[0]
-                        group = filtered_df[filtered_df["TRADE AREA"] == selected_ta]
-                        
-                        template_data.seek(0)
-                        wb = openpyxl.load_workbook(template_data)
-                        base_sheet = wb.active
-                        base_sheet.title = "TEMPLATE_TO_DELETE"
-                        existing_tabs = set()
-                        
-                        for _, row in group.iterrows():
-                            site_name = row.get("SITE NAME", "Unknown")
-                            safe_tab_name = sanitize_tab_name(site_name, existing_tabs)
-                            new_sheet = wb.copy_worksheet(base_sheet)
-                            new_sheet.title = safe_tab_name
-                            
-                            for row_cells in new_sheet.iter_rows():
-                                for cell in row_cells:
-                                    if isinstance(cell.value, str) and "{{" in cell.value:
-                                        new_val = cell.value
-                                        has_injected = False
-                                        for ph in placeholders:
-                                            target_regex = r"\{\{\s*" + re.escape(ph) + r"(\s*:.*?)?\}\}"
-                                            if re.search(target_regex, new_val):
-                                                raw_data_val = row.get(ph.upper(), "")
-                                                if pd.isna(raw_data_val) or raw_data_val is None:
-                                                    raw_data_val = ""
-                                                val_str = str(raw_data_val)
-                                                new_val = re.sub(target_regex, val_str, new_val)
-                                                if val_str.strip() != "":
-                                                    has_injected = True
-                                        if has_injected and new_val != "":
-                                            copy_and_merge_aware_injection(base_sheet, new_sheet, cell.coordinate, new_val.strip())
-                                        elif new_val == "":
-                                            cell.value = ""
-                                        else:
-                                            cell.value = new_val.strip() if new_val else ""
-                        
-                        wb.remove(base_sheet)
-                        wb_buffer = io.BytesIO()
-                        wb.save(wb_buffer)
-                        safe_filename = str(selected_ta).replace("/", "-").replace("\\", "-")
-                        
-                        st.session_state.single_file = {
-                            "data": wb_buffer.getvalue(),
-                            "name": f"{safe_filename}.xlsx"
-                        }
-                        progress_bar.progress(1.0)
-                    
-                    else:
-                        zip_buffer = io.BytesIO()
-                        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-                            for i, (trade_area, group) in enumerate(groups):
-                                template_data.seek(0)
-                                wb = openpyxl.load_workbook(template_data)
-                                base_sheet = wb.active
-                                base_sheet.title = "TEMPLATE_TO_DELETE"
-                                existing_tabs = set()
-                                
-                                for _, row in group.iterrows():
-                                    site_name = row.get("SITE NAME", "Unknown")
-                                    safe_tab_name = sanitize_tab_name(site_name, existing_tabs)
-                                    new_sheet = wb.copy_worksheet(base_sheet)
-                                    new_sheet.title = safe_tab_name
-                                    
-                                    for row_cells in new_sheet.iter_rows():
-                                        for cell in row_cells:
-                                            if isinstance(cell.value, str) and "{{" in cell.value:
-                                                new_val = cell.value
-                                                has_injected = False
-                                                for ph in placeholders:
-                                                    target_regex = r"\{\{\s*" + re.escape(ph) + r"(\s*:.*?)?\}\}"
-                                                    if re.search(target_regex, new_val):
-                                                        raw_data_val = row.get(ph.upper(), "")
-                                                        if pd.isna(raw_data_val) or raw_data_val is None:
-                                                            raw_data_val = ""
-                                                        val_str = str(raw_data_val)
-                                                        new_val = re.sub(target_regex, val_str, new_val)
-                                                        if val_str.strip() != "":
-                                                            has_injected = True
-                                                if has_injected and new_val != "":
-                                                    copy_and_merge_aware_injection(base_sheet, new_sheet, cell.coordinate, new_val.strip())
-                                                elif new_val == "":
-                                                    cell.value = ""
-                                                else:
-                                                    cell.value = new_val.strip() if new_val else ""
-                                
-                                wb.remove(base_sheet)
-                                wb_buffer = io.BytesIO()
-                                wb.save(wb_buffer)
-                                safe_filename = str(trade_area).replace("/", "-").replace("\\", "-")
-                                zip_file.writestr(f"{safe_filename}.xlsx", wb_buffer.getvalue())
-                                progress_bar.progress((i + 1) / total_groups)
-                        
-                        st.session_state.zip_data = zip_buffer.getvalue()
-                    
-                    st.rerun()
+            # Populate with site data
+            row = site_data.iloc[0]
+            
+            for row_cells in base_sheet.iter_rows():
+                for cell in row_cells:
+                    if isinstance(cell.value, str) and "{{" in cell.value:
+                        new_val = cell.value
+                        has_injected = False
+                        for ph in placeholders:
+                            target_regex = r"\{\{\s*" + re.escape(ph) + r"(\s*:.*?)?\}\}"
+                            if re.search(target_regex, new_val):
+                                raw_data_val = row.get(ph.upper(), "")
+                                if pd.isna(raw_data_val) or raw_data_val is None:
+                                    raw_data_val = ""
+                                val_str = str(raw_data_val)
+                                new_val = re.sub(target_regex, val_str, new_val)
+                                if val_str.strip() != "":
+                                    has_injected = True
+                        if has_injected and new_val != "":
+                            copy_and_merge_aware_injection(base_sheet, base_sheet, cell.coordinate, new_val.strip())
+                        elif new_val == "":
+                            cell.value = ""
+                        else:
+                            cell.value = new_val.strip() if new_val else ""
+            
+            # Display the report
+            st.markdown("---")
+            
+            # Create tabs for different views
+            tab1, tab2, tab3 = st.tabs(["📄 Report View", "📊 Data View", "ℹ️ Placeholders"])
+            
+            with tab1:
+                # Render Excel to HTML
+                html_content = render_excel_to_html(wb, "Report")
+                st.markdown('<div class="excel-container">', unsafe_allow_html=True)
+                st.markdown(html_content, unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+                
+                # Download button
+                wb_buffer = io.BytesIO()
+                wb.save(wb_buffer)
+                safe_filename = f"{selected_site}_{selected_ta}".replace("/", "-").replace("\\", "-")
+                
+                col1, col2, col3 = st.columns([1, 2, 1])
+                with col2:
+                    st.download_button(
+                        "⬇️ Download Excel File",
+                        data=wb_buffer.getvalue(),
+                        file_name=f"{safe_filename}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True
+                    )
+            
+            with tab2:
+                # Show the raw data for the selected site
+                st.markdown("### Site Data")
+                
+                # Display all data for this site in a clean format
+                display_data = []
+                for col in df.columns:
+                    val = row.get(col, "")
+                    if pd.isna(val):
+                        val = ""
+                    display_data.append({"Field": col, "Value": val})
+                
+                display_df = pd.DataFrame(display_data)
+                st.dataframe(
+                    display_df,
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        "Field": st.column_config.TextColumn("Field", width="medium"),
+                        "Value": st.column_config.TextColumn("Value", width="large")
+                    }
+                )
+            
+            with tab3:
+                # Show all placeholders and their values
+                st.markdown("### Placeholder Mapping")
+                
+                placeholder_data = []
+                for ph in placeholders:
+                    val = row.get(ph.upper(), "")
+                    if pd.isna(val):
+                        val = ""
+                    placeholder_data.append({
+                        "Placeholder": f"{{{{{ph}}}}}",
+                        "Value": val,
+                        "Status": "✅ Populated" if str(val).strip() != "" else "❌ Empty"
+                    })
+                
+                ph_df = pd.DataFrame(placeholder_data)
+                st.dataframe(
+                    ph_df,
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        "Placeholder": st.column_config.TextColumn("Placeholder", width="small"),
+                        "Value": st.column_config.TextColumn("Value", width="large"),
+                        "Status": st.column_config.TextColumn("Status", width="small")
+                    }
+                )
+                
+                # Summary
+                populated = sum(1 for p in placeholder_data if p["Status"] == "✅ Populated")
+                total = len(placeholder_data)
+                st.markdown(f"**Summary:** {populated}/{total} placeholders populated")
     
-    if st.session_state.single_file is not None:
-        st.success("Ready")
-        st.download_button(
-            "Download (.xlsx)",
-            data=st.session_state.single_file["data"],
-            file_name=st.session_state.single_file["name"],
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True
-        )
-        if st.button("Reset", use_container_width=True):
-            st.session_state.single_file = None
-            st.rerun()
-    
-    if st.session_state.zip_data is not None:
-        st.success("Ready")
-        st.download_button(
-            "Download (.zip)",
-            data=st.session_state.zip_data,
-            file_name="Reports.zip",
-            mime="application/zip",
-            use_container_width=True
-        )
-        if st.button("Reset", use_container_width=True):
-            st.session_state.zip_data = None
-            st.rerun()
+    except Exception as e:
+        st.error(f"Error generating report: {str(e)}")
+        st.info("Please try selecting a different site or trade area.")
+else:
+    st.info("👈 Select a Trade Area and Site from the sidebar to view the report.")
+
+# Optional: Refresh button at bottom
+if st.button("🔄 Refresh Data", use_container_width=True):
+    st.cache_data.clear()
+    st.rerun()
