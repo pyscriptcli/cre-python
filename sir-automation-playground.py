@@ -203,7 +203,7 @@ def generate_trade_area_report(df, trade_area, template_bytes, placeholders):
     wb.save(wb_buffer)
     return wb_buffer
 
-# --- COMPLETE HTML BLUEPRINT WITH WRAP-TEXT LOGIC INJECTED ---
+# --- COMPLETE HTML BLUEPRINT WITH WRAP-TEXT LOGIC ---
 HTML_FRAMEWORK = """
 <!DOCTYPE html>
 <html>
@@ -214,14 +214,14 @@ HTML_FRAMEWORK = """
         .ritz .waffle td { 
             padding: 2px 3px !important; 
             vertical-align: middle; 
-            border: none !important; /* Remove all borders */
+            border: none !important;
         }
         
         .freezebar-origin-ltr { background-color: #f8f9fa; border: none !important; }
         .column-headers-background { background-color: #f8f9fa; text-align: center; font-size: 8pt; color: #444746; font-weight: normal; border: none !important; }
         .row-headers-background { background-color: #f8f9fa; text-align: center; font-size: 8pt; color: #444746; font-weight: normal; border: none !important; }
         
-        /* Header row - remove borders */
+        /* Header row - no borders */
         .ritz .waffle .s0 {
             border: none !important;
             background-color:#800000;
@@ -234,7 +234,7 @@ HTML_FRAMEWORK = """
             padding: 4px 3px !important;
         }
         
-        /* Section headers - remove borders */
+        /* Section headers - no borders */
         .ritz .waffle .s1 {
             border: none !important;
             background-color:#ffffff;
@@ -247,7 +247,7 @@ HTML_FRAMEWORK = """
             padding: 4px 3px !important;
         }
         
-        /* Label cells */
+        /* Label cells - no wrap */
         .ritz .waffle .s2 {
             background-color:#ffffff;
             text-align:left;
@@ -268,7 +268,7 @@ HTML_FRAMEWORK = """
             direction:ltr;
         }
         
-        /* DATA CELLS - Modified to wrap text and stretch vertically */
+        /* DATA CELLS - Auto-wrap only when content exceeds column width */
         .ritz .waffle .s4 {
             border: none !important;
             background-color:#f8f9fa;
@@ -276,14 +276,25 @@ HTML_FRAMEWORK = """
             color:#000000;
             font-size:8pt;
             vertical-align:middle;
+            white-space:nowrap;
+            direction:ltr;
+            padding: 4px 3px !important;
+            line-height: 1.4;
+            max-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        /* When content is long, wrap it */
+        .ritz .waffle .s4.wrap-text {
             white-space:normal !important;
             word-wrap:break-word !important;
             word-break:break-word !important;
             overflow-wrap:break-word !important;
             max-width: 100% !important;
-            direction:ltr;
-            padding: 4px 3px !important;
-            line-height: 1.4;
+            overflow: visible !important;
+            text-overflow: clip !important;
+            height: auto !important;
         }
         
         .ritz .waffle .s5 {
@@ -326,7 +337,7 @@ HTML_FRAMEWORK = """
             direction:ltr;
         }
         
-        /* MULTI-LINE DATA REMARKS CELLS - Enabled wrapping and auto stretching */
+        /* MULTI-LINE DATA REMARKS CELLS - Auto-wrap only when content exceeds column width */
         .ritz .waffle .s9 {
             border: none !important;
             background-color:#f8f9fa;
@@ -334,14 +345,25 @@ HTML_FRAMEWORK = """
             color:#000000;
             font-size:8pt;
             vertical-align:middle;
+            white-space:nowrap;
+            direction:ltr;
+            padding: 4px 3px !important;
+            line-height: 1.4;
+            max-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        /* When content is long, wrap it */
+        .ritz .waffle .s9.wrap-text {
             white-space:normal !important;
             word-wrap:break-word !important;
             word-break:break-word !important;
             overflow-wrap:break-word !important;
             max-width: 100% !important;
-            direction:ltr;
-            padding: 4px 3px !important;
-            line-height: 1.4;
+            overflow: visible !important;
+            text-overflow: clip !important;
+            height: auto !important;
         }
         
         .ritz .waffle .s10{background-color:#bfbfbf;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;border: none !important;}
@@ -361,7 +383,7 @@ HTML_FRAMEWORK = """
         .ritz .waffle .s24{border: none !important;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
         .ritz .waffle .s25{border: none !important;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
         
-        /* Table styling - remove borders */
+        /* Table styling - no borders */
         .ritz .waffle {
             border-collapse: collapse;
             width: 100%;
@@ -372,13 +394,64 @@ HTML_FRAMEWORK = """
             height: auto !important;
         }
         
-        /* Ensure cells with long text stretch */
+        /* Ensure cells with long text stretch vertically */
         .ritz .waffle td[class*="s4"], 
         .ritz .waffle td[class*="s9"] {
             height: auto !important;
             min-height: 20px;
         }
     </style>
+    <script>
+        // JavaScript to detect long text and apply wrap-text class dynamically
+        document.addEventListener('DOMContentLoaded', function() {
+            // Function to check if text exceeds column width
+            function checkAndWrapCells() {
+                // Get all data cells (s4 and s9 classes)
+                const dataCells = document.querySelectorAll('.s4, .s9');
+                
+                dataCells.forEach(function(cell) {
+                    // Check if cell has text content
+                    if (cell.textContent && cell.textContent.trim().length > 0) {
+                        // Get the cell's content width and column width
+                        const contentWidth = cell.scrollWidth;
+                        const columnWidth = cell.offsetWidth;
+                        
+                        // If content width exceeds column width by more than 5px, wrap it
+                        if (contentWidth > columnWidth + 5) {
+                            cell.classList.add('wrap-text');
+                        } else {
+                            // Remove wrap class if content fits (useful when data changes)
+                            cell.classList.remove('wrap-text');
+                        }
+                    }
+                });
+            }
+            
+            // Check on load
+            checkAndWrapCells();
+            
+            // Check again after a small delay to ensure rendering is complete
+            setTimeout(checkAndWrapCells, 100);
+            
+            // Check on window resize
+            window.addEventListener('resize', checkAndWrapCells);
+            
+            // Use MutationObserver to detect content changes
+            const observer = new MutationObserver(function(mutations) {
+                checkAndWrapCells();
+            });
+            
+            // Observe the table body for content changes
+            const tableBody = document.querySelector('.waffle tbody');
+            if (tableBody) {
+                observer.observe(tableBody, { 
+                    childList: true, 
+                    subtree: true, 
+                    characterData: true 
+                });
+            }
+        });
+    </script>
 </head>
 <body>
 <div class="ritz grid-container" dir="ltr">
@@ -388,8 +461,8 @@ HTML_FRAMEWORK = """
     </colgroup>
     <tbody>
         <tr style="height: auto;"><td class="s0" colspan="15">SITE INFORMATION REPORT</td></tr>
-        <tr style="height: 19px"><td class="s1" colspan="7">General Information</td><td class="s1"></td><td class="s1" colspan="7">Location</td></tr>
-        <tr style="height: 9px"><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td></tr>
+        <tr style="height: auto"><td class="s1" colspan="7">General Information</td><td class="s1"></td><td class="s1" colspan="7">Location</td></tr>
+        <tr style="height: auto"><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td></tr>
         <tr style="height: auto;">
             <td class="s2">Trade Area Name</td><td class="s2"></td>
             <td class="s4" colspan="5">_TRADE_AREA_</td>
@@ -430,9 +503,9 @@ HTML_FRAMEWORK = """
             <td class="s5" colspan="2">Postal Code</td>
             <td class="s4" colspan="5">_POSTAL_CODE_</td>
         </tr>
-        <tr style="height: 9px"><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s3"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s7"></td></tr>
-        <tr style="height: 19px"><td class="s1" colspan="7">Terms</td><td class="s3"></td><td class="s1" colspan="7">Rates</td></tr>
-        <tr style="height: 19px"><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td></tr>
+        <tr style="height: auto"><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s3"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s7"></td></tr>
+        <tr style="height: auto"><td class="s1" colspan="7">Terms</td><td class="s3"></td><td class="s1" colspan="7">Rates</td></tr>
+        <tr style="height: auto"><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td></tr>
         <tr style="height: auto;">
             <td class="s2">Site Availability Date</td><td class="s2"></td>
             <td class="s4" colspan="5">_SITE_AVAILABILITY_DATE_</td>
@@ -461,9 +534,9 @@ HTML_FRAMEWORK = """
             <td class="s8" colspan="2">Annual Escalation Rate (%)</td>
             <td class="s4" colspan="5">_ESCALATION_</td>
         </tr>
-        <tr style="height: 19px"><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s3"></td><td class="s8" colspan="2">Advance Rental (Php)</td><td class="s4" colspan="5">_ADVANCE_RENTAL_</td></tr>
-        <tr style="height: 19px"><td class="s1" colspan="7">Technical Info</td><td class="s3"></td><td class="s8" colspan="2">Security Deposit Amount (Php)</td><td class="s4" colspan="5">_SECURITY_DEPOSIT_</td></tr>
-        <tr style="height: 19px"><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td><td class="s8" colspan="2">CUSA Dues</td><td class="s4" colspan="5">_CUSA_</td></tr>
+        <tr style="height: auto"><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s3"></td><td class="s8" colspan="2">Advance Rental (Php)</td><td class="s4" colspan="5">_ADVANCE_RENTAL_</td></tr>
+        <tr style="height: auto"><td class="s1" colspan="7">Technical Info</td><td class="s3"></td><td class="s8" colspan="2">Security Deposit Amount (Php)</td><td class="s4" colspan="5">_SECURITY_DEPOSIT_</td></tr>
+        <tr style="height: auto"><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td><td class="s8" colspan="2">CUSA Dues</td><td class="s4" colspan="5">_CUSA_</td></tr>
         <tr style="height: auto;">
             <td class="s5" colspan="2">Lot /Floor Area (in sqm)</td>
             <td class="s4" colspan="5">_LOT_FLOOR_AREA_SQM_</td>
@@ -473,21 +546,21 @@ HTML_FRAMEWORK = """
         </tr>
         <tr style="height: auto;"><td class="s2">Frontage (in m)</td><td class="s2"></td><td class="s4" colspan="5">_FRONTAGE_</td><td class="s3"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s7"></td></tr>
         <tr style="height: auto;"><td class="s2">Depth (in m)</td><td class="s2"></td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s1" colspan="7">Provisions</td></tr>
-        <tr style="height: 19px;"><td class="s5" colspan="2">Floor to Slab Height (in m) - if Bldg</td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s2" colspan="7"></td></tr>
-        <tr style="height: 19px;"><td class="s5" colspan="2">No. of Storeys (If Bldg Lessee)</td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s5" colspan="2">Tenant is the Owner</td><td class="s9" colspan="5"></td></tr>
-        <tr style="height: 19px;"><td class="s5" colspan="2">Type of Structure(if Bldg Lessee)</td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s5" colspan="2">Lease Type</td><td class="s9" colspan="5">_LEASE_TYPE_</td></tr>
-        <tr style="height: 19px;"><td class="s2">Soil Profile</td><td class="s2"></td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s5" colspan="2">Principal COL</td><td class="s9" colspan="5"></td></tr>
+        <tr style="height: auto;"><td class="s5" colspan="2">Floor to Slab Height (in m) - if Bldg</td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s2" colspan="7"></td></tr>
+        <tr style="height: auto;"><td class="s5" colspan="2">No. of Storeys (If Bldg Lessee)</td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s5" colspan="2">Tenant is the Owner</td><td class="s9" colspan="5"></td></tr>
+        <tr style="height: auto;"><td class="s5" colspan="2">Type of Structure(if Bldg Lessee)</td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s5" colspan="2">Lease Type</td><td class="s9" colspan="5">_LEASE_TYPE_</td></tr>
+        <tr style="height: auto;"><td class="s2">Soil Profile</td><td class="s2"></td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s5" colspan="2">Principal COL</td><td class="s9" colspan="5"></td></tr>
         <tr style="height: auto;">
             <td class="s2">Supply Access:</td><td class="s2"></td><td class="s2" colspan="5"></td>
             <td class="s3"></td>
             <td class="s5" colspan="2">Sub-Lease Provision</td>
             <td class="s9" colspan="5"></td>
         </tr>
-        <tr style="height: 19px;"><td class="s2">Power</td><td class="s10"></td><td class="s2">Aircon</td><td class="s10"></td><td class="s5" colspan="2">LPG Fire Pro</td><td class="s10"></td><td class="s3"></td><td class="s5" colspan="2">Pre-Term/Partial Term</td><td class="s9" colspan="5"></td></tr>
-        <tr style="height: 19px;"><td class="s2">Water</td><td class="s10"></td><td class="s2">Exhaust</td><td class="s10"></td><td class="s5" colspan="2">Drainage TP</td><td class="s10"></td><td class="s3"></td><td class="s5" colspan="2">Tripartite Agreement</td><td class="s9" colspan="5"></td></tr>
-        <tr style="height: 9px;"><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s3"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s7"></td></tr>
-        <tr style="height: 19px;"><td class="s1" colspan="7">Lessor and Tenant Details</td><td class="s3"></td><td class="s1" colspan="7">If with Sub-Lessor/ Sub-Lessee</td></tr>
-        <tr style="height: 9px;"><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td></tr>
+        <tr style="height: auto;"><td class="s2">Power</td><td class="s10"></td><td class="s2">Aircon</td><td class="s10"></td><td class="s5" colspan="2">LPG Fire Pro</td><td class="s10"></td><td class="s3"></td><td class="s5" colspan="2">Pre-Term/Partial Term</td><td class="s9" colspan="5"></td></tr>
+        <tr style="height: auto;"><td class="s2">Water</td><td class="s10"></td><td class="s2">Exhaust</td><td class="s10"></td><td class="s5" colspan="2">Drainage TP</td><td class="s10"></td><td class="s3"></td><td class="s5" colspan="2">Tripartite Agreement</td><td class="s9" colspan="5"></td></tr>
+        <tr style="height: auto;"><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s3"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s7"></td></tr>
+        <tr style="height: auto;"><td class="s1" colspan="7">Lessor and Tenant Details</td><td class="s3"></td><td class="s1" colspan="7">If with Sub-Lessor/ Sub-Lessee</td></tr>
+        <tr style="height: auto;"><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td></tr>
         <tr style="height: auto;">
             <td class="s2">Name of Lessor</td><td class="s2"></td>
             <td class="s4" colspan="5">_LESSOR_</td>
@@ -505,15 +578,15 @@ HTML_FRAMEWORK = """
         <tr style="height: auto;"><td class="s5" colspan="2">Residence Address of Authorized Representative</td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s5" colspan="2">Residence Address of Authorized Representative</td><td class="s9" colspan="5"></td></tr>
         <tr style="height: auto;"><td class="s2">Contact No.</td><td class="s2"></td><td class="s4" colspan="5">_CONTACT_NUMBER_</td><td class="s3"></td><td class="s5" colspan="2">Contact No.</td><td class="s9" colspan="5"></td></tr>
         <tr style="height: auto;"><td class="s2">E-mail Address</td><td class="s2"></td><td class="s4" colspan="5">_EMAIL_ADDRESS_</td><td class="s3"></td><td class="s5" colspan="2">E-mail Address</td><td class="s9" colspan="5"></td></tr>
-        <tr style="height: 9px;"><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td><td class="s2"></td><td class="s2"></td><td class="s3" colspan="5"></td></tr>
+        <tr style="height: auto;"><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td><td class="s2"></td><td class="s2"></td><td class="s3" colspan="5"></td></tr>
         <tr style="height: auto;"><td class="s2">Name of Lessee</td><td class="s2"></td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s5" colspan="2">Name of Sub-Lessee</td><td class="s9" colspan="5"></td></tr>
         <tr style="height: auto;"><td class="s2">Position</td><td class="s2"></td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s5" colspan="2">Position</td><td class="s9" colspan="5"></td></tr>
         <tr style="height: auto;"><td class="s2">Contact No.</td><td class="s2"></td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s5" colspan="2">Contact No.</td><td class="s9" colspan="5"></td></tr>
         <tr style="height: auto;"><td class="s2">E-mail Address</td><td class="s2"></td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s5" colspan="2">E-mail Address</td><td class="s9" colspan="5"></td></tr>
         <tr style="height: auto;"><td class="s5" colspan="2">Name of Authorized Representative</td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s5" colspan="2">Name of Authorized Representative</td><td class="s9" colspan="5"></td></tr>
         <tr style="height: auto;"><td class="s2">Business Address</td><td class="s2"></td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s5" colspan="2">Business Address</td><td class="s9" colspan="5"></td></tr>
-        <tr style="height: 9px;"><td class="s11"></td><td class="s11"></td><td class="s11"></td><td class="s11"></td><td class="s11"></td><td class="s11"></td><td class="s11"></td><td class="s12"></td><td class="s11"></td><td class="s11"></td><td class="s11"></td><td class="s11"></td><td class="s11"></td><td class="s11"></td><td class="s12"></td></tr>
-        <tr style="height: 19px;"><td class="s13" colspan="15">Regulatory</td></tr>
+        <tr style="height: auto;"><td class="s11"></td><td class="s11"></td><td class="s11"></td><td class="s11"></td><td class="s11"></td><td class="s11"></td><td class="s11"></td><td class="s12"></td><td class="s11"></td><td class="s11"></td><td class="s11"></td><td class="s11"></td><td class="s11"></td><td class="s11"></td><td class="s12"></td></tr>
+        <tr style="height: auto;"><td class="s13" colspan="15">Regulatory</td></tr>
         <tr style="height: auto;">
             <td class="s14">Setback Requirement</td><td class="s15" colspan="4"></td>
             <td class="s16" colspan="2">Perm Traffic Re-Routing</td><td class="s17"></td>
@@ -532,8 +605,8 @@ HTML_FRAMEWORK = """
             <td class="s20" colspan="2"></td>
             <td class="s21" colspan="5">Gas Station</td>
         </tr>
-        <tr style="height: 9px;"><td class="s2" colspan="14"></td><td class="s3"></td></tr>
-        <tr style="height: 19px;"><td class="s22">Site Acquirability:</td><td class="s2" colspan="13"></td><td class="s3"></td></tr>
+        <tr style="height: auto;"><td class="s2" colspan="14"></td><td class="s3"></td></tr>
+        <tr style="height: auto;"><td class="s22">Site Acquirability:</td><td class="s2" colspan="13"></td><td class="s3"></td></tr>
         <tr style="height: auto;"><td class="s2">Confidence Level</td><td class="s4" colspan="2"></td><td class="s2" colspan="11"></td><td class="s3"></td></tr>
         <tr style="height: auto;">
             <td class="s2">Site Availability</td>
@@ -601,15 +674,17 @@ with col2:
     selected_site_display = st.selectbox("Site Name", options=sites_in_ta, index=0, label_visibility="collapsed")
 
 with col3:
+    # Always show the export button when a trade area is selected
     if selected_ta and selected_ta != "Select Trade Area...":
-        if st.button("Generate Multi-Tab Report", use_container_width=True):
-            with st.spinner("Compiling Excel Workbook..."):
+        if st.button("📥 Export All Sites", use_container_width=True):
+            with st.spinner("Compiling Excel Workbook with all sites..."):
                 wb_buffer = generate_trade_area_report(df, selected_ta, template_bytes_raw, placeholders)
                 st.download_button(
-                    label="Download Report", 
+                    label="✅ Download Report", 
                     data=wb_buffer.getvalue(), 
-                    file_name=f"{selected_ta}_Report.xlsx", 
-                    use_container_width=True
+                    file_name=f"{selected_ta}_Full_Report.xlsx", 
+                    use_container_width=True,
+                    key="download_report"
                 )
 
 # --- DIRECT HTML VIEW LAYOUT ---
