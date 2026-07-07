@@ -41,6 +41,11 @@ st.markdown("""
     button[title="View source"] {display: none !important;}
     .stAppDeployButton {display: none !important;}
     div[data-testid="stStatusWidget"] {display: none !important;}
+
+    /* Hide password visibility toggle (eye icon) */
+    button[title="Show password text"] {display: none !important;}
+    button[title="Hide password text"] {display: none !important;}
+    [data-testid="stTextInput"] button[kind="secondary"] {display: none !important;}
     
     .block-container {
         padding-top: 1rem !important;
@@ -718,19 +723,17 @@ with col2:
     selected_site_display = st.selectbox("Site Name", options=sites_in_ta, index=0, label_visibility="collapsed")
 
 with col3:
-    # Single export button - downloads directly when clicked
     if selected_ta and selected_ta != "Select Trade Area...":
         export_key = f"export_{selected_ta}"
-        if st.button("📥 Export All Sites", use_container_width=True, key=export_key):
-            with st.spinner("Generating Excel report..."):
-                wb_buffer = generate_trade_area_report(df, selected_ta, template_bytes_raw, placeholders)
-                st.download_button(
-                    label="✅ Download Report", 
-                    data=wb_buffer.getvalue(), 
-                    file_name=f"{selected_ta}_Full_Report.xlsx", 
-                    use_container_width=True,
-                    key=f"download_{selected_ta}"
-                )
+        # Pre-generate the report so it's ready for download
+        wb_buffer = generate_trade_area_report(df, selected_ta, template_bytes_raw, placeholders)
+        st.download_button(
+            label="📥 Export All Sites", 
+            data=wb_buffer.getvalue(), 
+            file_name=f"{selected_ta}_Full_Report.xlsx", 
+            use_container_width=True,
+            key=export_key
+        )
 
 # --- DIRECT HTML VIEW LAYOUT ---
 if selected_ta != "Select Trade Area..." and selected_site_display != "Select Site...":
