@@ -537,7 +537,7 @@ with col3:
     st.markdown("### Actions")
     
     if st.session_state.zip_data is None and st.session_state.single_file is None:
-        if st.button("Generate Reports", use_container_width=True, type="primary"):
+        if st.button("Generate Report", use_container_width=True, type="primary"):
             # Get selected trade area names from session state
             selected_trade_areas = [ta for ta in all_trade_areas if st.session_state.get(f"ta_{ta}", False)]
             
