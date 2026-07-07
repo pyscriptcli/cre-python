@@ -115,6 +115,18 @@ def download_file(url):
     except:
         return None
 
+# Dynamically download true vector fonts into memory to ensure anti-aliased clean rendering in headless deployments
+@st.cache_data(ttl=86400)
+def download_vector_fonts():
+    reg_url = "https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Regular.ttf"
+    bold_url = "https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Bold.ttf"
+    try:
+        reg_font = requests.get(reg_url, timeout=10).content
+        bold_font = requests.get(bold_url, timeout=10).content
+        return io.BytesIO(reg_font), io.BytesIO(bold_font)
+    except:
+        return None, None
+
 def get_placeholders(sheet):
     placeholders = set()
     for row in sheet.iter_rows():
@@ -153,7 +165,7 @@ def sanitize_tab_name(name, existing_names):
         return clean_name
     counter = 1
     while True:
-        new_name = f"{clean_name[:27]} ({counter})"
+        new_name = f".{clean_name[:27]} ({counter})"
         if new_name not in existing_names:
             existing_names.add(new_name)
             return new_name
@@ -163,44 +175,34 @@ def parse_excel_color(openpyxl_color, default_rgb=(255, 255, 255)):
     if not openpyxl_color or openpyxl_color.type != 'rgb' or not openpyxl_color.rgb:
         return default_rgb
     rgb_str = str(openpyxl_color.rgb)
-    if len(rgb_str) == 8:  # ARGB format handled natively
+    if len(rgb_str) == 8: 
         rgb_str = rgb_str[2:]
     if len(rgb_str) == 6:
         return tuple(int(rgb_str[i:i+2], 16) for i in (0, 2, 4))
     return default_rgb
 
-# --- PILLOW 1:1 PHOTO CANVAS RENDERING ENGINE (A1:P67) ---
-def render_range_to_image(workbook, sheet_name=None, range_string="A1:P67"):
+# --- PILLOW CRYSTAL-CLEAR RENDERING ENGINE (A1:P67) ---
+def render_range_to_image(workbook, font_reg_bytes, font_bold_bytes, sheet_name=None, range_string="A1:P67"):
     ws = workbook[sheet_name] if sheet_name else workbook.active
     min_col, min_row, max_col, max_row = range_boundaries(range_string)
     
-    # Scale width parameters explicitly to high DPI canvas sizes
+    # Scale width coordinates explicitly to high resolution pixel bounds
     col_widths = []
     for c in range(min_col, max_col + 1):
         w = ws.column_dimensions[get_column_letter(c)].width
-        col_widths.append(int((w if w else 10) * 9.5)) # Scaling factor 
+        col_widths.append(int((w if w else 10) * 12)) # Heightened scaling factor for crisp details
         
     row_heights = []
     for r in range(min_row, max_row + 1):
         h = ws.row_dimensions[r].height
-        row_heights.append(int((h if h else 18) * 1.5)) # Scaling factor
+        row_heights.append(int((h if h else 20) * 1.8)) 
         
     img_width = sum(col_widths)
     img_height = sum(row_heights)
     
-    # Initialize high fidelity canvas mapping arrays
     img = Image.new('RGB', (img_width, img_height), color=(255, 255, 255))
     draw = ImageDraw.Draw(img)
     
-    # Load fallback vector font arrays cleanly
-    try:
-        font_regular = ImageFont.load_default()
-        font_bold = ImageFont.load_default()
-    except:
-        font_regular = ImageFont.load_default()
-        font_bold = ImageFont.load_default()
-
-    # Calculate absolute starting boundary matrices
     col_positions = [0]
     for w in col_widths:
         col_positions.append(col_positions[-1] + w)
@@ -209,23 +211,25 @@ def render_range_to_image(workbook, sheet_name=None, range_string="A1:P67"):
     for h in row_heights:
         row_positions.append(row_positions[-1] + h)
         
-    # Process cell mergers to avoid writing over masked sections
     merged_blocks = {}
     for merged_range in ws.merged_cells.ranges:
         m_min_c, m_min_r, m_max_c, m_max_r = range_boundaries(str(merged_range))
         if m_min_r >= min_row and m_max_r <= max_row and m_min_c >= min_col and m_max_c <= max_col:
             for r in range(m_min_r, m_max_r + 1):
                 for c in range(m_min_c, m_max_c + 1):
-                    merged_blocks[(r, c)] = (m_min_r, m_min_c, m_max_r, m_max_c)
+                    if r == m_min_r and c == m_min_c:
+                        merged_blocks[(r, c)] = (m_min_r, m_min_c, m_max_r, m_max_c)
+                    else:
+                        merged_blocks[(r, c)] = False 
 
-    # First Pass: Render Background Fills & Custom Colors
+    # Pass 1: Render Background Color Blocks
     for r_idx, r in enumerate(range(min_row, max_row + 1)):
         for c_idx, c in enumerate(range(min_col, max_col + 1)):
-            is_master = True
-            if (r, c) in merged_blocks:
+            if (r, c) in merged_blocks and merged_blocks[(r, c)] is False:
+                continue
+                
+            if (r, c) in merged_blocks and merged_blocks[(r, c)]:
                 mr_min, mc_min, mr_max, mc_max = merged_blocks[(r, c)]
-                if r != mr_min or c != mc_min:
-                    is_master = False
                 x1 = col_positions[mc_min - min_col]
                 y1 = row_positions[mr_min - min_row]
                 x2 = col_positions[mc_max - min_col + 1]
@@ -236,23 +240,35 @@ def render_range_to_image(workbook, sheet_name=None, range_string="A1:P67"):
                 x2 = col_positions[c_idx + 1]
                 y2 = row_positions[r_idx + 1]
                 
-            if is_master:
-                cell = ws.cell(row=r, column=c)
-                bg_color = parse_excel_color(cell.fill.fgColor, (255, 255, 255)) if cell.fill and cell.fill.fill_type else (255, 255, 255)
+            cell = ws.cell(row=r, column=c)
+            bg_color = parse_excel_color(cell.fill.fgColor, (255, 255, 255)) if cell.fill and cell.fill.fill_type else (255, 255, 255)
+            
+            if bg_color == (0, 0, 0) and (cell.value is None or str(cell.value).strip() == ""):
+                bg_color = (255, 255, 255)
                 
-                # Dynamic Black Box reset protection layer
-                if bg_color == (0, 0, 0) and (cell.value is None or str(cell.value).strip() == ""):
-                    bg_color = (255, 255, 255)
-                    
-                draw.rectangle([x1, y1, x2, y2], fill=bg_color)
+            draw.rectangle([x1, y1, x2, y2], fill=bg_color)
 
-    # Second Pass: Render Grid Borders & Plain Values Text Data Matrix
+    # Pass 2: Render Anti-Aliased Clean Text Layers & Outlines
     for r_idx, r in enumerate(range(min_row, max_row + 1)):
         for c_idx, c in enumerate(range(min_col, max_col + 1)):
+            if (r, c) in merged_blocks and merged_blocks[(r, c)] is False:
+                continue
+                
+            if (r, c) in merged_blocks and merged_blocks[(r, c)]:
+                mr_min, mc_min, mr_max, mc_max = merged_blocks[(r, c)]
+                x1 = col_positions[mc_min - min_col]
+                y1 = row_positions[mr_min - min_row]
+                x2 = col_positions[mc_max - min_col + 1]
+                y2 = row_positions[mr_max - min_row + 1]
+            else:
+                x1 = col_positions[c_idx]
+                y1 = row_positions[r_idx]
+                x2 = col_positions[c_idx + 1]
+                y2 = row_positions[r_idx + 1]
+
             cell = ws.cell(row=r, column=c)
             value = cell.value if cell.value is not None else ''
             
-            # Plain string text conversions
             if isinstance(value, float) and value.is_integer():
                 value = int(value)
             elif hasattr(value, 'strftime'):
@@ -261,33 +277,23 @@ def render_range_to_image(workbook, sheet_name=None, range_string="A1:P67"):
             if re.match(r'^\d+\.0$', val_str):
                 val_str = val_str.split('.')[0]
                 
-            if (r, c) in merged_blocks:
-                mr_min, mc_min, mr_max, mc_max = merged_blocks[(r, c)]
-                if r != mr_min or c != mc_min:
-                    continue
-                x1 = col_positions[mc_min - min_col]
-                y1 = row_positions[mr_min - min_row]
-                x2 = col_positions[mc_max - min_col + 1]
-                y2 = row_positions[mr_max - min_row + 1]
-            else:
-                x1 = col_positions[c_idx]
-                y1 = row_positions[r_idx]
-                x2 = col_positions[c_idx + 1]
-                y2 = row_positions[r_idx + 1]
-
-            # High contrast line border rendering rules
-            draw.rectangle([x1, y1, x2, y2], outline=(180, 180, 180), width=1)
+            draw.rectangle([x1, y1, x2, y2], outline=(190, 190, 190), width=1)
             
             if val_str:
                 bg_color_check = parse_excel_color(cell.fill.fgColor, (255, 255, 255)) if cell.fill and cell.fill.fill_type else (255, 255, 255)
                 
                 font_color = (51, 51, 51)
                 is_bold = False
+                excel_font_size = 10
+                
                 if cell.font:
                     if cell.font.bold: is_bold = True
+                    if cell.font.size: excel_font_size = cell.font.size
                     font_color = parse_excel_color(cell.font.color, (51, 51, 51))
                 
-                # Dark Header Row Formatting Rules (Site Information Report)
+                # Dynamic calculated text scaling matching resolution bounds
+                scaled_font_size = max(int(excel_font_size * 1.35), 11)
+                
                 if bg_color_check in [(128, 0, 0), (140, 0, 0), (122, 0, 0)] or "SITE INFORMATION REPORT" in val_str.upper():
                     font_color = (255, 255, 255)
                     is_bold = True
@@ -301,19 +307,27 @@ def render_range_to_image(workbook, sheet_name=None, range_string="A1:P67"):
                     if cell.alignment and cell.alignment.horizontal:
                         h_align = cell.alignment.horizontal
                 
-                active_font = font_bold if is_bold else font_regular
+                # Initialize standard vector font streams on the active canvas
+                try:
+                    font_source = font_bold_bytes if is_bold else font_reg_bytes
+                    font_source.seek(0)
+                    active_font = ImageFont.truetype(font_source, scaled_font_size)
+                except:
+                    active_font = ImageFont.load_default()
                 
-                # Calculate text centering padding profiles
-                text_w, text_h = draw.textbytes(val_str, font=active_font) if hasattr(draw, 'textbytes') else (len(val_str)*5, 10)
+                # Fetch text bounding metrics to adjust structural text alignments
+                bbox = draw.textbbox((0, 0), val_str, font=active_font)
+                text_w = bbox[2] - bbox[0]
+                text_h = bbox[3] - bbox[1]
                 
                 if h_align == "center":
                     tx = x1 + ((x2 - x1) - text_w) // 2
                 elif h_align == "right":
-                    tx = x2 - text_w - 6
+                    tx = x2 - text_w - 8
                 else:
-                    tx = x1 + 6
+                    tx = x1 + 8
                     
-                ty = y1 + ((y2 - y1) - text_h) // 2
+                ty = y1 + ((y2 - y1) - text_h) // 2 - 2
                 draw.text((tx, ty), val_str, fill=font_color, font=active_font)
                 
     return img
@@ -336,6 +350,8 @@ def load_data():
 
 with st.spinner("Loading Data Assets..."):
     df, placeholders, template_bytes_raw = load_data()
+    # Download vector configurations
+    font_reg_b, font_bold_b = download_vector_fonts()
 
 if df is None or template_bytes_raw is None:
     st.error("Failed to load data. Please check connection profiles.")
@@ -431,12 +447,16 @@ if site_excel_bytes:
     try:
         active_wb = load_workbook(io.BytesIO(site_excel_bytes))
         
-        # Render range A1:P67 to a pixel-perfect image matrix
-        cloned_image_canvas = render_range_to_image(active_wb, range_string="A1:P67")
+        # Pass vector components stream parameters straight into renderer
+        cloned_image_canvas = render_range_to_image(
+            active_wb, 
+            io.BytesIO(font_reg_b) if font_reg_b else None, 
+            io.BytesIO(font_bold_b) if font_bold_b else None, 
+            range_string="A1:P67"
+        )
         
-        # Display the high fidelity output image directly inside the web container
         st.markdown('<div class="photo-container">', unsafe_allow_html=True)
-        st.image(cloned_image_canvas, use_container_width=True)
+        st.image(cloned_image_canvas, use_container_width=True, output_format="PNG")
         st.markdown('</div>', unsafe_allow_html=True)
             
     except Exception as e:
