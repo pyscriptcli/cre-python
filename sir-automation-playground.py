@@ -198,13 +198,10 @@ def generate_trade_area_report(df, trade_area, template_bytes, placeholders):
             if max_len > 45: 
                 new_sheet.row_dimensions[row[0].row].height = None
 
-    # Completely wipe the blueprint tab from the workbook layout list before saving
-    if "TEMPLATE_TO_DELETE" in wb.sheetnames:
-        wb.remove(wb["TEMPLATE_TO_DELETE"])
-        
+    wb.remove(base_sheet)
     wb_buffer = io.BytesIO()
     wb.save(wb_buffer)
-    return wb_buffer.getvalue()
+    return wb_buffer
 
 # --- COMPLETE HTML BLUEPRINT WITH WRAP-TEXT LOGIC INJECTED ---
 HTML_FRAMEWORK = """
@@ -224,12 +221,18 @@ HTML_FRAMEWORK = """
         .ritz .waffle .s1 {border-bottom:1px SOLID #bfbfbf;border-right:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;font-weight:bold;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
         .ritz .waffle .s2 {background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
         .ritz .waffle .s3 {border-right:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
+        
+        /* DATA CELLS: Modified white-space rule to dynamically wrap text and break long string boundaries safely */
         .ritz .waffle .s4 {border-bottom:1px SOLID transparent;background-color:#f8f9fa;border:1px SOLID #c4c7c5;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:normal;word-wrap:break-word;word-break:break-word;direction:ltr;}
+        
         .ritz .waffle .s5 {background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
         .ritz .waffle .s6 {border-bottom:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
         .ritz .waffle .s7 {border-bottom:1px SOLID #bfbfbf;border-right:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
         .ritz .waffle .s8 {border-bottom:1px SOLID transparent;background-color:#ffffff;text-align:left;color:#ff0000;font-size:8pt;white-space:nowrap;direction:ltr;}
+        
+        /* MULTI-LINE DATA REMARKS CELLS: Enabled wrapping and auto stretching properties */
         .ritz .waffle .s9 {border-bottom:1px SOLID transparent;border-right:1px SOLID #bfbfbf;background-color:#f8f9fa;border:1px SOLID #c4c7c5;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:normal;word-wrap:break-word;word-break:break-word;direction:ltr;}
+        
         .ritz .waffle .s10{background-color:#bfbfbf;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
         .ritz .waffle .s11{border-bottom:1px SOLID #000000;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
         .ritz .waffle .s12{border-bottom:1px SOLID #000000;border-right:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
@@ -332,20 +335,20 @@ HTML_FRAMEWORK = """
         <tr style="height: 19px"><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s3"></td><td class="s8" colspan="2">Advance Rental (Php)</td><td class="s4" colspan="5">_ADVANCE_RENTAL_</td></tr>
         <tr style="height: 19px"><td class="s1" colspan="7">Technical Info</td><td class="s3"></td><td class="s8" colspan="2">Security Deposit Amount (Php)</td><td class="s4" colspan="5">_SECURITY_DEPOSIT_</td></tr>
         <tr style="height: 19px"><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td><td class="s8" colspan="2">CUSA Dues</td><td class="s4" colspan="5">_CUSA_</td></tr>
-        <tr style="height: 19px;">
+        <tr style="height: auto;">
             <td class="s5" colspan="2">Lot /Floor Area (in sqm)</td>
             <td class="s4" colspan="5">_LOT_FLOOR_AREA_SQM_</td>
             <td class="s3"></td>
             <td class="s8" colspan="2">Estimated Revenue Per Mo.</td>
             <td class="s4" colspan="5"></td>
         </tr>
-        <tr style="height: 19px;"><td class="s2">Frontage (in m)</td><td class="s2"></td><td class="s4" colspan="5">_FRONTAGE_</td><td class="s3"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s7"></td></tr>
-        <tr style="height: 19px;"><td class="s2">Depth (in m)</td><td class="s2"></td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s1" colspan="7">Provisions</td></tr>
+        <tr style="height: auto;"><td class="s2">Frontage (in m)</td><td class="s2"></td><td class="s4" colspan="5">_FRONTAGE_</td><td class="s3"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s7"></td></tr>
+        <tr style="height: auto;"><td class="s2">Depth (in m)</td><td class="s2"></td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s1" colspan="7">Provisions</td></tr>
         <tr style="height: 19px;"><td class="s5" colspan="2">Floor to Slab Height (in m) - if Bldg</td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s2" colspan="7"></td></tr>
         <tr style="height: 19px;"><td class="s5" colspan="2">No. of Storeys (If Bldg Lessee)</td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s5" colspan="2">Tenant is the Owner</td><td class="s9" colspan="5"></td></tr>
         <tr style="height: 19px;"><td class="s5" colspan="2">Type of Structure(if Bldg Lessee)</td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s5" colspan="2">Lease Type</td><td class="s9" colspan="5">_LEASE_TYPE_</td></tr>
         <tr style="height: 19px;"><td class="s2">Soil Profile</td><td class="s2"></td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s5" colspan="2">Principal COL</td><td class="s9" colspan="5"></td></tr>
-        <tr style="height: 19px;">
+        <tr style="height: auto;">
             <td class="s2">Supply Access:</td><td class="s2"></td><td class="s2" colspan="5"></td>
             <td class="s3"></td>
             <td class="s5" colspan="2">Sub-Lease Provision</td>
@@ -356,45 +359,45 @@ HTML_FRAMEWORK = """
         <tr style="height: 9px;"><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s3"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s7"></td></tr>
         <tr style="height: 19px;"><td class="s1" colspan="7">Lessor and Tenant Details</td><td class="s3"></td><td class="s1" colspan="7">If with Sub-Lessor/ Sub-Lessee</td></tr>
         <tr style="height: 9px;"><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td></tr>
-        <tr style="height: 19px;">
+        <tr style="height: auto;">
             <td class="s2">Name of Lessor</td><td class="s2"></td>
             <td class="s4" colspan="5">_LESSOR_</td>
             <td class="s3"></td>
             <td class="s5" colspan="2">Name of Sub-Lessor</td>
             <td class="s9" colspan="5"></td>
         </tr>
-        <tr style="height: 19px;"><td class="s2">Contact No.</td><td class="s2"></td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s5" colspan="2">Contact No.</td><td class="s9" colspan="5"></td></tr>
-        <tr style="height: 19px;"><td class="s2">E-mail Address</td><td class="s2"></td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s5" colspan="2">E-mail Address</td><td class="s9" colspan="5"></td></tr>
-        <tr style="height: 19px;"><td class="s2">Type of Ownership</td><td class="s2"></td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s5" colspan="2">Type of Ownership</td><td class="s9" colspan="5"></td></tr>
-        <tr style="height: 19px;"><td class="s2">Company Name</td><td class="s2"></td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s5" colspan="2">Company Name</td><td class="s9" colspan="5"></td></tr>
-        <tr style="height: 19px;"><td class="s5" colspan="2">Developer Account Name</td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s5" colspan="2">Developer Account Name</td><td class="s9" colspan="5"></td></tr>
-        <tr style="height: 19px;"><td class="s2">Business Address</td><td class="s2"></td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s5" colspan="2">Business Address</td><td class="s9" colspan="5"></td></tr>
-        <tr style="height: 19px;"><td class="s5" colspan="2">Name of Authorized Representative</td><td class="s4" colspan="5">_CONTACT_PERSON_SOURCE_</td><td class="s3"></td><td class="s5" colspan="2">Name of Authorized Representative</td><td class="s9" colspan="5"></td></tr>
-        <tr style="height: 19px;"><td class="s5" colspan="2">Residence Address of Authorized Representative</td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s5" colspan="2">Residence Address of Authorized Representative</td><td class="s9" colspan="5"></td></tr>
-        <tr style="height: 19px;"><td class="s2">Contact No.</td><td class="s2"></td><td class="s4" colspan="5">_CONTACT_NUMBER_</td><td class="s3"></td><td class="s5" colspan="2">Contact No.</td><td class="s9" colspan="5"></td></tr>
-        <tr style="height: 19px;"><td class="s2">E-mail Address</td><td class="s2"></td><td class="s4" colspan="5">_EMAIL_ADDRESS_</td><td class="s3"></td><td class="s5" colspan="2">E-mail Address</td><td class="s9" colspan="5"></td></tr>
+        <tr style="height: auto;"><td class="s2">Contact No.</td><td class="s2"></td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s5" colspan="2">Contact No.</td><td class="s9" colspan="5"></td></tr>
+        <tr style="height: auto;"><td class="s2">E-mail Address</td><td class="s2"></td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s5" colspan="2">E-mail Address</td><td class="s9" colspan="5"></td></tr>
+        <tr style="height: auto;"><td class="s2">Type of Ownership</td><td class="s2"></td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s5" colspan="2">Type of Ownership</td><td class="s9" colspan="5"></td></tr>
+        <tr style="height: auto;"><td class="s2">Company Name</td><td class="s2"></td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s5" colspan="2">Company Name</td><td class="s9" colspan="5"></td></tr>
+        <tr style="height: auto;"><td class="s5" colspan="2">Developer Account Name</td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s5" colspan="2">Developer Account Name</td><td class="s9" colspan="5"></td></tr>
+        <tr style="height: auto;"><td class="s2">Business Address</td><td class="s2"></td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s5" colspan="2">Business Address</td><td class="s9" colspan="5"></td></tr>
+        <tr style="height: auto;"><td class="s5" colspan="2">Name of Authorized Representative</td><td class="s4" colspan="5">_CONTACT_PERSON_SOURCE_</td><td class="s3"></td><td class="s5" colspan="2">Name of Authorized Representative</td><td class="s9" colspan="5"></td></tr>
+        <tr style="height: auto;"><td class="s5" colspan="2">Residence Address of Authorized Representative</td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s5" colspan="2">Residence Address of Authorized Representative</td><td class="s9" colspan="5"></td></tr>
+        <tr style="height: auto;"><td class="s2">Contact No.</td><td class="s2"></td><td class="s4" colspan="5">_CONTACT_NUMBER_</td><td class="s3"></td><td class="s5" colspan="2">Contact No.</td><td class="s9" colspan="5"></td></tr>
+        <tr style="height: auto;"><td class="s2">E-mail Address</td><td class="s2"></td><td class="s4" colspan="5">_EMAIL_ADDRESS_</td><td class="s3"></td><td class="s5" colspan="2">E-mail Address</td><td class="s9" colspan="5"></td></tr>
         <tr style="height: 9px;"><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td><td class="s2"></td><td class="s2"></td><td class="s3" colspan="5"></td></tr>
-        <tr style="height: 19px;"><td class="s2">Name of Lessee</td><td class="s2"></td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s5" colspan="2">Name of Sub-Lessee</td><td class="s9" colspan="5"></td></tr>
-        <tr style="height: 19px;"><td class="s2">Position</td><td class="s2"></td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s5" colspan="2">Position</td><td class="s9" colspan="5"></td></tr>
-        <tr style="height: 19px;"><td class="s2">Contact No.</td><td class="s2"></td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s5" colspan="2">Contact No.</td><td class="s9" colspan="5"></td></tr>
-        <tr style="height: 19px;"><td class="s2">E-mail Address</td><td class="s2"></td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s5" colspan="2">E-mail Address</td><td class="s9" colspan="5"></td></tr>
-        <tr style="height: 19px;"><td class="s5" colspan="2">Name of Authorized Representative</td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s5" colspan="2">Name of Authorized Representative</td><td class="s9" colspan="5"></td></tr>
-        <tr style="height: 19px;"><td class="s2">Business Address</td><td class="s2"></td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s5" colspan="2">Business Address</td><td class="s9" colspan="5"></td></tr>
+        <tr style="height: auto;"><td class="s2">Name of Lessee</td><td class="s2"></td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s5" colspan="2">Name of Sub-Lessee</td><td class="s9" colspan="5"></td></tr>
+        <tr style="height: auto;"><td class="s2">Position</td><td class="s2"></td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s5" colspan="2">Position</td><td class="s9" colspan="5"></td></tr>
+        <tr style="height: auto;"><td class="s2">Contact No.</td><td class="s2"></td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s5" colspan="2">Contact No.</td><td class="s9" colspan="5"></td></tr>
+        <tr style="height: auto;"><td class="s2">E-mail Address</td><td class="s2"></td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s5" colspan="2">E-mail Address</td><td class="s9" colspan="5"></td></tr>
+        <tr style="height: auto;"><td class="s5" colspan="2">Name of Authorized Representative</td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s5" colspan="2">Name of Authorized Representative</td><td class="s9" colspan="5"></td></tr>
+        <tr style="height: auto;"><td class="s2">Business Address</td><td class="s2"></td><td class="s4" colspan="5"></td><td class="s3"></td><td class="s5" colspan="2">Business Address</td><td class="s9" colspan="5"></td></tr>
         <tr style="height: 9px;"><td class="s11"></td><td class="s11"></td><td class="s11"></td><td class="s11"></td><td class="s11"></td><td class="s11"></td><td class="s11"></td><td class="s12"></td><td class="s11"></td><td class="s11"></td><td class="s11"></td><td class="s11"></td><td class="s11"></td><td class="s11"></td><td class="s12"></td></tr>
         <tr style="height: 19px;"><td class="s13" colspan="15">Regulatory</td></tr>
-        <tr style="height: 19px;">
+        <tr style="height: auto;">
             <td class="s14">Setback Requirement</td><td class="s15" colspan="4"></td>
             <td class="s16" colspan="2">Perm Traffic Re-Routing</td><td class="s17"></td>
             <td class="s15" colspan="2"></td>
             <td class="s18" colspan="5">Future Development</td>
         </tr>
-        <tr style="height: 19px;">
+        <tr style="height: auto;">
             <td class="s14">Road Widening</td><td class="s15" colspan="4"></td>
             <td class="s16" colspan="2">Perm Road Closure</td><td class="s17"></td>
             <td class="s15" colspan="2"></td>
             <td class="s18" colspan="5">Zoning Clearance</td>
         </tr>
-        <tr style="height: 19px;">
+        <tr style="height: auto;">
             <td class="s19">Pedestrian Overpass</td><td class="s20" colspan="4"></td>
             <td class="s19" colspan="2">Infrastructure Programs</td><td class="s20"></td>
             <td class="s20" colspan="2"></td>
@@ -402,13 +405,13 @@ HTML_FRAMEWORK = """
         </tr>
         <tr style="height: 9px;"><td class="s2" colspan="14"></td><td class="s3"></td></tr>
         <tr style="height: 19px;"><td class="s22">Site Acquirability:</td><td class="s2" colspan="13"></td><td class="s3"></td></tr>
-        <tr style="height: 19px;"><td class="s2">Confidence Level</td><td class="s4" colspan="2"></td><td class="s2" colspan="11"></td><td class="s3"></td></tr>
-        <tr style="height: 19px;">
+        <tr style="height: auto;"><td class="s2">Confidence Level</td><td class="s4" colspan="2"></td><td class="s2" colspan="11"></td><td class="s3"></td></tr>
+        <tr style="height: auto;">
             <td class="s2">Site Availability</td>
             <td class="s23" colspan="2"><div style="width:184px;left:-1px">_SITE_AVAILABILITY_CLASS_</div></td>
             <td class="s24"></td><td class="s25"></td><td class="s2" colspan="10"></td><td class="s3"></td>
         </tr>
-        <tr style="height: 19px;">
+        <tr style="height: auto;">
             <td class="s6">Other Remarks:</td>
             <td class="s5" colspan="7">_REMARKS_</td>
             <td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s7"></td>
@@ -450,12 +453,13 @@ if df is None or template_bytes_raw is None:
     st.error("Failed to load data. Please check connection profiles.")
     st.stop()
 
-# --- 1st ROW: HEADER CONTROLS ---
+# --- CONTROLS ROW ---
+trade_areas = ["Select Trade Area..."] + sorted(df["TRADE AREA"].dropna().unique().tolist())
 col1, col2, col3 = st.columns([1.5, 1.5, 1.0])
 
 with col1:
     st.markdown("<p style='font-size:0.75rem; font-weight:500; color:#444746; margin:0;'>Trade Area</p>", unsafe_allow_html=True)
-    selected_ta = st.selectbox("Trade Area", options=["Select Trade Area..."] + sorted(df["TRADE AREA"].dropna().unique().tolist()), index=0, label_visibility="collapsed")
+    selected_ta = st.selectbox("Trade Area", options=trade_areas, index=0, label_visibility="collapsed")
     
 with col2:
     st.markdown("<p style='font-size:0.75rem; font-weight:500; color:#444746; margin:0;'>Site View</p>", unsafe_allow_html=True)
@@ -469,16 +473,17 @@ with col2:
 
 with col3:
     if selected_ta and selected_ta != "Select Trade Area...":
-        # Direct generation combined instantly within stream trigger boundaries
-        report_bytes = generate_trade_area_report(df, selected_ta, template_bytes_raw, placeholders)
-        st.download_button(
-            label="Export", 
-            data=report_bytes, 
-            file_name=f"{selected_ta}_Report.xlsx", 
-            use_container_width=True
-        )
+        if st.button("Generate Multi-Tab Report", use_container_width=True):
+            with st.spinner("Compiling Excel Workbook..."):
+                wb_buffer = generate_trade_area_report(df, selected_ta, template_bytes_raw, placeholders)
+                st.download_button(
+                    label="Download Report", 
+                    data=wb_buffer.getvalue(), 
+                    file_name=f"{selected_ta}_Report.xlsx", 
+                    use_container_width=True
+                )
 
-# --- DIRECT HTML SPREADSHEET DISPLAY ---
+# --- DIRECT HTML VIEW LAYOUT ---
 if selected_ta != "Select Trade Area..." and selected_site_display != "Select Site...":
     site_data = df[df["SITE_DISPLAY"] == selected_site_display]
     if not site_data.empty:
@@ -529,6 +534,6 @@ if selected_ta != "Select Trade Area..." and selected_site_display != "Select Si
             components.html(rendered_view, height=850, scrolling=True)
                 
         except Exception as e:
-            st.error(f"Error compiling layout: {str(e)}")
+            st.error(f"Error compiling visual matrix framework: {str(e)}")
 else:
     st.info("Please select a Trade Area and a Site to view the specific report.")
