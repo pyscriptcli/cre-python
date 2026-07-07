@@ -19,7 +19,7 @@ from io import BytesIO
 # --- PAGE CONFIGURATION ---
 st.set_page_config(
     page_title="trs.sitesourcing.viewer",
-    page_icon="👁️",
+    page_icon="",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
@@ -41,7 +41,6 @@ st.markdown("""
         font-family: 'Roboto', 'Segoe UI', sans-serif !important;
     }
     
-    /* Strict Hiding */
     #MainMenu {visibility: hidden !important;}
     footer {visibility: hidden !important;}
     header {visibility: hidden !important;}
@@ -49,14 +48,12 @@ st.markdown("""
     .stAppDeployButton {display: none !important;}
     div[data-testid="stStatusWidget"] {display: none !important;}
     
-    .main-header {
-        display: none !important;
-    }
-    
     .block-container {
-        padding-top: 0.3rem !important;
-        padding-bottom: 1rem !important;
-        max-width: 1400px !important;
+        padding-top: 0.1rem !important;
+        padding-bottom: 0.1rem !important;
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
+        max-width: 100% !important;
     }
     
     .stButton > button {
@@ -64,29 +61,35 @@ st.markdown("""
         color: #333333 !important;
         border: 1px solid #d0d0d0 !important;
         border-radius: 3px !important;
-        padding: 0.4rem 0.6rem !important;
-        font-weight: 500 !important;
-        font-size: 0.8rem !important;
-        transition: all 0.2s ease;
+        padding: 0.2rem 0.4rem !important;
+        font-weight: 400 !important;
+        font-size: 0.7rem !important;
+        min-height: 28px !important;
+        height: 28px !important;
+        line-height: 1 !important;
         width: 100%;
-        min-height: 36px;
     }
     .stButton > button:hover {
         background-color: #f5f5f5 !important;
         border-color: #b0b0b0 !important;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
     }
     
     .stSelectbox > div > div {
         background-color: #fafafa !important;
         border-color: #d0d0d0 !important;
         color: #333333 !important;
+        min-height: 28px !important;
+        height: 28px !important;
     }
-    
+    .stSelectbox > div > div > div {
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+    }
     .stSelectbox label {
         color: #333333 !important;
-        font-weight: 500 !important;
-        font-size: 0.9rem !important;
+        font-weight: 400 !important;
+        font-size: 0.7rem !important;
+        margin-bottom: 0.1rem !important;
     }
     
     .stMarkdown, .stMarkdown * {
@@ -94,118 +97,75 @@ st.markdown("""
     }
     
     .control-section {
-        background-color: #f5f5f5 !important;
-        border-radius: 4px;
-        padding: 0.8rem 1rem !important;
+        background-color: #f8f8f8 !important;
+        border-radius: 2px;
+        padding: 0.2rem 0.4rem !important;
         border: 1px solid #e8e8e8;
-        margin-bottom: 0.5rem;
-    }
-    
-    .metric-card {
-        background-color: #f5f5f5 !important;
-        border-radius: 4px;
-        padding: 0.3rem 0.5rem;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-        border-left: 3px solid #999999;
-        text-align: center;
         margin-bottom: 0.2rem;
     }
-    .metric-value {
-        font-size: 1rem;
-        font-weight: 500;
-        color: #333333 !important;
-    }
-    .metric-label {
-        color: #666666 !important;
-        font-size: 0.55rem;
-        font-weight: 400;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
     
-    .stAlert {
-        border-radius: 4px;
-        padding: 0.4rem;
-    }
-    
-    /* Excel Viewer Container */
     .excel-container {
         background-color: white !important;
-        border-radius: 4px;
-        padding: 1rem;
+        border-radius: 2px;
+        padding: 0.3rem;
         border: 1px solid #e8e8e8;
         overflow: auto;
-        min-height: 500px;
-        max-height: 800px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        height: calc(100vh - 160px);
     }
     
     .excel-container table {
         border-collapse: collapse;
         width: 100%;
-        font-size: 11px;
+        font-size: 10px;
     }
     
     .excel-container td {
-        padding: 4px 6px;
+        padding: 2px 4px;
         border: 1px solid #d0d0d0;
     }
     
-    /* Tab styling */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 2px;
-        background-color: #f5f5f5 !important;
-        border-radius: 4px;
-        padding: 4px;
-    }
-    
-    .stTabs [data-baseweb="tab"] {
-        border-radius: 3px !important;
-        padding: 0.4rem 1rem !important;
-        background-color: transparent !important;
-        color: #666666 !important;
-        font-weight: 400 !important;
-    }
-    
-    .stTabs [aria-selected="true"] {
-        background-color: #ffffff !important;
-        color: #333333 !important;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.08) !important;
-        font-weight: 500 !important;
-    }
-    
-    /* Footer overlay */
     .footer-overlay {
         position: fixed !important;
         bottom: 0 !important;
         left: 0 !important;
         right: 0 !important;
-        height: 35px !important;
+        height: 25px !important;
         background-color: #fafafa !important;
         z-index: 9999999 !important;
-        box-shadow: 0 -2px 10px rgba(0,0,0,0.03) !important;
         border-top: 1px solid #e8e8e8 !important;
         pointer-events: none !important;
     }
     
-    /* Info box styling */
-    .info-box {
-        background-color: #f8f8f8;
-        border-radius: 4px;
-        padding: 0.5rem 0.8rem;
-        border: 1px solid #e8e8e8;
-        margin-top: 0.3rem;
+    .stAlert {
+        padding: 0.2rem 0.4rem !important;
+        font-size: 0.7rem !important;
     }
     
-    .info-box strong {
-        color: #333333;
+    div[data-testid="stVerticalBlock"] {
+        gap: 0.1rem !important;
     }
     
-    .info-box .label {
-        color: #666666;
-        font-size: 0.7rem;
-        text-transform: uppercase;
-        letter-spacing: 0.3px;
+    div[data-testid="stHorizontalBlock"] {
+        gap: 0.3rem !important;
+        align-items: center !important;
+    }
+    
+    .stDownloadButton > button {
+        background-color: #e8e8e8 !important;
+        color: #333333 !important;
+        border: 1px solid #d0d0d0 !important;
+        border-radius: 3px !important;
+        padding: 0.2rem 0.4rem !important;
+        font-weight: 400 !important;
+        font-size: 0.7rem !important;
+        min-height: 28px !important;
+        height: 28px !important;
+        line-height: 1 !important;
+        width: 100%;
+    }
+    .stDownloadButton > button:hover {
+        background-color: #f5f5f5 !important;
+        border-color: #b0b0b0 !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -310,7 +270,6 @@ def clone_cell_styles(source_cell, target_cell):
         target_cell.fill = copy(source_cell.fill)
 
 def copy_and_merge_aware_injection(template_ws, target_ws, coord, data_value):
-    """Copy styles and handle merged cells for a single cell injection"""
     if not target_ws:
         return
     target_cell = target_ws[coord]
@@ -318,7 +277,6 @@ def copy_and_merge_aware_injection(template_ws, target_ws, coord, data_value):
     target_cell.value = data_value
     clone_cell_styles(template_cell, target_cell)
     
-    # Handle merged cells
     merged_range_string = None
     for merged_range in template_ws.merged_cells.ranges:
         if template_cell.coordinate in merged_range:
@@ -342,7 +300,6 @@ def copy_and_merge_aware_injection(template_ws, target_ws, coord, data_value):
         except:
             pass
         
-        # Clone styles for all cells in merged range
         for r in range(min_row, max_row + 1):
             for c in range(min_col, max_col + 1):
                 sub_coord = f"{get_column_letter(c)}{r}"
@@ -350,19 +307,16 @@ def copy_and_merge_aware_injection(template_ws, target_ws, coord, data_value):
                     clone_cell_styles(template_ws[sub_coord], target_ws[sub_coord])
 
 def render_excel_to_html(workbook, sheet_name=None):
-    """Convert Excel worksheet to HTML for display"""
     if sheet_name is None:
         ws = workbook.active
     else:
         ws = workbook[sheet_name]
     
-    # Get max row and column
     max_row = ws.max_row
     max_col = ws.max_column
     
-    html = '<table style="border-collapse: collapse; font-family: \'Roboto\', sans-serif; font-size: 11px; width: 100%;">'
+    html = '<table style="border-collapse: collapse; font-family: \'Roboto\', sans-serif; font-size: 10px; width: 100%;">'
     
-    # Build merged cell map
     merged_cells = {}
     for merged_range in ws.merged_cells.ranges:
         min_col, min_row, max_col, max_row = range_boundaries(str(merged_range))
@@ -377,18 +331,15 @@ def render_excel_to_html(workbook, sheet_name=None):
                 else:
                     merged_cells[(row, col)] = {'is_master': False}
     
-    # Generate table
     for row in range(1, max_row + 1):
         html += '<tr>'
         for col in range(1, max_col + 1):
-            # Skip cells that are part of a merged range but not the master
             if (row, col) in merged_cells and not merged_cells[(row, col)].get('is_master', False):
                 continue
             
             cell = ws.cell(row, col)
             value = cell.value if cell.value is not None else ''
             
-            # Get cell styles
             bg_color = 'white'
             if cell.fill and cell.fill.fgColor and cell.fill.fgColor.rgb:
                 bg_color = cell.fill.fgColor.rgb
@@ -397,7 +348,7 @@ def render_excel_to_html(workbook, sheet_name=None):
             
             font_color = '#333333'
             font_weight = 'normal'
-            font_size = '11px'
+            font_size = '10px'
             if cell.font:
                 if cell.font.color and cell.font.color.rgb:
                     font_color = cell.font.color.rgb
@@ -408,7 +359,6 @@ def render_excel_to_html(workbook, sheet_name=None):
                 if cell.font.size:
                     font_size = f'{cell.font.size}px'
             
-            # Get alignment
             h_align = 'left'
             v_align = 'middle'
             wrap_text = False
@@ -417,26 +367,22 @@ def render_excel_to_html(workbook, sheet_name=None):
                 v_align = cell.alignment.vertical or 'middle'
                 wrap_text = cell.alignment.wrap_text or False
             
-            # Border
             border_style = '1px solid #d0d0d0'
             
-            # Build style
             style = f'background-color: {bg_color}; color: {font_color}; font-weight: {font_weight}; font-size: {font_size}; '
-            style += f'text-align: {h_align}; vertical-align: {v_align}; padding: 4px 6px; border: {border_style}; '
+            style += f'text-align: {h_align}; vertical-align: {v_align}; padding: 2px 4px; border: {border_style}; '
             
             if wrap_text:
                 style += 'white-space: normal; word-wrap: break-word; max-width: 300px; '
             else:
                 style += 'white-space: nowrap; '
             
-            # Check if this cell is the master of a merged range
             rowspan = 1
             colspan = 1
             if (row, col) in merged_cells and merged_cells[(row, col)].get('is_master', False):
                 rowspan = merged_cells[(row, col)].get('rowspan', 1)
                 colspan = merged_cells[(row, col)].get('colspan', 1)
             
-            # Build cell tag
             if rowspan > 1 or colspan > 1:
                 html += f'<td style="{style}" rowspan="{rowspan}" colspan="{colspan}">{str(value)}</td>'
             else:
@@ -449,19 +395,16 @@ def render_excel_to_html(workbook, sheet_name=None):
 
 @st.cache_data(ttl=3600)
 def load_data():
-    """Load and cache data from Google Sheets"""
     source_data = download_file(SOURCE_URL)
     template_data = download_file(TEMPLATE_URL)
     
     if source_data is None or template_data is None:
         return None, None, None, None, None
     
-    # Load source data
     df = pd.read_excel(source_data)
     df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
     df.columns = df.columns.str.strip().str.upper()
     
-    # Load template
     template_wb = load_workbook(template_data)
     template_sheet = template_wb.active
     placeholders = get_placeholders(template_sheet)
@@ -469,38 +412,26 @@ def load_data():
     return df, template_wb, template_sheet, placeholders, template_data
 
 # --- LOAD DATA ---
-with st.spinner("Loading data..."):
+with st.spinner("Loading..."):
     df, template_wb, template_sheet, placeholders, template_data = load_data()
 
 if df is None or template_wb is None:
-    st.error("Failed to load data. Please check your internet connection and try again.")
+    st.error("Failed to load data. Please check your internet connection.")
     st.stop()
 
-# --- MAIN CONTENT ---
-st.markdown("### 👁️ Report Viewer")
-
-# --- ROW 1: CONTROLS ---
-st.markdown('<div class="control-section">', unsafe_allow_html=True)
-
-# Get unique trade areas
+# --- CONTROLS ROW ---
 trade_areas = sorted(df["TRADE AREA"].dropna().unique())
 
-# Check for TRADE AREA NO column
-trade_area_no_col = None
-for col in df.columns:
-    if "TRADE AREA NO" in col.upper() or "TRADE AREA #" in col.upper():
-        trade_area_no_col = col
-        break
-
-# Create 3 columns for controls
-col1, col2, col3, col4, col5 = st.columns([1.5, 1.5, 1.2, 0.8, 0.8])
+# Create columns for controls
+col1, col2, col3, col4, col5, col6 = st.columns([1.2, 1.2, 0.8, 0.8, 0.8, 0.8])
 
 with col1:
     selected_ta = st.selectbox(
-        "🏢 Trade Area",
+        "Trade Area",
         options=trade_areas,
         index=0 if trade_areas else None,
-        key="ta_select"
+        key="ta_select",
+        label_visibility="collapsed"
     )
 
 with col2:
@@ -508,66 +439,142 @@ with col2:
         sites_in_ta = df[df["TRADE AREA"] == selected_ta]["SITE NAME"].dropna().unique()
         sites_in_ta = sorted(sites_in_ta)
         selected_site = st.selectbox(
-            "📍 Site Name",
+            "Site Name",
             options=sites_in_ta,
             index=0 if len(sites_in_ta) > 0 else None,
-            key="site_select"
+            key="site_select",
+            label_visibility="collapsed"
         )
     else:
         selected_site = st.selectbox(
-            "📍 Site Name",
+            "Site Name",
             options=[],
-            key="site_select"
+            key="site_select",
+            label_visibility="collapsed"
         )
-        st.warning("Select a Trade Area first")
 
 with col3:
-    # Show site info summary
-    if selected_ta and selected_site:
-        site_data = df[(df["TRADE AREA"] == selected_ta) & (df["SITE NAME"] == selected_site)]
-        if not site_data.empty:
-            # Show TRADE AREA NO if available
-            if trade_area_no_col:
-                ta_no = site_data[trade_area_no_col].iloc[0]
-                if pd.notna(ta_no):
-                    st.markdown(f"**Trade Area #:** {ta_no}")
-            
-            # Show address if available
-            if "ADDRESS" in df.columns:
-                addr = site_data["ADDRESS"].iloc[0]
-                if pd.notna(addr) and addr != "":
-                    st.markdown(f"**Address:** {addr}")
-
-with col4:
-    st.markdown("&nbsp;")  # Spacer
-    if st.button("🔄 Refresh", use_container_width=True):
+    if st.button("Refresh", use_container_width=True):
         st.cache_data.clear()
         st.rerun()
 
+with col4:
+    if selected_ta and selected_site:
+        site_data = df[(df["TRADE AREA"] == selected_ta) & (df["SITE NAME"] == selected_site)]
+        if not site_data.empty:
+            row = site_data.iloc[0]
+            
+            # Create single site download
+            template_data.seek(0)
+            wb = load_workbook(template_data)
+            base_sheet = wb.active
+            
+            for row_cells in base_sheet.iter_rows():
+                for cell in row_cells:
+                    if isinstance(cell.value, str) and "{{" in cell.value:
+                        new_val = cell.value
+                        for ph in placeholders:
+                            target_regex = r"\{\{\s*" + re.escape(ph) + r"(\s*:.*?)?\}\}"
+                            if re.search(target_regex, new_val):
+                                raw_data_val = row.get(ph.upper(), "")
+                                if pd.isna(raw_data_val) or raw_data_val is None:
+                                    raw_data_val = ""
+                                val_str = str(raw_data_val)
+                                new_val = re.sub(target_regex, val_str, new_val)
+                        cell.value = new_val.strip() if new_val else ""
+            
+            wb_buffer = io.BytesIO()
+            wb.save(wb_buffer)
+            safe_filename = f"{selected_site}_{selected_ta}".replace("/", "-").replace("\\", "-")
+            
+            st.download_button(
+                "Site Report",
+                data=wb_buffer.getvalue(),
+                file_name=f"{safe_filename}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True
+            )
+
 with col5:
-    st.markdown("&nbsp;")  # Spacer
-    # Statistics button or indicator
+    if selected_ta:
+        # Create trade area download (all sites in trade area)
+        ta_data = df[df["TRADE AREA"] == selected_ta]
+        
+        if st.button("Trade Report", use_container_width=True):
+            with st.spinner("Generating..."):
+                template_data.seek(0)
+                wb = load_workbook(template_data)
+                base_sheet = wb.active
+                base_sheet.title = "TEMPLATE_TO_DELETE"
+                existing_tabs = set()
+                
+                for _, row in ta_data.iterrows():
+                    site_name = row.get("SITE NAME", "Unknown")
+                    safe_tab_name = sanitize_tab_name(site_name, existing_tabs)
+                    new_sheet = wb.copy_worksheet(base_sheet)
+                    new_sheet.title = safe_tab_name
+                    
+                    for row_cells in new_sheet.iter_rows():
+                        for cell in row_cells:
+                            if isinstance(cell.value, str) and "{{" in cell.value:
+                                new_val = cell.value
+                                for ph in placeholders:
+                                    target_regex = r"\{\{\s*" + re.escape(ph) + r"(\s*:.*?)?\}\}"
+                                    if re.search(target_regex, new_val):
+                                        raw_data_val = row.get(ph.upper(), "")
+                                        if pd.isna(raw_data_val) or raw_data_val is None:
+                                            raw_data_val = ""
+                                        val_str = str(raw_data_val)
+                                        new_val = re.sub(target_regex, val_str, new_val)
+                                cell.value = new_val.strip() if new_val else ""
+                
+                wb.remove(base_sheet)
+                wb_buffer = io.BytesIO()
+                wb.save(wb_buffer)
+                safe_filename = str(selected_ta).replace("/", "-").replace("\\", "-")
+                
+                st.download_button(
+                    "Download",
+                    data=wb_buffer.getvalue(),
+                    file_name=f"{safe_filename}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                    key="ta_download"
+                )
+
+def sanitize_tab_name(name, existing_names):
+    illegal_chars = r'[\\/*?\[\]:]'
+    clean_name = re.sub(illegal_chars, '', str(name))
+    base_name = clean_name[:31]
+    if base_name not in existing_names:
+        existing_names.add(base_name)
+        return base_name
+    counter = 1
+    while True:
+        suffix = f" ({counter})"
+        max_len = 31 - len(suffix)
+        new_name = f"{clean_name[:max_len]}{suffix}"
+        if new_name not in existing_names:
+            existing_names.add(new_name)
+            return new_name
+        counter += 1
+
+with col6:
     total_sites = len(df["SITE NAME"].dropna().unique())
-    st.markdown(f"**Total Sites:** {total_sites}")
+    st.markdown(f"<p style='text-align: center; font-size: 0.7rem; color: #666; margin: 0; padding-top: 8px;'>Sites: {total_sites}</p>", unsafe_allow_html=True)
 
-st.markdown('</div>', unsafe_allow_html=True)
-
-# --- ROW 2: VIEWER ---
+# --- REPORT VIEWER ---
 if selected_ta and selected_site:
     try:
-        # Get the data for the selected site
         site_data = df[(df["TRADE AREA"] == selected_ta) & (df["SITE NAME"] == selected_site)]
         
         if site_data.empty:
             st.warning("No data found for the selected site.")
         else:
-            # Create a fresh workbook from template
             template_data.seek(0)
             wb = load_workbook(template_data)
             base_sheet = wb.active
-            base_sheet.title = "Report"
             
-            # Populate with site data
             row = site_data.iloc[0]
             
             for row_cells in base_sheet.iter_rows():
@@ -592,92 +599,12 @@ if selected_ta and selected_site:
                         else:
                             cell.value = new_val.strip() if new_val else ""
             
-            # Display the report
-            st.markdown("---")
-            
-            # Create tabs for different views
-            tab1, tab2, tab3 = st.tabs(["📄 Report View", "📊 Data View", "ℹ️ Placeholders"])
-            
-            with tab1:
-                # Render Excel to HTML
-                html_content = render_excel_to_html(wb, "Report")
-                st.markdown('<div class="excel-container">', unsafe_allow_html=True)
-                st.markdown(html_content, unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-                
-                # Download button
-                wb_buffer = io.BytesIO()
-                wb.save(wb_buffer)
-                safe_filename = f"{selected_site}_{selected_ta}".replace("/", "-").replace("\\", "-")
-                
-                col1, col2, col3 = st.columns([1, 2, 1])
-                with col2:
-                    st.download_button(
-                        "⬇️ Download Excel File",
-                        data=wb_buffer.getvalue(),
-                        file_name=f"{safe_filename}.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        use_container_width=True
-                    )
-            
-            with tab2:
-                # Show the raw data for the selected site
-                st.markdown("### Site Data")
-                
-                # Display all data for this site in a clean format
-                display_data = []
-                for col in df.columns:
-                    val = row.get(col, "")
-                    if pd.isna(val):
-                        val = ""
-                    display_data.append({"Field": col, "Value": val})
-                
-                display_df = pd.DataFrame(display_data)
-                st.dataframe(
-                    display_df,
-                    use_container_width=True,
-                    hide_index=True,
-                    column_config={
-                        "Field": st.column_config.TextColumn("Field", width="medium"),
-                        "Value": st.column_config.TextColumn("Value", width="large")
-                    }
-                )
-            
-            with tab3:
-                # Show all placeholders and their values
-                st.markdown("### Placeholder Mapping")
-                
-                placeholder_data = []
-                for ph in placeholders:
-                    val = row.get(ph.upper(), "")
-                    if pd.isna(val):
-                        val = ""
-                    placeholder_data.append({
-                        "Placeholder": f"{{{{{ph}}}}}",
-                        "Value": val,
-                        "Status": "✅ Populated" if str(val).strip() != "" else "❌ Empty"
-                    })
-                
-                ph_df = pd.DataFrame(placeholder_data)
-                st.dataframe(
-                    ph_df,
-                    use_container_width=True,
-                    hide_index=True,
-                    column_config={
-                        "Placeholder": st.column_config.TextColumn("Placeholder", width="small"),
-                        "Value": st.column_config.TextColumn("Value", width="large"),
-                        "Status": st.column_config.TextColumn("Status", width="small")
-                    }
-                )
-                
-                # Summary
-                populated = sum(1 for p in placeholder_data if p["Status"] == "✅ Populated")
-                total = len(placeholder_data)
-                st.progress(populated/total if total > 0 else 0)
-                st.markdown(f"**{populated}** of **{total}** placeholders populated ({int(populated/total*100) if total > 0 else 0}%)")
+            html_content = render_excel_to_html(wb)
+            st.markdown('<div class="excel-container">', unsafe_allow_html=True)
+            st.markdown(html_content, unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
     
     except Exception as e:
-        st.error(f"Error generating report: {str(e)}")
-        st.info("Please try selecting a different site or trade area.")
+        st.error(f"Error: {str(e)}")
 else:
-    st.info("👆 Select a Trade Area and Site from the controls above to view the report.")
+    st.info("Select a Trade Area and Site to view the report.")
