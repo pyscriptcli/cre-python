@@ -26,7 +26,7 @@ if not os.path.exists(_config_file):
     with open(_config_file, "w", encoding="utf-8") as f:
         f.write("[theme]\nbase=\"light\"\n")
 
-# --- CUSTOM GOOGLE WORKSPACE UI CSS ---
+# --- CUSTOM GOOGLE WORKSPACE UI & CONDENSED SPREADSHEET CSS ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto:wght@300;400;500;700&display=swap');
@@ -107,6 +107,36 @@ st.markdown("""
         margin-top: 0.5rem;
         width: 100%;
     }
+
+    /* Embedded Sheet Specific Styling Rule Overrides (-2pt applied globally) */
+    .ritz .waffle a { color: inherit; }
+    .ritz .waffle td { padding: 4px 6px !important; font-family: Arial, sans-serif !important; }
+    .ritz .waffle .s0 {border-bottom:1px SOLID #bfbfbf;border-right:1px SOLID #bfbfbf;background-color:#800000;text-align:center;font-weight:bold;color:#ffffff;font-size:10pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s1 {border-bottom:1px SOLID #bfbfbf;border-right:1px SOLID #bfbfbf;background-color:#f0f4f9;text-align:left;font-weight:bold;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s2 {background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s3 {border-right:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s4 {border-bottom:1px SOLID transparent;background-color:#f8f9fa;border:1px SOLID #c4c7c5;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:normal;word-break:break-word;direction:ltr;}
+    .ritz .waffle .s5 {background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s6 {border-bottom:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s7 {border-bottom:1px SOLID #bfbfbf;border-right:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s8 {border-bottom:1px SOLID transparent;background-color:#ffffff;text-align:left;color:#b3261e;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s9 {border-bottom:1px SOLID transparent;border-right:1px SOLID #bfbfbf;background-color:#f8f9fa;border:1px SOLID #c4c7c5;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:normal;word-break:break-word;direction:ltr;}
+    .ritz .waffle .s10{background-color:#e1e3e1;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s11{border-bottom:1px SOLID #000000;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s12{border-bottom:1px SOLID #000000;border-right:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s13{background-color:#e1e3e1;text-align:left;font-weight:bold;color:#b3261e;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s14{background-color:#f8f9fa;text-align:left;color:#b3261e;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s15{border-bottom:1px SOLID transparent;background-color:#f8f9fa;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s16{border-bottom:1px SOLID transparent;background-color:#f8f9fa;text-align:left;color:#b3261e;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s17{background-color:#f8f9fa;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s18{border-bottom:1px SOLID transparent;border-right:1px SOLID #bfbfbf;background-color:#f8f9fa;text-align:left;color:#b3261e;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s19{border-bottom:1px SOLID #000000;background-color:#f8f9fa;text-align:left;color:#b3261e;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s20{border-bottom:1px SOLID #000000;background-color:#f8f9fa;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s21{border-bottom:1px SOLID #000000;border-right:1px SOLID #bfbfbf;background-color:#f8f9fa;text-align:left;color:#b3261e;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s22{background-color:#ffffff;text-align:left;font-weight:bold;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s23{border-right:none;border-bottom:1px SOLID transparent;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s24{border-left:none;border-bottom:1px SOLID transparent;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
+    .ritz .waffle .s25{border-left:none;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -203,7 +233,6 @@ def generate_trade_area_report(df, trade_area, template_bytes, placeholders):
                     new_val = re.sub(r"\{\{.*?\}\}", "", new_val)
                     cell.value = new_val.strip() if new_val else ""
                     
-        # Conditional row auto-fitting thresholds
         for row in new_sheet.iter_rows():
             max_len = max([len(str(cell.value or '')) for cell in row])
             if max_len > 45: 
@@ -214,38 +243,8 @@ def generate_trade_area_report(df, trade_area, template_bytes, placeholders):
     wb.save(wb_buffer)
     return wb_buffer
 
-# --- OPTIMIZED HTML VISUAL BLUEPRINT (-2pt Font Compressed) ---
+# --- RAW BLUEPRINT DESIGN LAYOUT (Cleaned Structural HTML Grid) ---
 RAW_TEMPLATE_HTML = """
-<style type="text/css">
-    .ritz .waffle a { color: inherit; }
-    .ritz .waffle td { padding: 4px 6px !important; font-family: Arial, sans-serif; }
-    .ritz .waffle .s0 {border-bottom:1px SOLID #bfbfbf;border-right:1px SOLID #bfbfbf;background-color:#800000;text-align:center;font-weight:bold;color:#ffffff;font-size:10pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
-    .ritz .waffle .s1 {border-bottom:1px SOLID #bfbfbf;border-right:1px SOLID #bfbfbf;background-color:#f0f4f9;text-align:left;font-weight:bold;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
-    .ritz .waffle .s2 {background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
-    .ritz .waffle .s3 {border-right:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
-    .ritz .waffle .s4 {border-bottom:1px SOLID transparent;background-color:#f8f9fa;border:1px SOLID #c4c7c5;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:normal;word-break:break-word;direction:ltr;}
-    .ritz .waffle .s5 {background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
-    .ritz .waffle .s6 {border-bottom:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
-    .ritz .waffle .s7 {border-bottom:1px SOLID #bfbfbf;border-right:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
-    .ritz .waffle .s8 {border-bottom:1px SOLID transparent;background-color:#ffffff;text-align:left;color:#b3261e;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
-    .ritz .waffle .s9 {border-bottom:1px SOLID transparent;border-right:1px SOLID #bfbfbf;background-color:#f8f9fa;border:1px SOLID #c4c7c5;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:normal;word-break:break-word;direction:ltr;}
-    .ritz .waffle .s10{background-color:#e1e3e1;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
-    .ritz .waffle .s11{border-bottom:1px SOLID #000000;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
-    .ritz .waffle .s12{border-bottom:1px SOLID #000000;border-right:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
-    .ritz .waffle .s13{background-color:#e1e3e1;text-align:left;font-weight:bold;color:#b3261e;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
-    .ritz .waffle .s14{background-color:#f8f9fa;text-align:left;color:#b3261e;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
-    .ritz .waffle .s15{border-bottom:1px SOLID transparent;background-color:#f8f9fa;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
-    .ritz .waffle .s16{border-bottom:1px SOLID transparent;background-color:#f8f9fa;text-align:left;color:#b3261e;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
-    .ritz .waffle .s17{background-color:#f8f9fa;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
-    .ritz .waffle .s18{border-bottom:1px SOLID transparent;border-right:1px SOLID #bfbfbf;background-color:#f8f9fa;text-align:left;color:#b3261e;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
-    .ritz .waffle .s19{border-bottom:1px SOLID #000000;background-color:#f8f9fa;text-align:left;color:#b3261e;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
-    .ritz .waffle .s20{border-bottom:1px SOLID #000000;background-color:#f8f9fa;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
-    .ritz .waffle .s21{border-bottom:1px SOLID #000000;border-right:1px SOLID #bfbfbf;background-color:#f8f9fa;text-align:left;color:#b3261e;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
-    .ritz .waffle .s22{background-color:#ffffff;text-align:left;font-weight:bold;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
-    .ritz .waffle .s23{border-right:none;border-bottom:1px SOLID transparent;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
-    .ritz .waffle .s24{border-left:none;border-bottom:1px SOLID transparent;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
-    .ritz .waffle .s25{border-left:none;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:nowrap;direction:ltr;}
-</style>
 <div class="ritz grid-container" dir="ltr">
 <table class="waffle" cellspacing="0" cellpadding="0" style="table-layout: fixed; width: 100%;">
     <colgroup>
