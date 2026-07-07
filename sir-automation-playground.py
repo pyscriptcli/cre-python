@@ -400,6 +400,24 @@ HTML_FRAMEWORK = """
             height: auto !important;
             min-height: 20px;
         }
+        
+        /* Make Remarks row taller to accommodate long text */
+        .ritz .waffle tr:last-child td {
+            padding: 8px 3px !important;
+            min-height: 60px !important;
+        }
+        .ritz .waffle tr:last-child td.s5 {
+            white-space: normal !important;
+            word-wrap: break-word !important;
+            word-break: break-word !important;
+            overflow-wrap: break-word !important;
+            max-width: 100% !important;
+            overflow: visible !important;
+            text-overflow: clip !important;
+            height: auto !important;
+            min-height: 60px !important;
+            line-height: 1.6 !important;
+        }
     </style>
     <script>
         // JavaScript to detect long text and apply wrap-text class dynamically
@@ -613,9 +631,9 @@ HTML_FRAMEWORK = """
             <td class="s23" colspan="2"><div style="width:184px;left:-1px">_SITE_AVAILABILITY_CLASS_</div></td>
             <td class="s24"></td><td class="s25"></td><td class="s2" colspan="10"></td><td class="s3"></td>
         </tr>
-        <tr style="height: 120px;">
-            <td class="s6" style="vertical-align: top;">Other Remarks:</td>
-            <td class="s5" colspan="7" style="vertical-align: top; white-space: normal; word-wrap: break-word; overflow-wrap: break-word; line-height: 1.5;">_REMARKS_</td>
+        <tr style="height: auto;">
+            <td class="s6">Other Remarks:</td>
+            <td class="s5" colspan="7">_REMARKS_</td>
             <td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s7"></td>
         </tr>
     </tbody>
@@ -674,15 +692,19 @@ with col2:
     selected_site_display = st.selectbox("Site Name", options=sites_in_ta, index=0, label_visibility="collapsed")
 
 with col3:
+    # Single export button - downloads directly when clicked
     if selected_ta and selected_ta != "Select Trade Area...":
-        wb_buffer = generate_trade_area_report(df, selected_ta, template_bytes_raw, placeholders)
-        st.download_button(
-            label="Export Report", 
-            data=wb_buffer.getvalue(), 
-            file_name=f"{selected_ta}_Full_Report.xlsx", 
-            use_container_width=True,
-            key="export_report"
-        )
+        export_key = f"export_{selected_ta}"
+        if st.button("📥 Export All Sites", use_container_width=True, key=export_key):
+            with st.spinner("Generating Excel report..."):
+                wb_buffer = generate_trade_area_report(df, selected_ta, template_bytes_raw, placeholders)
+                st.download_button(
+                    label="✅ Download Report", 
+                    data=wb_buffer.getvalue(), 
+                    file_name=f"{selected_ta}_Full_Report.xlsx", 
+                    use_container_width=True,
+                    key=f"download_{selected_ta}"
+                )
 
 # --- DIRECT HTML VIEW LAYOUT ---
 if selected_ta != "Select Trade Area..." and selected_site_display != "Select Site...":
@@ -738,8 +760,3 @@ if selected_ta != "Select Trade Area..." and selected_site_display != "Select Si
             st.error(f"Error compiling visual matrix framework: {str(e)}")
 else:
     st.info("Please select a Trade Area and a Site to view the specific report.")
-
-
-remove the the export anf the download button should be just one button and one function no other step just one step export 
-
-also just make the remarks row taller so it can accomodate long text
