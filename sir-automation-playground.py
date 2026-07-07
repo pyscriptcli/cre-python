@@ -115,7 +115,6 @@ if not st.session_state.authenticated:
         if st.button("Login", use_container_width=True) or password_input:
             if check_password(password_input):
                 st.session_state.authenticated = True
-                # Clear existing resource data structures during rerun execution to force immediate synchronization updates
                 st.cache_data.clear()
                 st.rerun()
             else:
@@ -199,12 +198,15 @@ def generate_trade_area_report(df, trade_area, template_bytes, placeholders):
             if max_len > 45: 
                 new_sheet.row_dimensions[row[0].row].height = None
 
-    wb.remove(base_sheet)
+    # Completely wipe the blueprint tab from the workbook layout list before saving
+    if "TEMPLATE_TO_DELETE" in wb.sheetnames:
+        wb.remove(wb["TEMPLATE_TO_DELETE"])
+        
     wb_buffer = io.BytesIO()
     wb.save(wb_buffer)
-    return wb_buffer
+    return wb_buffer.getvalue()
 
-# --- COMPLETE HTML BLUEPRINT FROM EXPORT FILES ---
+# --- COMPLETE HTML BLUEPRINT WITH WRAP-TEXT LOGIC INJECTED ---
 HTML_FRAMEWORK = """
 <!DOCTYPE html>
 <html>
@@ -222,12 +224,12 @@ HTML_FRAMEWORK = """
         .ritz .waffle .s1 {border-bottom:1px SOLID #bfbfbf;border-right:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;font-weight:bold;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
         .ritz .waffle .s2 {background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
         .ritz .waffle .s3 {border-right:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
-        .ritz .waffle .s4 {border-bottom:1px SOLID transparent;background-color:#f8f9fa;border:1px SOLID #c4c7c5;text-align:left;color:#000000;font-size:8pt;white-space:normal;word-break:break-word;direction:ltr;}
+        .ritz .waffle .s4 {border-bottom:1px SOLID transparent;background-color:#f8f9fa;border:1px SOLID #c4c7c5;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:normal;word-wrap:break-word;word-break:break-word;direction:ltr;}
         .ritz .waffle .s5 {background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
         .ritz .waffle .s6 {border-bottom:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
         .ritz .waffle .s7 {border-bottom:1px SOLID #bfbfbf;border-right:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
         .ritz .waffle .s8 {border-bottom:1px SOLID transparent;background-color:#ffffff;text-align:left;color:#ff0000;font-size:8pt;white-space:nowrap;direction:ltr;}
-        .ritz .waffle .s9 {border-bottom:1px SOLID transparent;border-right:1px SOLID #bfbfbf;background-color:#f8f9fa;border:1px SOLID #c4c7c5;text-align:left;color:#000000;font-size:8pt;white-space:normal;word-break:break-word;direction:ltr;}
+        .ritz .waffle .s9 {border-bottom:1px SOLID transparent;border-right:1px SOLID #bfbfbf;background-color:#f8f9fa;border:1px SOLID #c4c7c5;text-align:left;color:#000000;font-size:8pt;vertical-align:middle;white-space:normal;word-wrap:break-word;word-break:break-word;direction:ltr;}
         .ritz .waffle .s10{background-color:#bfbfbf;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
         .ritz .waffle .s11{border-bottom:1px SOLID #000000;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
         .ritz .waffle .s12{border-bottom:1px SOLID #000000;border-right:1px SOLID #bfbfbf;background-color:#ffffff;text-align:left;color:#000000;font-size:8pt;white-space:nowrap;direction:ltr;}
@@ -253,45 +255,45 @@ HTML_FRAMEWORK = """
         <col style="width:223px;"><col style="width:100px;"><col style="width:86px;"><col style="width:100px;"><col style="width:94px;"><col style="width:100px;"><col style="width:81px;"><col style="width:15px;"><col style="width:148px;"><col style="width:176px;"><col style="width:100px;"><col style="width:100px;"><col style="width:100px;"><col style="width:125px;"><col style="width:29px;">
     </colgroup>
     <tbody>
-        <tr style="height: 19px"><td class="s0" colspan="15">SITE INFORMATION REPORT</td></tr>
+        <tr style="height: auto;"><td class="s0" colspan="15">SITE INFORMATION REPORT</td></tr>
         <tr style="height: 19px"><td class="s1" colspan="7">General Information</td><td class="s1"></td><td class="s1" colspan="7">Location</td></tr>
         <tr style="height: 9px"><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td></tr>
-        <tr style="height: 19px;">
+        <tr style="height: auto;">
             <td class="s2">Trade Area Name</td><td class="s2"></td>
             <td class="s4" colspan="5">_TRADE_AREA_</td>
             <td class="s3"></td>
             <td class="s5" colspan="2">Site Name</td>
             <td class="s4" colspan="5">_SITE_NAME_</td>
         </tr>
-        <tr style="height: 19px;">
+        <tr style="height: auto;">
             <td class="s2">Site Name:</td><td class="s2"></td>
             <td class="s4" colspan="5">_SITE_NAME_</td>
             <td class="s3"></td>
             <td class="s5" colspan="2">Unit #, Bldg/St # and St Name</td>
             <td class="s4" colspan="5">_UNIT_BLDG_ST_NAME_</td>
         </tr>
-        <tr style="height: 19px;">
+        <tr style="height: auto;">
             <td class="s2">Site Number:</td><td class="s2"></td>
             <td class="s4" colspan="5">_SITE_NO_</td>
             <td class="s3"></td>
             <td class="s5" colspan="2">Barangay/District Name</td>
             <td class="s4" colspan="5">_BARANGAY_DISTRICT_NAME_</td>
         </tr>
-        <tr style="height: 19px;">
+        <tr style="height: auto;">
             <td class="s2">Date Started</td><td class="s2"></td>
             <td class="s4" colspan="5">_TIMESTAMP_</td>
             <td class="s3"></td>
             <td class="s5" colspan="2">City/Municipality</td>
             <td class="s4" colspan="5">_CITY_MUNICIPALITY_</td>
         </tr>
-        <tr style="height: 19px;">
+        <tr style="height: auto;">
             <td class="s5" colspan="2">Date Report Submitted</td>
             <td class="s4" colspan="5">_DATE_OF_REPORT_</td>
             <td class="s3"></td>
             <td class="s5" colspan="2">Region</td>
             <td class="s4" colspan="5">_REGION_</td>
         </tr>
-        <tr style="height: 19px;">
+        <tr style="height: auto;">
             <td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td>
             <td class="s5" colspan="2">Postal Code</td>
             <td class="s4" colspan="5">_POSTAL_CODE_</td>
@@ -299,28 +301,28 @@ HTML_FRAMEWORK = """
         <tr style="height: 9px"><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s3"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s6"></td><td class="s7"></td></tr>
         <tr style="height: 19px"><td class="s1" colspan="7">Terms</td><td class="s3"></td><td class="s1" colspan="7">Rates</td></tr>
         <tr style="height: 19px"><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s2"></td><td class="s3"></td></tr>
-        <tr style="height: 19px;">
+        <tr style="height: auto;">
             <td class="s2">Site Availability Date</td><td class="s2"></td>
             <td class="s4" colspan="5">_SITE_AVAILABILITY_DATE_</td>
             <td class="s3"></td>
             <td class="s8" colspan="2">Monthly Rental Rate (Php)</td>
             <td class="s4" colspan="5">_MONTHLY_RENTAL_RATE_</td>
         </tr>
-        <tr style="height: 19px;">
+        <tr style="height: auto;">
             <td class="s2">COL Start Date</td><td class="s2"></td>
             <td class="s4" colspan="5">_COL_START_DATE_</td>
             <td class="s3"></td>
             <td class="s8" colspan="2">Percentage Rent</td>
             <td class="s4" colspan="5"></td>
         </tr>
-        <tr style="height: 19px;">
+        <tr style="height: auto;">
             <td class="s2">COL End Date</td><td class="s2"></td>
             <td class="s4" colspan="5">_COL_END_DATE_</td>
             <td class="s3"></td>
             <td class="s8" colspan="2">Minimum Guaranteed Rent</td>
             <td class="s4" colspan="5"></td>
         </tr>
-        <tr style="height: 19px;">
+        <tr style="height: auto;">
             <td class="s2">Lease Terms</td><td class="s2"></td>
             <td class="s4" colspan="5">_LEASE_TERMS_</td>
             <td class="s3"></td>
@@ -448,7 +450,7 @@ if df is None or template_bytes_raw is None:
     st.error("Failed to load data. Please check connection profiles.")
     st.stop()
 
-# --- 1st ROW: COMPACT CONTROL HEADER ---
+# --- 1st ROW: HEADER CONTROLS ---
 col1, col2, col3 = st.columns([1.5, 1.5, 1.0])
 
 with col1:
@@ -467,15 +469,14 @@ with col2:
 
 with col3:
     if selected_ta and selected_ta != "Select Trade Area...":
-        if st.button("Generate Multi-Tab Report", use_container_width=True):
-            with st.spinner("Compiling Excel Workbook..."):
-                wb_buffer = generate_trade_area_report(df, selected_ta, template_bytes_raw, placeholders)
-                st.download_button(
-                    label="Download Report", 
-                    data=wb_buffer.getvalue(), 
-                    file_name=f"{selected_ta}_Report.xlsx", 
-                    use_container_width=True
-                )
+        # Direct generation combined instantly within stream trigger boundaries
+        report_bytes = generate_trade_area_report(df, selected_ta, template_bytes_raw, placeholders)
+        st.download_button(
+            label="Export", 
+            data=report_bytes, 
+            file_name=f"{selected_ta}_Report.xlsx", 
+            use_container_width=True
+        )
 
 # --- DIRECT HTML SPREADSHEET DISPLAY ---
 if selected_ta != "Select Trade Area..." and selected_site_display != "Select Site...":
@@ -528,6 +529,6 @@ if selected_ta != "Select Trade Area..." and selected_site_display != "Select Si
             components.html(rendered_view, height=850, scrolling=True)
                 
         except Exception as e:
-            st.error(f"Error compiling visual matrix framework: {str(e)}")
+            st.error(f"Error compiling layout: {str(e)}")
 else:
     st.info("Please select a Trade Area and a Site to view the specific report.")
