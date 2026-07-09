@@ -1,0 +1,26 @@
+[
+  {
+    "password": "trs.prime",
+    "type": "permanent",
+    "expiration": null,
+    "permissions": "admin"
+  },
+  {
+    "password": "trs.jfc",
+    "type": "permanent",
+    "expiration": null,
+    "permissions": "viewer"
+  },
+  {
+    "password": "trs.regis",
+    "type": "permanent",
+    "expiration": null,
+    "permissions": "viewer"
+  },  
+  {
+    "password": "asdasdasdasdasd",
+    "type": "temporary",
+    "expiration": "2026-07-15T23:59:59",
+    "permissions": "viewer"
+  }
+]
