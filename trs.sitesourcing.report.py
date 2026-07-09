@@ -272,7 +272,7 @@ if not os.path.exists(_config_file):
 
 #--- LOGIN VERIFICATION LOGIC ---
 # Hash for "trs.prime" using SHA-256
-TARGET_HASH = "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918"
+TARGET_HASH = "ef397c19a807d868cda719c9d6d305edc2409e60005b49f2da39e486b3120216"
 
 if 'authenticated' not in st.session_state:
     st.session_state.authenticated = False
