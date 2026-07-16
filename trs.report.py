@@ -604,9 +604,14 @@ def load_data():
         has_val = False
         for idx, cell in enumerate(r):
             if idx < len(header_row) and header_row[idx]:
-                cleaned_val = clean_and_extract_url(cell.value)
-                row_dict[header_row[idx]] = cleaned_val
-                if cleaned_val != "":
+                # Get the raw value without any conversion
+                raw_val = cell.value
+                # For numbers, check if it's stored as a string in the cell
+                if isinstance(raw_val, (int, float)):
+                    # Convert to string without formatting
+                    raw_val = str(int(raw_val)) if raw_val == int(raw_val) else str(raw_val)
+                row_dict[header_row[idx]] = raw_val
+                if raw_val != "" and raw_val is not None:
                     has_val = True
         if has_val:
             parsed_data_list.append(row_dict)
