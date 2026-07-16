@@ -610,7 +610,8 @@ def load_data():
                 if isinstance(raw_val, (int, float)):
                     # Convert to string without formatting
                     raw_val = str(int(raw_val)) if raw_val == int(raw_val) else str(raw_val)
-                row_dict[header_row[idx]] = raw_val
+                # IMPORTANT: Store as string to prevent pandas from inferring numeric type
+                row_dict[header_row[idx]] = str(raw_val) if raw_val is not None else ""
                 if raw_val != "" and raw_val is not None:
                     has_val = True
         if has_val:
