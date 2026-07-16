@@ -599,23 +599,23 @@ def load_data():
     header_row = [str(cell.value).strip().upper() if cell.value else "" for cell in raw_rows[0]]
     
     parsed_data_list = []
-    for r in raw_rows[1:]:
-        row_dict = {}
-        has_val = False
-        for idx, cell in enumerate(r):
-            if idx < len(header_row) and header_row[idx]:
-                # Get the raw value without any conversion
-                raw_val = cell.value
-                # For numbers, check if it's stored as a string in the cell
-                if isinstance(raw_val, (int, float)):
-                    # Convert to string without formatting
-                    raw_val = str(int(raw_val)) if raw_val == int(raw_val) else str(raw_val)
-                # IMPORTANT: Store as string to prevent pandas from inferring numeric type
-                row_dict[header_row[idx]] = str(raw_val) if raw_val is not None else ""
-                if raw_val != "" and raw_val is not None:
-                    has_val = True
-        if has_val:
-            parsed_data_list.append(row_dict)
+    # for r in raw_rows[1:]:
+    #     row_dict = {}
+    #     has_val = False
+    #     for idx, cell in enumerate(r):
+    #         if idx < len(header_row) and header_row[idx]:
+    #             # Get the raw value without any conversion
+    #             raw_val = cell.value
+    #             # For numbers, check if it's stored as a string in the cell
+    #             if isinstance(raw_val, (int, float)):
+    #                 # Convert to string without formatting
+    #                 raw_val = str(int(raw_val)) if raw_val == int(raw_val) else str(raw_val)
+    #             # IMPORTANT: Store as string to prevent pandas from inferring numeric type
+    #             row_dict[header_row[idx]] = str(raw_val) if raw_val is not None else ""
+    #             if raw_val != "" and raw_val is not None:
+    #                 has_val = True
+    #     if has_val:
+    #         parsed_data_list.append(row_dict)
             
     df = pd.DataFrame(parsed_data_list)
     df = df.loc[:, ~df.columns.str.contains('^$')]
